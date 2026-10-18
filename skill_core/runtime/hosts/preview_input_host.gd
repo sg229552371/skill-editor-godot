@@ -18,6 +18,11 @@ var _shots: Array = []
 var _adapters: Dictionary = {}
 var _templates: Dictionary = {}
 var _sequence: int = 0
+var _equipment_slots: Dictionary = {}
+var _pending_equipment: Dictionary = {}
+var _equipment_shared_cooldown_ticks: int = 0
+var _equipment_cooldown_until: int = -1
+var _equipment_configured: bool = false
 
 
 func configure(config: Dictionary) -> Dictionary:
@@ -55,6 +60,59 @@ func request_cast(request: Dictionary) -> Dictionary:
 		return {"ok": false, "buffered": true, "path": "cast_gate", "error": "Cast gate closed"}
 	_ready.append(item)
 	return {"ok": true, "buffered": false, "error": ""}
+
+
+## Equipment is a separate input channel from HostCast's skill cooldown.
+## Changes are copied into a pending batch and become visible only at a boundary.
+func configure_equipment(config: Dictionary) -> Dictionary:
+	if _bound:
+		return _failure("equipment", "Equipment must be configured before binding a preview")
+	var slots: Variant = config.get("slots", null)
+	var duration: Variant = config.get("shared_cooldown_ticks", null)
+	if not slots is Dictionary or not duration is int or duration < 0:
+		return _failure("equipment", "Expected slots object and nonnegative shared_cooldown_ticks")
+	_equipment_slots = slots.duplicate(true)
+	_equipment_shared_cooldown_ticks = duration
+	_equipment_cooldown_until = -1
+	_pending_equipment.clear()
+	_equipment_configured = true
+	return {"ok": true, "error": ""}
+
+
+## Validate the complete batch before staging it; no partial slot mutation occurs.
+func request_equipment_changes(changes: Dictionary) -> Dictionary:
+	if not _equipment_configured:
+		return _failure("equipment", "Equipment is not configured")
+	if _equipment_cooldown_until >= 0 and _tick < _equipment_cooldown_until:
+		return {"ok": false, "path": "equipment.shared_cooldown_ticks", "code": "EQUIPMENT_COOLDOWN",
+			"error": "Equipment is cooling down; remaining ticks: %d" % (_equipment_cooldown_until - _tick)}
+	if changes.is_empty():
+		return _failure("equipment", "At least one equipment slot change is required")
+	for slot in changes:
+		if not _equipment_slots.has(slot):
+			return _failure("equipment." + str(slot), "Unknown equipment slot")
+	_pending_equipment = changes.duplicate(true)
+	return {"ok": true, "staged": true, "error": ""}
+
+
+## Apply one staged batch at tick start, before the input host can release a cast.
+func apply_equipment_boundary(tick: int) -> Dictionary:
+	if not _equipment_configured:
+		return {"ok": true, "applied": false, "error": ""}
+	_tick = tick
+	if _pending_equipment.is_empty():
+		return {"ok": true, "applied": false, "error": ""}
+	for slot in _pending_equipment:
+		_equipment_slots[slot] = _pending_equipment[slot]
+	_pending_equipment.clear()
+	_equipment_cooldown_until = tick + _equipment_shared_cooldown_ticks
+	return {"ok": true, "applied": true, "error": ""}
+
+
+func equipment_snapshot() -> Dictionary:
+	return {"slots": _equipment_slots.duplicate(true), "pending": _pending_equipment.duplicate(true),
+		"assembly_shared_cooldown_until": _equipment_cooldown_until,
+		"skill_cooldown_until": -1, "passive_internal_cooldown_until": -1}
 
 
 func snapshot_state() -> Dictionary:

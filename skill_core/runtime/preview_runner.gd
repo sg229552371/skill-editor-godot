@@ -120,10 +120,10 @@ func start(cfg: Variant, options: Dictionary) -> Dictionary:
 		return _failure("seed", "Explicit integer logic seed required")
 	_clock = Clock.new(seed_value)
 	var runtime_host: Variant = options.get("runtime_host", null)
+	_runtime_host = runtime_host
 	if runtime_host != null:
 		if not runtime_host is InputHost:
 			return _failure("runtime_host", "Expected preview input host")
-		_runtime_host = runtime_host
 	_derive_meta = _read_json(Derive.META_PATH)
 	_settle_meta = _read_json(Settle.META_PATH)
 	_shape_meta = _read_json(Shape.META_PATH)
@@ -379,6 +379,9 @@ func _consume_emissions(emissions: Dictionary) -> Dictionary:
 
 func _advance_hosts(tick: int) -> Dictionary:
 	if _runtime_host != null:
+		var equipment_boundary: Dictionary = _runtime_host.apply_equipment_boundary(tick)
+		if not equipment_boundary["ok"]:
+			return _failure("runtime_host.equipment", equipment_boundary["error"])
 		var result: Dictionary = _runtime_host._advance(tick)
 		if not result["ok"]:
 			return _failure("runtime_host", result["error"])

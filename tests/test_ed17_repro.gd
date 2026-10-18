@@ -691,8 +691,15 @@ func test_ed17_19_partial_skill_cooldown_but_atomic_equipment_absent() -> void:
 		if not name.begins_with("_"):
 			host_methods.append(name)
 	host_methods.sort()
-	assert_eq(host_methods, ["configure", "request_cast", "set_locks", "snapshot_state"],
-		"ED-17-19 input host also has no equipment commit boundary or equipment cooldown")
+	# T-076 第 3 轮按 U-29 增量扩权新增了四个装配窄入口（apply_equipment_boundary /
+	# configure_equipment / request_equipment_changes / equipment_snapshot）。
+	# 缺口探针的既有裁定：能力落地后探针应当变红，此时改为记录真实清单，
+	# 不得反向改 core 恢复旧行为。ED-17-19 整体仍 blocked（见本函数首条断言），
+	# 这四个入口是窄骨架，不是原子换装与装配公共冷却的完整交付。
+	assert_eq(host_methods, ["apply_equipment_boundary", "configure", "configure_equipment",
+			"equipment_snapshot", "request_cast", "request_equipment_changes",
+			"set_locks", "snapshot_state"],
+		"ED-17-19 input host equipment entries landed narrow by T-076; full chain still blocked")
 
 
 func test_ed17_20_blocked_live_permission_runner_integration() -> void:

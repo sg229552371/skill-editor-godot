@@ -26,6 +26,7 @@ var _params_meta: Dictionary = {}
 var _rule_fields: Dictionary = {}
 var _required_rule_fields: Array = []
 var _limits: Dictionary = {}
+var _limit_overrides: Dictionary = {}
 var _templates: Dictionary = {}
 var _bindings: Dictionary = {}
 var _rules: Dictionary = {}
@@ -44,6 +45,9 @@ var _origin: Dictionary = {}
 var _cast_remaining: int = 0
 var _next_seq: int = 0
 var _last_event_tick: int = -1
+var _config_versions: Dictionary = {}
+var _next_config_version: int = 1
+var _instance_versions: Dictionary = {}
 
 
 func _init(metadata_path: String = META_PATH, metadata_override: Variant = null,
@@ -68,6 +72,7 @@ func _init(metadata_path: String = META_PATH, metadata_override: Variant = null,
 		_load_error = loaded["error"]
 		if _load_error.is_empty():
 			_load_error = _resolve_limits(loaded["data"], limit_overrides)
+			_limit_overrides = limit_overrides.duplicate(true)
 	last_error = _load_error
 
 
@@ -306,6 +311,31 @@ func configure(params: Dictionary, clock: RefCounted, bindings: Dictionary) -> b
 	return true
 
 
+## Register an immutable runtime configuration without touching this coordinator's
+## live budgets, sequence, queue, origin or family ledger. The returned version
+## may be supplied when a new root is registered; existing roots stay on base.
+func register_config_version(params: Dictionary, bindings: Dictionary) -> Dictionary:
+	if not _ready or _clock == null:
+		return {"ok": false, "version": "", "error": "Derivation must be configured before registering a version"}
+	var candidate: RefCounted = RuntimeDerive.new(META_PATH, _meta, PARAMS_PATH, LIMITS_PATH, _limit_overrides)
+	if not candidate.configure(params, _clock, bindings):
+		return {"ok": false, "version": "", "error": candidate.last_error}
+	var version: String = "v%d" % _next_config_version
+	_next_config_version += 1
+	_config_versions[version] = {"templates": candidate._templates.duplicate(true),
+		"rules": candidate._rules.duplicate(true), "bindings": candidate._bindings.duplicate(true)}
+	return {"ok": true, "version": version, "error": ""}
+
+
+func _version_tables(version: String) -> Dictionary:
+	if version.is_empty():
+		return {"templates": _templates, "rules": _rules, "bindings": _bindings}
+	var entry: Variant = _config_versions.get(version, null)
+	if entry is Dictionary:
+		return entry
+	return {}
+
+
 func _trigger_key(rule: Dictionary, template_id: String, index: int) -> String:
 	return _text(rule.get("trigger_id", null)) if rule.has("trigger_id") else "%s:derivations[%d]" % [template_id, index]
 
@@ -355,14 +385,18 @@ func _validate_rule(value: Variant, template_id: String, index: int, registry: D
 
 ## Only genuinely new roots enter here. Children are registered internally;
 ## neither the child template nor the returned body can replace its ledger.
-func register_root(body: RefCounted, template_id: String, origin: Dictionary) -> bool:
+func register_root(body: RefCounted, template_id: String, origin: Dictionary, config_version: String = "") -> bool:
 	if not _ready or _busy:
 		return _fail("Derivation unavailable: " + _load_error)
-	if body == null or not body.is_alive() or body.body_id.is_empty() or not _natural(body.spawn_tick) or _instances.has(body.body_id) or not _templates.has(template_id):
+	var tables: Dictionary = _version_tables(config_version)
+	if tables.is_empty():
+		return _fail("Unknown derivation configuration version: " + config_version)
+	var version_templates: Dictionary = tables["templates"]
+	if body == null or not body.is_alive() or body.body_id.is_empty() or not _natural(body.spawn_tick) or _instances.has(body.body_id) or not version_templates.has(template_id):
 		return _fail("Invalid or duplicate root body/template")
 	if body.generation != 0 or body.parent_ref != null:
 		return _fail("A child cannot register as a root")
-	var template: Dictionary = _templates[template_id]
+	var template: Dictionary = version_templates[template_id]
 	if body.carrier != _text(template.get("carrier", null)) or body.lifetime_ticks != template["lifetime_ticks"]:
 		return _fail("Root body does not match its template")
 	if origin.has("chain_depth") and (not _natural(origin["chain_depth"]) or origin["chain_depth"] != 0):
@@ -395,6 +429,7 @@ func register_root(body: RefCounted, template_id: String, origin: Dictionary) ->
 	_next_seq += 1
 	_cast_remaining -= 1
 	_instances[body.body_id] = state
+	_instance_versions[body.body_id] = config_version
 	_bodies[body.body_id] = body
 	body.origin = root_origin.duplicate(true)
 	last_error = ""
@@ -463,7 +498,14 @@ func drain() -> Dictionary:
 			continue
 		_events.append(event.duplicate(true))
 		result["events"].append(event.duplicate(true))
-		var rules: Array = _rules[state["template_id"]]
+		var version: String = str(_instance_versions.get(id, ""))
+		var version_tables: Dictionary = _version_tables(version)
+		if version_tables.is_empty():
+			result["error"] = "Unknown derivation configuration version: " + version
+			last_error = result["error"]
+			_busy = false
+			return result
+		var rules: Array = version_tables["rules"][state["template_id"]]
 		for index in range(rules.size()):
 			var rule: Dictionary = rules[index]
 			if rule["event"] != event["type"]:
@@ -485,6 +527,14 @@ func drain() -> Dictionary:
 
 
 func _spawn(parent: Dictionary, rule: Dictionary, index: int, event: Dictionary, children: Array):
+	var version: String = str(_instance_versions.get(parent["body_id"], ""))
+	var tables: Dictionary = _version_tables(version)
+	if tables.is_empty():
+		_record("error", {"body_id": parent["body_id"], "detail": "unknown_config_version"})
+		return
+	var rules_table: Dictionary = tables["rules"]
+	var bindings_table: Dictionary = tables["bindings"]
+	var template_table: Dictionary = tables["templates"]
 	var key: String = _trigger_key(rule, parent["template_id"], index)
 	var detail: Dictionary = {"body_id": parent["body_id"], "trigger_id": key, "tick": event["tick"], "requested": rule["count"]}
 	var generation: int = parent["generation"] + 1
@@ -498,7 +548,7 @@ func _spawn(parent: Dictionary, rule: Dictionary, index: int, event: Dictionary,
 	if parent["origin"]["proc_mask"].has(key):
 		_record("repeat", detail)
 		return
-	var binding: Dictionary = _bindings[parent["template_id"]][key]
+	var binding: Dictionary = bindings_table[parent["template_id"]][key]
 	var target: String = _text(event.get("target_id", null))
 	if binding["reject_visited"] and not target.is_empty() and parent["visited"].has(target):
 		_record("visited", detail)
@@ -519,7 +569,7 @@ func _spawn(parent: Dictionary, rule: Dictionary, index: int, event: Dictionary,
 		while _instances.has(id):
 			_next_seq += 1
 			id = "%s:derive:%d" % [_origin["origin_cast_id"], _next_seq]
-		var template: Dictionary = _templates[rule["child_template"]].duplicate(true)
+		var template: Dictionary = template_table[rule["child_template"]].duplicate(true)
 		var origin: Dictionary = parent["origin"].duplicate(true)
 		origin["chain_depth"] = depth
 		origin["proc_mask"].append(key)
@@ -536,6 +586,7 @@ func _spawn(parent: Dictionary, rule: Dictionary, index: int, event: Dictionary,
 		if not target.is_empty() and not state["visited"].has(target):
 			state["visited"].append(target)
 		_instances[id] = state
+		_instance_versions[id] = version
 		_bodies[id] = child
 		_next_seq += 1
 		_cast_remaining -= 1
