@@ -279,12 +279,35 @@ func _sfx(cfg: Dictionary, _context: Dictionary, _rule: Dictionary) -> Array:
 
 func _anim(cfg: Dictionary, _context: Dictionary, _rule: Dictionary) -> Array:
 	var issues: Array = []
-	if _enabled(cfg, "anim"):
-		for field in _meta.enabled_requires.get("anim", []):
-			var path: String = "presentation.anim." + str(field)
-			var spec: Variant = _spec(_meta.leaves, path)
-			if not _has_path(cfg, path) or not spec is Dictionary or not _valid(_get_path(cfg, path), spec):
-				issues.append(_issue(cfg, path, "合法的逻辑 tick 与动画帧对齐"))
+	if not _enabled(cfg, "anim"):
+		return issues
+	var required: Variant = _meta.enabled_requires.get("anim", null)
+	if not required is Array or required.is_empty():
+		issues.append(_issue(cfg, "presentation.anim", "已登记的对齐数组要求"))
+		return issues
+	for field in required:
+		var path: String = "presentation.anim." + str(field)
+		var spec: Variant = _spec(_meta.arrays, path)
+		var values: Variant = _get_path(cfg, path)
+		if not spec is Dictionary or not values is Array or values.is_empty():
+			issues.append(_issue(cfg, path, "非空的逻辑 tick 与动画帧对齐数组"))
+			continue
+		var item_spec: Variant = spec.get("item", null)
+		var keys: Variant = item_spec.get("required", null) if item_spec is Dictionary else null
+		if not keys is Array or keys.is_empty():
+			issues.append(_issue(cfg, path, "已登记的对齐项必需字段"))
+			continue
+		for index in range(values.size()):
+			var item: Variant = values[index]
+			var item_path: String = "%s[%d]" % [path, index]
+			if not item is Dictionary:
+				issues.append(_issue(cfg, item_path, "对齐项对象"))
+				continue
+			for key in keys:
+				var child_path: String = item_path + "." + str(key)
+				var leaf: Variant = _spec(_meta.leaves, path + "[i]." + str(key))
+				if not item.has(key) or not leaf is Dictionary or not _valid(item.get(key, null), leaf):
+					issues.append(_issue(cfg, child_path, "合法的逻辑 tick 与动画帧对齐"))
 	return issues
 
 func _trail(cfg: Dictionary, _context: Dictionary, _rule: Dictionary) -> Array:

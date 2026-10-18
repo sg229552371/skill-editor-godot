@@ -104,13 +104,19 @@ func test_v073_disabled_zero_enabled_zero_and_type_boundary() -> void:
 func test_v074_enabled_alignment_requires_both_fields() -> void:
 	var cfg: Dictionary = _cfg()
 	cfg.presentation.anim["cast_clip"] = {"id": "cast"}
-	_has(_rules().validate(cfg, _context()), "V-074", "presentation.anim.logic_release_tick", Diag.SEV_BLOCK)
-	_has(_rules().validate(cfg, _context()), "V-074", "presentation.anim.release_frame", Diag.SEV_BLOCK)
-	cfg.presentation.anim["logic_release_tick"] = 0
-	cfg.presentation.anim["release_frame"] = 0
-	_no_rule(_rules().validate(cfg, _context()), "V-074")
-	cfg.presentation.anim["release_frame"] = "0"
-	_has(_rules().validate(cfg, _context()), "V-074", "presentation.anim.release_frame", Diag.SEV_BLOCK)
+	_has(_rules().validate(cfg, _context()), "V-074", "presentation.anim.alignments", Diag.SEV_BLOCK)
+	cfg.presentation.anim["alignments"] = [{"frame": 0}]
+	_has(_rules().validate(cfg, _context()), "V-074", "presentation.anim.alignments[0].shot_tick", Diag.SEV_BLOCK)
+	cfg.presentation.anim["alignments"] = [{"shot_tick": 0}]
+	_has(_rules().validate(cfg, _context()), "V-074", "presentation.anim.alignments[0].frame", Diag.SEV_BLOCK)
+	cfg.presentation.anim["alignments"] = []
+	_has(_rules().validate(cfg, _context()), "V-074", "presentation.anim.alignments", Diag.SEV_BLOCK)
+	cfg.presentation.anim["alignments"] = [{"shot_tick": 0, "frame": 0}]
+	var complete: Dictionary = _rules().validate(cfg, _context())
+	assert_true(complete.ok)
+	_no_rule(complete, "V-074")
+	cfg.presentation.anim["alignments"][0]["frame"] = "0"
+	_has(_rules().validate(cfg, _context()), "V-074", "presentation.anim.alignments[0].frame", Diag.SEV_BLOCK)
 
 func test_v075_all_carrier_combinations_come_from_policy() -> void:
 	var policy: Dictionary = _meta().trail_carrier_policy

@@ -134,6 +134,17 @@
       "default": "sfx"
     },
     {
+      "path": "presentation.anim.alignments[i].shot_tick",
+      "type": "integer",
+      "unit": "tick",
+      "minimum": 0
+    },
+    {
+      "path": "presentation.anim.alignments[i].frame",
+      "type": "number",
+      "minimum": 0
+    },
+    {
       "path": "presentation.anim.release_marker",
       "type": "string",
       "minLength": 1,
@@ -526,6 +537,16 @@
       }
     },
     {
+      "path": "presentation.anim.alignments",
+      "item_kind": "object",
+      "item": {
+        "required": [
+          "shot_tick",
+          "frame"
+        ]
+      }
+    },
+    {
       "path": "presentation.status_icon.type_filter",
       "item_kind": "string",
       "item": {
@@ -572,6 +593,14 @@
     {
       "path": "presentation.anim",
       "required": [],
+      "additional_properties": false
+    },
+    {
+      "path": "presentation.anim.alignments[i]",
+      "required": [
+        "presentation.anim.alignments[i].shot_tick",
+        "presentation.anim.alignments[i].frame"
+      ],
       "additional_properties": false
     },
     {
@@ -683,6 +712,7 @@
     ],
     "anim": [
       "cast_clip",
+      "alignments",
       "release_marker",
       "logic_release_tick",
       "release_frame",
@@ -750,6 +780,7 @@
     ]
   },
   "section_enable": {
+    "_anim_alignment_note": "U-23/U-33：显式填写旧对齐标量的非空 anim 也须接受 V-074 数组检查；标量仅用于识别启用，不是对齐数组别名，不补数组或默认值。仅空槽位/空 alignments 不算启用。",
     "_note": "V-073/V-074/V-075 的『启用』判据。camera 段有 enabled 布尔开关；其余段无开关，按 activity_slots 是否有实际内容判定。",
     "_nonempty_rule": "Array：size>0；Dictionary：非空；String：strip 后非空；null/缺省：空。其它非 null 视为非空。",
     "fx": {
@@ -777,7 +808,9 @@
       "activity_slots": [
         "cast_clip",
         "on_hit",
-        "on_settled"
+        "on_settled",
+        "logic_release_tick",
+        "release_frame"
       ]
     },
     "trail": {
@@ -810,8 +843,7 @@
       "max_concurrency"
     ],
     "anim": [
-      "logic_release_tick",
-      "release_frame"
+      "alignments"
     ],
     "trail": [
       "carrier"
@@ -993,8 +1025,6 @@
     "damage_number.group_by": "damage_number.merge_policy",
     "trail.carrier_mode": "trail.carrier",
     "sfx.concurrency_limit": "sfx.max_concurrency",
-    "anim.alignments.shot_tick": "anim.logic_release_tick",
-    "anim.alignments.frame": "anim.release_frame",
-    "_aliases_note": "D-23 通则：14.5 表的定位字段是统称，实际 Schema 落点见此映射。查表前先剥离 presentation 前缀与 [i] 下标；CSV 真源原文不动，有别名以别名为准。"
+    "_aliases_note": "D-23 通则：14.5 表的定位字段是统称，实际 Schema 落点见此映射。CSV 真源原文不动，有别名以别名为准。U-23/U-33：动画对齐保留 alignments[i] 数组条目落点，不映射为旧标量。"
   }
 }
