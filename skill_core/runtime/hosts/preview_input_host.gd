@@ -20,7 +20,7 @@ var _templates: Dictionary = {}
 var _sequence: int = 0
 var _equipment_slots: Dictionary = {}
 var _pending_equipment: Dictionary = {}
-var _equipment_shared_cooldown_ticks: int = 0
+var _equipment_cfg_params: Dictionary = {}
 var _equipment_cooldown_until: int = -1
 var _equipment_configured: bool = false
 
@@ -68,11 +68,9 @@ func configure_equipment(config: Dictionary) -> Dictionary:
 	if _bound:
 		return _failure("equipment", "Equipment must be configured before binding a preview")
 	var slots: Variant = config.get("slots", null)
-	var duration: Variant = config.get("shared_cooldown_ticks", null)
-	if not slots is Dictionary or not duration is int or duration < 0:
-		return _failure("equipment", "Expected slots object and nonnegative shared_cooldown_ticks")
+	if not slots is Dictionary or config.size() != 1:
+		return _failure("equipment", "Expected only slots object; cooldown duration belongs in CFG")
 	_equipment_slots = slots.duplicate(true)
-	_equipment_shared_cooldown_ticks = duration
 	_equipment_cooldown_until = -1
 	_pending_equipment.clear()
 	_equipment_configured = true
@@ -83,8 +81,13 @@ func configure_equipment(config: Dictionary) -> Dictionary:
 func request_equipment_changes(changes: Dictionary) -> Dictionary:
 	if not _equipment_configured:
 		return _failure("equipment", "Equipment is not configured")
+	if not _bound:
+		return _failure("equipment", "Host must be bound to a running preview")
+	var checked: Dictionary = _check_equipment_cfg(_equipment_cfg_params)
+	if not checked["ok"]:
+		return checked
 	if _equipment_cooldown_until >= 0 and _tick < _equipment_cooldown_until:
-		return {"ok": false, "path": "equipment.shared_cooldown_ticks", "code": "EQUIPMENT_COOLDOWN",
+		return {"ok": false, "path": "params.assembly_shared_cooldown_ticks", "code": "EQUIPMENT_COOLDOWN",
 			"error": "Equipment is cooling down; remaining ticks: %d" % (_equipment_cooldown_until - _tick)}
 	if changes.is_empty():
 		return _failure("equipment", "At least one equipment slot change is required")
@@ -102,10 +105,14 @@ func apply_equipment_boundary(tick: int) -> Dictionary:
 	_tick = tick
 	if _pending_equipment.is_empty():
 		return {"ok": true, "applied": false, "error": ""}
+	var checked: Dictionary = _check_equipment_cfg(_equipment_cfg_params)
+	if not checked["ok"]:
+		return checked
+	var duration: int = _equipment_cfg_params["assembly_shared_cooldown_ticks"]
 	for slot in _pending_equipment:
 		_equipment_slots[slot] = _pending_equipment[slot]
 	_pending_equipment.clear()
-	_equipment_cooldown_until = tick + _equipment_shared_cooldown_ticks
+	_equipment_cooldown_until = tick + duration
 	return {"ok": true, "applied": true, "error": ""}
 
 
@@ -121,9 +128,14 @@ func snapshot_state() -> Dictionary:
 		"shots": _shots.duplicate(true), "X": _shots.size()}
 
 
-func _bind(templates: Dictionary, roots: Array, rate: int) -> Dictionary:
+func _bind(templates: Dictionary, roots: Array, rate: int, cfg_params: Dictionary) -> Dictionary:
 	if not _configured or _bound:
 		return _failure("runtime_host", "Configure a fresh input host for each preview")
+	if _equipment_configured:
+		var checked: Dictionary = _check_equipment_cfg(cfg_params)
+		if not checked["ok"]:
+			return checked
+	_equipment_cfg_params = cfg_params.duplicate(true)
 	_templates = templates.duplicate(true)
 	_tick_rate = rate
 	_bound = true
@@ -217,6 +229,13 @@ func _unbind() -> void:
 	_bound = false
 	_pending.clear()
 	_ready.clear()
+
+
+func _check_equipment_cfg(params: Dictionary) -> Dictionary:
+	var duration: Variant = params.get("assembly_shared_cooldown_ticks", null)
+	if not duration is int or duration < 0:
+		return _failure("params.assembly_shared_cooldown_ticks", "Explicit nonnegative integer assembly_shared_cooldown_ticks required in CFG")
+	return {"ok": true, "error": ""}
 
 
 func _failure(path: String, error: String) -> Dictionary:

@@ -85,7 +85,7 @@ func test_every_registered_tick_field_accepts_conversion() -> void:
 		assert_true(false, "tick_fields must be present")
 		return
 	var fields: Array = meta["tick_fields"]
-	assert_eq(fields.size(), 15, "the currently deployed metadata registers 15 fields")
+	assert_eq(fields.size(), 16, "the currently deployed metadata registers 16 fields")
 	for field in fields:
 		if str(field).begins_with("_"):
 			continue

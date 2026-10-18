@@ -79,7 +79,7 @@ func test_v021_is_generated_for_every_tick_field() -> void:
 	var found: Dictionary = {}
 	for field in _meta().tick_fields:
 		found[field] = true
-	assert_eq(found.size(), 15, "tick_fields 来自元数据，不能手写三个字段")
+	assert_eq(found.size(), 16, "tick_fields 来自元数据，不能手写三个字段")
 
 func test_v022_negative_shot_point_is_rejected_at_index() -> void:
 	var cfg: Dictionary = _cfg()

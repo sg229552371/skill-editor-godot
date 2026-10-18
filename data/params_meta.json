@@ -1,0 +1,1641 @@
+{
+  "schema_version": "0.1",
+  "leaves": [
+    {
+      "path": "assembly_shared_cooldown_ticks",
+      "type": "integer",
+      "unit": "tick",
+      "minimum": 0
+    },
+    {
+      "path": "carrier",
+      "type": "string",
+      "unit": "",
+      "enum": [
+        "none",
+        "self",
+        "independent",
+        "attached"
+      ]
+    },
+    {
+      "path": "lifetime_ticks",
+      "type": "integer",
+      "unit": "tick",
+      "minimum": 0
+    },
+    {
+      "path": "windup_ticks",
+      "type": "integer",
+      "unit": "tick",
+      "minimum": 0,
+      "default": 0
+    },
+    {
+      "path": "cooldown_ticks",
+      "type": "integer",
+      "unit": "tick",
+      "minimum": 0
+    },
+    {
+      "path": "start_delay_ticks",
+      "type": "integer",
+      "unit": "tick",
+      "minimum": 0,
+      "default": 0
+    },
+    {
+      "path": "projectile_speed",
+      "type": "number",
+      "unit": "",
+      "minimum": 0
+    },
+    {
+      "path": "hit_radius",
+      "type": "number",
+      "unit": "",
+      "exclusiveMinimum": 0
+    },
+    {
+      "path": "hit_policy.per_target_limit",
+      "type": "integer",
+      "unit": "",
+      "minimum": 1,
+      "default": 1
+    },
+    {
+      "path": "hit_policy.rehit_interval_ticks",
+      "type": "integer",
+      "unit": "tick",
+      "minimum": 1
+    },
+    {
+      "path": "hit_policy.max_hits",
+      "type": "integer",
+      "unit": "",
+      "minimum": 1
+    },
+    {
+      "path": "shotgun_allowed",
+      "type": "boolean",
+      "unit": "",
+      "default": false
+    },
+    {
+      "path": "on_target_lost",
+      "type": "string",
+      "unit": "",
+      "default": "continue",
+      "enum": [
+        "continue",
+        "terminate"
+      ]
+    },
+    {
+      "path": "attach_to_caster",
+      "type": "boolean",
+      "unit": "",
+      "default": false
+    },
+    {
+      "path": "bind_owner",
+      "type": "boolean",
+      "unit": "",
+      "default": true
+    },
+    {
+      "path": "summon_cap",
+      "type": "integer",
+      "unit": "",
+      "minimum": 1
+    },
+    {
+      "path": "max_generation",
+      "type": "integer",
+      "unit": "",
+      "minimum": 0,
+      "default": 1
+    },
+    {
+      "path": "cast_budget",
+      "type": "integer",
+      "unit": "",
+      "minimum": 0
+    },
+    {
+      "path": "split_budget",
+      "type": "integer",
+      "unit": "",
+      "minimum": 0,
+      "default": 0
+    },
+    {
+      "path": "chain_remaining",
+      "type": "integer",
+      "unit": "",
+      "minimum": 0,
+      "default": 0
+    },
+    {
+      "path": "templates[i].template_id",
+      "type": "string",
+      "unit": "",
+      "minLength": 1
+    },
+    {
+      "path": "templates[i].carrier",
+      "type": "string",
+      "unit": "",
+      "enum": [
+        "none",
+        "self",
+        "independent",
+        "attached"
+      ]
+    },
+    {
+      "path": "templates[i].targeting.target_group",
+      "type": "string",
+      "unit": "",
+      "enum": [
+        "enemy",
+        "ally",
+        "point"
+      ]
+    },
+    {
+      "path": "templates[i].targeting.friendly_fire",
+      "type": "boolean",
+      "unit": "",
+      "default": false
+    },
+    {
+      "path": "templates[i].targeting.include_self",
+      "type": "boolean",
+      "unit": "",
+      "default": false
+    },
+    {
+      "path": "templates[i].targeting.target_mode",
+      "type": "string",
+      "unit": "",
+      "default": "nearest",
+      "enum": [
+        "nearest",
+        "direction",
+        "ground",
+        "untargeted"
+      ]
+    },
+    {
+      "path": "templates[i].lifetime_ticks",
+      "type": "integer",
+      "unit": "tick",
+      "minimum": 0
+    },
+    {
+      "path": "templates[i].timing.start_delay_ticks",
+      "type": "integer",
+      "unit": "tick",
+      "minimum": 0,
+      "default": 0
+    },
+    {
+      "path": "templates[i].timing.active_ticks",
+      "type": "integer",
+      "unit": "tick",
+      "minimum": 1
+    },
+    {
+      "path": "templates[i].cast.target_mode",
+      "type": "string",
+      "unit": "",
+      "enum": [
+        "nearest",
+        "direction",
+        "ground",
+        "untargeted"
+      ]
+    },
+    {
+      "path": "templates[i].cast.windup_ticks",
+      "type": "integer",
+      "unit": "tick",
+      "minimum": 0,
+      "default": 0
+    },
+    {
+      "path": "templates[i].cast.shot_count",
+      "type": "integer",
+      "unit": "",
+      "minimum": 1,
+      "default": 1
+    },
+    {
+      "path": "templates[i].cast.shot_interval_ticks",
+      "type": "integer",
+      "unit": "tick",
+      "minimum": 0,
+      "default": 0
+    },
+    {
+      "path": "templates[i].cast.cooldown_seconds",
+      "type": "number",
+      "unit": "second",
+      "minimum": 0
+    },
+    {
+      "path": "templates[i].cast.cooldown_start",
+      "type": "string",
+      "unit": "",
+      "default": "last_actual_shot",
+      "enum": [
+        "last_actual_shot"
+      ]
+    },
+    {
+      "path": "templates[i].emission.count",
+      "type": "integer",
+      "unit": "",
+      "minimum": 0,
+      "default": 1
+    },
+    {
+      "path": "templates[i].emission.shotgun_allowed",
+      "type": "boolean",
+      "unit": "",
+      "default": false
+    },
+    {
+      "path": "templates[i].motion.mode",
+      "type": "string",
+      "unit": "",
+      "enum": [
+        "straight",
+        "lob",
+        "orbit",
+        "stationary",
+        "wavefront",
+        "returning",
+        "follow",
+        "homing",
+        "ricochet",
+        "expanding"
+      ]
+    },
+    {
+      "path": "templates[i].motion.speed",
+      "type": "number",
+      "unit": "",
+      "minimum": 0
+    },
+    {
+      "path": "templates[i].motion.acceleration",
+      "type": "number",
+      "unit": ""
+    },
+    {
+      "path": "templates[i].motion.speed_cap",
+      "type": "number",
+      "unit": "",
+      "minimum": 0
+    },
+    {
+      "path": "templates[i].motion.range",
+      "type": "number",
+      "unit": "",
+      "exclusiveMinimum": 0
+    },
+    {
+      "path": "templates[i].motion.tracking_profile",
+      "type": "string",
+      "unit": "",
+      "minLength": 1
+    },
+    {
+      "path": "templates[i].motion.orbit_radius",
+      "type": "number",
+      "unit": "",
+      "exclusiveMinimum": 0
+    },
+    {
+      "path": "templates[i].motion.angular_speed",
+      "type": "number",
+      "unit": ""
+    },
+    {
+      "path": "templates[i].motion.phase",
+      "type": "number",
+      "unit": ""
+    },
+    {
+      "path": "templates[i].motion.attach_to_caster",
+      "type": "boolean",
+      "unit": "",
+      "default": false
+    },
+    {
+      "path": "templates[i].motion.displacement_profile",
+      "type": "string",
+      "unit": "",
+      "minLength": 1
+    },
+    {
+      "path": "templates[i].motion.bounce_profile",
+      "type": "string",
+      "unit": "",
+      "minLength": 1
+    },
+    {
+      "path": "templates[i].motion.bounce_limit",
+      "type": "integer",
+      "unit": "",
+      "minimum": 0,
+      "default": 0
+    },
+    {
+      "path": "templates[i].motion.split_budget",
+      "type": "integer",
+      "unit": "",
+      "minimum": 0,
+      "default": 0
+    },
+    {
+      "path": "templates[i].motion.split_count",
+      "type": "integer",
+      "unit": "",
+      "minimum": 0,
+      "default": 0
+    },
+    {
+      "path": "templates[i].motion.split_template",
+      "type": "string",
+      "unit": "",
+      "minLength": 1
+    },
+    {
+      "path": "templates[i].motion.chain_remaining",
+      "type": "integer",
+      "unit": "",
+      "minimum": 0,
+      "default": 0
+    },
+    {
+      "path": "templates[i].motion.chain_template",
+      "type": "string",
+      "unit": "",
+      "minLength": 1
+    },
+    {
+      "path": "templates[i].motion.search_radius",
+      "type": "number",
+      "unit": "",
+      "exclusiveMinimum": 0
+    },
+    {
+      "path": "templates[i].geometry.shape",
+      "type": "string",
+      "unit": "",
+      "enum": [
+        "circle",
+        "sector",
+        "line",
+        "rectangle"
+      ]
+    },
+    {
+      "path": "templates[i].geometry.radius",
+      "type": "number",
+      "unit": "",
+      "exclusiveMinimum": 0
+    },
+    {
+      "path": "templates[i].geometry.sector_angle",
+      "type": "number",
+      "unit": "",
+      "maximum": 100,
+      "exclusiveMinimum": 0,
+      "default": 25
+    },
+    {
+      "path": "templates[i].geometry.length",
+      "type": "number",
+      "unit": "",
+      "exclusiveMinimum": 0
+    },
+    {
+      "path": "templates[i].geometry.width",
+      "type": "number",
+      "unit": "",
+      "exclusiveMinimum": 0
+    },
+    {
+      "path": "templates[i].geometry.wavefront_start_radius",
+      "type": "number",
+      "unit": "",
+      "minimum": 0,
+      "default": 0
+    },
+    {
+      "path": "templates[i].geometry.wavefront_end_radius",
+      "type": "number",
+      "unit": "",
+      "exclusiveMinimum": 0
+    },
+    {
+      "path": "templates[i].geometry.wavefront_speed",
+      "type": "number",
+      "unit": "",
+      "exclusiveMinimum": 0
+    },
+    {
+      "path": "templates[i].geometry.area_profile",
+      "type": "string",
+      "unit": "",
+      "minLength": 1
+    },
+    {
+      "path": "templates[i].hit_policy.per_target_limit",
+      "type": "integer",
+      "unit": "",
+      "minimum": 1,
+      "default": 1
+    },
+    {
+      "path": "templates[i].hit_policy.rehit_interval_ticks",
+      "type": "integer",
+      "unit": "tick",
+      "minimum": 1
+    },
+    {
+      "path": "templates[i].hit_policy.max_hits",
+      "type": "integer",
+      "unit": "",
+      "minimum": 1
+    },
+    {
+      "path": "templates[i].on_target_lost",
+      "type": "string",
+      "unit": "",
+      "default": "continue",
+      "enum": [
+        "continue",
+        "terminate"
+      ]
+    },
+    {
+      "path": "templates[i].parts[i].part_index",
+      "type": "integer",
+      "unit": "",
+      "minimum": 0
+    },
+    {
+      "path": "templates[i].parts[i].type",
+      "type": "string",
+      "unit": "",
+      "enum": [
+        "physical",
+        "fire",
+        "ice",
+        "lightning",
+        "arcane",
+        "heal",
+        "shield",
+        "buff",
+        "debuff",
+        "knockback",
+        "control"
+      ]
+    },
+    {
+      "path": "templates[i].parts[i].amount",
+      "type": "number",
+      "unit": "",
+      "minimum": 0,
+      "default": 0
+    },
+    {
+      "path": "templates[i].parts[i].amount_profile",
+      "type": "string",
+      "unit": "",
+      "minLength": 1
+    },
+    {
+      "path": "templates[i].parts[i].evadable",
+      "type": "boolean",
+      "unit": ""
+    },
+    {
+      "path": "templates[i].parts[i].immunity_profile",
+      "type": "string",
+      "unit": "",
+      "minLength": 1
+    },
+    {
+      "path": "templates[i].parts[i].crit_profile",
+      "type": "string",
+      "unit": "",
+      "minLength": 1
+    },
+    {
+      "path": "templates[i].parts[i].block_profile",
+      "type": "string",
+      "unit": "",
+      "minLength": 1
+    },
+    {
+      "path": "templates[i].parts[i].duration_ticks",
+      "type": "integer",
+      "unit": "tick",
+      "minimum": 1
+    },
+    {
+      "path": "templates[i].parts[i].control_type",
+      "type": "string",
+      "unit": "",
+      "enum": [
+        "stun",
+        "freeze",
+        "silence",
+        "root",
+        "knockback",
+        "displace"
+      ]
+    },
+    {
+      "path": "templates[i].parts[i].interrupts_cast",
+      "type": "boolean",
+      "unit": ""
+    },
+    {
+      "path": "templates[i].parts[i].distance",
+      "type": "number",
+      "unit": "",
+      "minimum": 0
+    },
+    {
+      "path": "templates[i].parts[i].displacement_speed",
+      "type": "number",
+      "unit": "",
+      "exclusiveMinimum": 0
+    },
+    {
+      "path": "templates[i].parts[i].restack_rule",
+      "type": "string",
+      "unit": "",
+      "default": "refresh_single",
+      "enum": [
+        "refresh_single",
+        "keep_longer",
+        "finite_stack"
+      ]
+    },
+    {
+      "path": "templates[i].parts[i].stack_limit",
+      "type": "integer",
+      "unit": "",
+      "minimum": 1,
+      "default": 1
+    },
+    {
+      "path": "templates[i].parts[i].status_profile",
+      "type": "string",
+      "unit": "",
+      "minLength": 1
+    },
+    {
+      "path": "templates[i].parts[i].settlement.crit_profile",
+      "type": "string",
+      "unit": "",
+      "minLength": 1
+    },
+    {
+      "path": "templates[i].parts[i].settlement.block_profile",
+      "type": "string",
+      "unit": "",
+      "minLength": 1
+    },
+    {
+      "path": "templates[i].attached.periodic_tick",
+      "type": "integer",
+      "unit": "",
+      "minimum": 1
+    },
+    {
+      "path": "templates[i].attached.anchor_source",
+      "type": "string",
+      "unit": "",
+      "enum": [
+        "hit_target",
+        "caster"
+      ]
+    },
+    {
+      "path": "templates[i].summon.summon_cap",
+      "type": "integer",
+      "unit": "",
+      "minimum": 1
+    },
+    {
+      "path": "templates[i].summon.summon_profile",
+      "type": "string",
+      "unit": "",
+      "minLength": 1
+    },
+    {
+      "path": "templates[i].summon.owner_source",
+      "type": "string",
+      "unit": "",
+      "default": "caster",
+      "enum": [
+        "caster"
+      ]
+    },
+    {
+      "path": "templates[i].summon.bind_owner",
+      "type": "boolean",
+      "unit": "",
+      "default": true
+    },
+    {
+      "path": "templates[i].derivations[i].trigger_id",
+      "type": "string",
+      "unit": "",
+      "minLength": 1
+    },
+    {
+      "path": "templates[i].derivations[i].event",
+      "type": "string",
+      "unit": "",
+      "enum": [
+        "hit",
+        "vanish"
+      ]
+    },
+    {
+      "path": "templates[i].derivations[i].child_template",
+      "type": "string",
+      "unit": "",
+      "minLength": 1
+    },
+    {
+      "path": "templates[i].derivations[i].count",
+      "type": "integer",
+      "unit": "",
+      "minimum": 1,
+      "default": 1
+    },
+    {
+      "path": "templates[i].derivations[i].allow_restricted_reason",
+      "type": "boolean",
+      "unit": "",
+      "default": false
+    },
+    {
+      "path": "parts[i].part_index",
+      "type": "integer",
+      "unit": "",
+      "minimum": 0
+    },
+    {
+      "path": "parts[i].type",
+      "type": "string",
+      "unit": "",
+      "enum": [
+        "physical",
+        "fire",
+        "ice",
+        "lightning",
+        "arcane",
+        "heal",
+        "shield",
+        "buff",
+        "debuff",
+        "knockback",
+        "control"
+      ]
+    },
+    {
+      "path": "parts[i].amount",
+      "type": "number",
+      "unit": "",
+      "minimum": 0,
+      "default": 0
+    },
+    {
+      "path": "parts[i].amount_profile",
+      "type": "string",
+      "unit": "",
+      "minLength": 1
+    },
+    {
+      "path": "parts[i].evadable",
+      "type": "boolean",
+      "unit": ""
+    },
+    {
+      "path": "parts[i].immunity_profile",
+      "type": "string",
+      "unit": "",
+      "minLength": 1
+    },
+    {
+      "path": "parts[i].crit_profile",
+      "type": "string",
+      "unit": "",
+      "minLength": 1
+    },
+    {
+      "path": "parts[i].block_profile",
+      "type": "string",
+      "unit": "",
+      "minLength": 1
+    },
+    {
+      "path": "parts[i].duration_ticks",
+      "type": "integer",
+      "unit": "tick",
+      "minimum": 1
+    },
+    {
+      "path": "parts[i].control_type",
+      "type": "string",
+      "unit": "",
+      "enum": [
+        "stun",
+        "freeze",
+        "silence",
+        "root",
+        "knockback",
+        "displace"
+      ]
+    },
+    {
+      "path": "parts[i].interrupts_cast",
+      "type": "boolean",
+      "unit": ""
+    },
+    {
+      "path": "parts[i].distance",
+      "type": "number",
+      "unit": "",
+      "minimum": 0
+    },
+    {
+      "path": "parts[i].displacement_speed",
+      "type": "number",
+      "unit": "",
+      "exclusiveMinimum": 0
+    },
+    {
+      "path": "parts[i].restack_rule",
+      "type": "string",
+      "unit": "",
+      "default": "refresh_single",
+      "enum": [
+        "refresh_single",
+        "keep_longer",
+        "finite_stack"
+      ]
+    },
+    {
+      "path": "parts[i].stack_limit",
+      "type": "integer",
+      "unit": "",
+      "minimum": 1,
+      "default": 1
+    },
+    {
+      "path": "parts[i].status_profile",
+      "type": "string",
+      "unit": "",
+      "minLength": 1
+    },
+    {
+      "path": "parts[i].settlement.crit_profile",
+      "type": "string",
+      "unit": "",
+      "minLength": 1
+    },
+    {
+      "path": "parts[i].settlement.block_profile",
+      "type": "string",
+      "unit": "",
+      "minLength": 1
+    },
+    {
+      "path": "brick_overrides[i].brick_index",
+      "type": "integer",
+      "unit": "",
+      "minimum": 0
+    },
+    {
+      "path": "derivations[i].trigger_id",
+      "type": "string",
+      "unit": "",
+      "minLength": 1
+    },
+    {
+      "path": "derivations[i].event",
+      "type": "string",
+      "unit": "",
+      "enum": [
+        "hit",
+        "vanish"
+      ]
+    },
+    {
+      "path": "derivations[i].child_template",
+      "type": "string",
+      "unit": "",
+      "minLength": 1
+    },
+    {
+      "path": "derivations[i].count",
+      "type": "integer",
+      "unit": "",
+      "minimum": 1,
+      "default": 1
+    },
+    {
+      "path": "derivations[i].allow_restricted_reason",
+      "type": "boolean",
+      "unit": "",
+      "default": false
+    },
+    {
+      "path": "triggers[i].trigger_id",
+      "type": "string",
+      "unit": "",
+      "minLength": 1
+    },
+    {
+      "path": "triggers[i].record",
+      "type": "string",
+      "unit": "",
+      "enum": [
+        "cast_started",
+        "hit_settled",
+        "evaded_all",
+        "damage_taken"
+      ]
+    },
+    {
+      "path": "triggers[i].condition",
+      "type": "string",
+      "unit": "",
+      "minLength": 1
+    },
+    {
+      "path": "triggers[i].chance",
+      "type": "number",
+      "unit": "",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 1
+    },
+    {
+      "path": "triggers[i].internal_cooldown_ticks",
+      "type": "integer",
+      "unit": "tick",
+      "minimum": 0,
+      "default": 0
+    },
+    {
+      "path": "triggers[i].max_chain_depth",
+      "type": "integer",
+      "unit": "",
+      "minimum": 0
+    },
+    {
+      "path": "triggers[i].allow_self_chain",
+      "type": "boolean",
+      "unit": "",
+      "default": false
+    },
+    {
+      "path": "triggers[i].action_profile",
+      "type": "string",
+      "unit": "",
+      "minLength": 1
+    },
+    {
+      "path": "triggers[i].strength_coeff",
+      "type": "number",
+      "unit": "",
+      "minimum": 0
+    },
+    {
+      "path": "triggers[i].zero_cooldown_note",
+      "type": "string",
+      "unit": ""
+    },
+    {
+      "path": "triggers[i].self_chain_note",
+      "type": "string",
+      "unit": ""
+    },
+    {
+      "path": "modifiers[i].modifier_id",
+      "type": "string",
+      "unit": "",
+      "minLength": 1
+    },
+    {
+      "path": "modifiers[i].permission",
+      "type": "string",
+      "unit": "",
+      "enum": [
+        "mutate_number",
+        "add_behavior",
+        "mutate_live_instance"
+      ]
+    },
+    {
+      "path": "modifiers[i].scope",
+      "type": "string",
+      "unit": "",
+      "default": "own_skill",
+      "enum": [
+        "own_skill",
+        "tagged"
+      ]
+    },
+    {
+      "path": "modifiers[i].inheritable",
+      "type": "boolean",
+      "unit": "",
+      "default": false
+    },
+    {
+      "path": "modifiers[i].stack_rule.operation_profile",
+      "type": "string",
+      "unit": "",
+      "minLength": 1
+    },
+    {
+      "path": "modifiers[i].stack_rule.note",
+      "type": "string",
+      "unit": ""
+    },
+    {
+      "path": "modifiers[i].operation_profile",
+      "type": "string",
+      "unit": "",
+      "minLength": 1
+    },
+    {
+      "path": "exposed_fields[i].field_path",
+      "type": "string",
+      "unit": "",
+      "minLength": 1
+    },
+    {
+      "path": "exposed_fields[i].min",
+      "type": "number",
+      "unit": ""
+    },
+    {
+      "path": "exposed_fields[i].max",
+      "type": "number",
+      "unit": ""
+    },
+    {
+      "path": "exposed_fields[i].live",
+      "type": "boolean",
+      "unit": "",
+      "default": false
+    },
+    {
+      "path": "exposed_fields[i].inheritable",
+      "type": "boolean",
+      "unit": "",
+      "default": false
+    },
+    {
+      "path": "exposed_fields[i].set_conflict_note",
+      "type": "string",
+      "unit": ""
+    },
+    {
+      "path": "passive.triggers[i].trigger_id",
+      "type": "string",
+      "unit": "",
+      "minLength": 1
+    },
+    {
+      "path": "passive.triggers[i].record",
+      "type": "string",
+      "unit": "",
+      "enum": [
+        "cast_started",
+        "hit_settled",
+        "evaded_all",
+        "damage_taken"
+      ]
+    },
+    {
+      "path": "passive.triggers[i].condition",
+      "type": "string",
+      "unit": "",
+      "minLength": 1
+    },
+    {
+      "path": "passive.triggers[i].chance",
+      "type": "number",
+      "unit": "",
+      "minimum": 0,
+      "maximum": 1,
+      "default": 1
+    },
+    {
+      "path": "passive.triggers[i].internal_cooldown_ticks",
+      "type": "integer",
+      "unit": "tick",
+      "minimum": 0,
+      "default": 0
+    },
+    {
+      "path": "passive.triggers[i].max_chain_depth",
+      "type": "integer",
+      "unit": "",
+      "minimum": 0
+    },
+    {
+      "path": "passive.triggers[i].allow_self_chain",
+      "type": "boolean",
+      "unit": "",
+      "default": false
+    },
+    {
+      "path": "passive.triggers[i].action_profile",
+      "type": "string",
+      "unit": "",
+      "minLength": 1
+    },
+    {
+      "path": "passive.triggers[i].strength_coeff",
+      "type": "number",
+      "unit": "",
+      "minimum": 0
+    },
+    {
+      "path": "passive.triggers[i].zero_cooldown_note",
+      "type": "string",
+      "unit": ""
+    },
+    {
+      "path": "passive.triggers[i].self_chain_note",
+      "type": "string",
+      "unit": ""
+    },
+    {
+      "path": "passive.allow_self_chain",
+      "type": "boolean",
+      "unit": "",
+      "default": false
+    },
+    {
+      "path": "safety.max_chain_depth",
+      "type": "integer",
+      "unit": "",
+      "minimum": 0
+    },
+    {
+      "path": "safety.cast_budget",
+      "type": "integer",
+      "unit": "",
+      "minimum": 0
+    }
+  ],
+  "arrays": [
+    {
+      "path": "shot_ticks",
+      "item_kind": "integer",
+      "item": {
+        "minimum": 0
+      }
+    },
+    {
+      "path": "templates",
+      "item_kind": "object",
+      "item": {}
+    },
+    {
+      "path": "templates[i].cast.shot_ticks",
+      "item_kind": "integer",
+      "item": {
+        "minimum": 0
+      }
+    },
+    {
+      "path": "templates[i].motion.visited",
+      "item_kind": "string",
+      "item": {}
+    },
+    {
+      "path": "templates[i].termination.possible_reasons",
+      "item_kind": "string",
+      "item": {
+        "enum": [
+          "hit_end",
+          "range_end",
+          "landed",
+          "expired",
+          "returned",
+          "interrupted",
+          "instant_end"
+        ]
+      }
+    },
+    {
+      "path": "templates[i].parts",
+      "item_kind": "object",
+      "item": {}
+    },
+    {
+      "path": "templates[i].parts[i].immune_flags",
+      "item_kind": "string",
+      "item": {
+        "minLength": 1
+      }
+    },
+    {
+      "path": "templates[i].attached.immune_flags",
+      "item_kind": "string",
+      "item": {
+        "minLength": 1
+      }
+    },
+    {
+      "path": "templates[i].derivations",
+      "item_kind": "object",
+      "item": {}
+    },
+    {
+      "path": "templates[i].derivations[i].reasons",
+      "item_kind": "string",
+      "item": {
+        "enum": [
+          "hit_end",
+          "range_end",
+          "landed",
+          "expired",
+          "returned",
+          "interrupted",
+          "instant_end"
+        ]
+      }
+    },
+    {
+      "path": "parts",
+      "item_kind": "object",
+      "item": {}
+    },
+    {
+      "path": "parts[i].immune_flags",
+      "item_kind": "string",
+      "item": {
+        "minLength": 1
+      }
+    },
+    {
+      "path": "brick_overrides",
+      "item_kind": "object",
+      "item": {}
+    },
+    {
+      "path": "derivations",
+      "item_kind": "object",
+      "item": {}
+    },
+    {
+      "path": "derivations[i].reasons",
+      "item_kind": "string",
+      "item": {
+        "enum": [
+          "hit_end",
+          "range_end",
+          "landed",
+          "expired",
+          "returned",
+          "interrupted",
+          "instant_end"
+        ]
+      }
+    },
+    {
+      "path": "triggers",
+      "item_kind": "object",
+      "item": {}
+    },
+    {
+      "path": "triggers[i].produces",
+      "item_kind": "string",
+      "item": {
+        "minLength": 1
+      }
+    },
+    {
+      "path": "modifiers",
+      "item_kind": "object",
+      "item": {}
+    },
+    {
+      "path": "modifiers[i].targets",
+      "item_kind": "string",
+      "item": {
+        "minLength": 1
+      }
+    },
+    {
+      "path": "modifiers[i].stack_rule.operands",
+      "item_kind": "unknown",
+      "item": {}
+    },
+    {
+      "path": "modifiers[i].tag_filter",
+      "item_kind": "string",
+      "item": {
+        "minLength": 1
+      }
+    },
+    {
+      "path": "exposed_fields",
+      "item_kind": "object",
+      "item": {}
+    },
+    {
+      "path": "exposed_fields[i].permissions",
+      "item_kind": "string",
+      "item": {
+        "enum": [
+          "mutate_number",
+          "add_behavior",
+          "mutate_live_instance"
+        ]
+      }
+    },
+    {
+      "path": "passive.allowed_records",
+      "item_kind": "string",
+      "item": {
+        "enum": [
+          "cast_started",
+          "hit_settled",
+          "evaded_all",
+          "damage_taken"
+        ]
+      }
+    },
+    {
+      "path": "passive.triggers",
+      "item_kind": "object",
+      "item": {}
+    },
+    {
+      "path": "passive.triggers[i].produces",
+      "item_kind": "string",
+      "item": {
+        "minLength": 1
+      }
+    }
+  ],
+  "objects": [
+    {
+      "path": "hit_policy",
+      "required": [
+        "per_target_limit"
+      ],
+      "additional_properties": false
+    },
+    {
+      "path": "templates[i]",
+      "required": [
+        "carrier",
+        "lifetime_ticks",
+        "parts",
+        "targeting",
+        "template_id"
+      ],
+      "additional_properties": false
+    },
+    {
+      "path": "templates[i].targeting",
+      "required": [
+        "target_group"
+      ],
+      "additional_properties": false
+    },
+    {
+      "path": "templates[i].timing",
+      "required": [],
+      "additional_properties": false
+    },
+    {
+      "path": "templates[i].cast",
+      "required": [],
+      "additional_properties": false
+    },
+    {
+      "path": "templates[i].emission",
+      "required": [],
+      "additional_properties": false
+    },
+    {
+      "path": "templates[i].motion",
+      "required": [],
+      "additional_properties": false
+    },
+    {
+      "path": "templates[i].geometry",
+      "required": [],
+      "additional_properties": false
+    },
+    {
+      "path": "templates[i].hit_policy",
+      "required": [
+        "per_target_limit"
+      ],
+      "additional_properties": false
+    },
+    {
+      "path": "templates[i].termination",
+      "required": [],
+      "additional_properties": false
+    },
+    {
+      "path": "templates[i].parts[i]",
+      "required": [
+        "part_index",
+        "type"
+      ],
+      "additional_properties": false
+    },
+    {
+      "path": "templates[i].parts[i].settlement",
+      "required": [],
+      "additional_properties": false
+    },
+    {
+      "path": "templates[i].attached",
+      "required": [],
+      "additional_properties": false
+    },
+    {
+      "path": "templates[i].summon",
+      "required": [],
+      "additional_properties": false
+    },
+    {
+      "path": "templates[i].derivations[i]",
+      "required": [
+        "child_template",
+        "count",
+        "event",
+        "reasons"
+      ],
+      "additional_properties": false
+    },
+    {
+      "path": "parts[i]",
+      "required": [
+        "part_index",
+        "type"
+      ],
+      "additional_properties": false
+    },
+    {
+      "path": "parts[i].settlement",
+      "required": [],
+      "additional_properties": false
+    },
+    {
+      "path": "brick_overrides[i]",
+      "required": [
+        "brick_index",
+        "values"
+      ],
+      "additional_properties": false
+    },
+    {
+      "path": "brick_overrides[i].values",
+      "required": [],
+      "additional_properties": null
+    },
+    {
+      "path": "derivations[i]",
+      "required": [
+        "child_template",
+        "count",
+        "event",
+        "reasons"
+      ],
+      "additional_properties": false
+    },
+    {
+      "path": "triggers[i]",
+      "required": [
+        "action_profile",
+        "condition",
+        "max_chain_depth",
+        "record",
+        "trigger_id"
+      ],
+      "additional_properties": false
+    },
+    {
+      "path": "modifiers[i]",
+      "required": [
+        "inheritable",
+        "modifier_id",
+        "permission",
+        "scope",
+        "stack_rule",
+        "targets"
+      ],
+      "additional_properties": false
+    },
+    {
+      "path": "modifiers[i].stack_rule",
+      "required": [
+        "operation_profile"
+      ],
+      "additional_properties": false
+    },
+    {
+      "path": "exposed_fields[i]",
+      "required": [
+        "field_path",
+        "inheritable",
+        "live",
+        "permissions"
+      ],
+      "additional_properties": false
+    },
+    {
+      "path": "passive.triggers[i]",
+      "required": [
+        "action_profile",
+        "condition",
+        "max_chain_depth",
+        "record",
+        "trigger_id"
+      ],
+      "additional_properties": false
+    },
+    {
+      "path": "passive",
+      "required": [],
+      "additional_properties": false
+    },
+    {
+      "path": "safety",
+      "required": [],
+      "additional_properties": false
+    },
+    {
+      "path": "params",
+      "required": [
+        "carrier",
+        "lifetime_ticks",
+        "templates"
+      ],
+      "additional_properties": false
+    }
+  ],
+  "tick_fields": [
+    "assembly_shared_cooldown_ticks",
+    "cooldown_ticks",
+    "hit_policy.rehit_interval_ticks",
+    "lifetime_ticks",
+    "parts[i].duration_ticks",
+    "passive.triggers[i].internal_cooldown_ticks",
+    "start_delay_ticks",
+    "templates[i].cast.shot_interval_ticks",
+    "templates[i].cast.windup_ticks",
+    "templates[i].hit_policy.rehit_interval_ticks",
+    "templates[i].lifetime_ticks",
+    "templates[i].parts[i].duration_ticks",
+    "templates[i].timing.active_ticks",
+    "templates[i].timing.start_delay_ticks",
+    "triggers[i].internal_cooldown_ticks",
+    "windup_ticks"
+  ],
+  "enums": {
+    "carrier": [
+      "none",
+      "self",
+      "independent",
+      "attached"
+    ],
+    "status": [
+      "已登记",
+      "候选",
+      "预留"
+    ],
+    "part_type": [
+      "physical",
+      "fire",
+      "ice",
+      "lightning",
+      "arcane",
+      "heal",
+      "shield",
+      "buff",
+      "debuff",
+      "knockback",
+      "control"
+    ],
+    "event": [
+      "hit",
+      "vanish"
+    ],
+    "vanish_reason": [
+      "hit_end",
+      "range_end",
+      "landed",
+      "expired",
+      "returned",
+      "interrupted",
+      "instant_end"
+    ],
+    "derivation_reason": [
+      "hit_end",
+      "range_end",
+      "landed",
+      "expired",
+      "returned",
+      "interrupted",
+      "instant_end"
+    ],
+    "permission": [
+      "mutate_number",
+      "add_behavior",
+      "mutate_live_instance"
+    ],
+    "scope": [
+      "own_skill",
+      "tagged"
+    ],
+    "targeting_group": [
+      "enemy",
+      "ally",
+      "point"
+    ],
+    "target_mode": [
+      "nearest",
+      "direction",
+      "ground",
+      "untargeted"
+    ],
+    "motion_mode": [
+      "straight",
+      "lob",
+      "orbit",
+      "stationary",
+      "wavefront",
+      "returning",
+      "follow",
+      "homing",
+      "ricochet",
+      "expanding"
+    ],
+    "geometry_shape": [
+      "circle",
+      "sector",
+      "line",
+      "rectangle"
+    ],
+    "on_target_lost": [
+      "continue",
+      "terminate"
+    ],
+    "record": [
+      "cast_started",
+      "hit_settled",
+      "evaded_all",
+      "damage_taken"
+    ]
+  },
+  "rule_field_aliases": {
+    "derivations[i].produces": [
+      "child_template"
+    ],
+    "derivations[i].on": [
+      "event"
+    ],
+    "triggers[i].produces": [
+      "action_profile",
+      "produces"
+    ],
+    "triggers[i].on": [
+      "record"
+    ]
+  },
+  "restricted_reasons": [
+    "range_end",
+    "interrupted"
+  ],
+  "_source": "schema_v0_1.yaml $defs 机械展开；unit=tick 仅按 _ticks 后缀判定；rule_field_aliases 为 V 规则统称到 Schema 落点的显式映射（D-23 通则，别名即权威）"
+}

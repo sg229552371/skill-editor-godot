@@ -136,3 +136,96 @@ func test_12_three_actions_six_shots_and_multi_instance_count() -> void:
 	assert_true(runner.stop()["ok"])
 
 
+func test_19_equipment_requires_explicit_cfg_duration() -> void:
+	var input: Dictionary = _inputs([1])
+	var host: RefCounted = input["host"]
+	var runner: RefCounted = input["runner"]
+	var initial: Dictionary = {"slot_a": "crystal_old", "slot_b": "relic_old"}
+	assert_true(host.configure_equipment({"slots": initial})["ok"])
+	var missing: Dictionary = runner.start(input["cfg"], input["options"])
+	assert_false(missing["ok"], str(missing))
+	assert_eq(missing["path"], "params.assembly_shared_cooldown_ticks")
+	assert_eq(missing["error"], "params.assembly_shared_cooldown_ticks: Explicit nonnegative integer assembly_shared_cooldown_ticks required in CFG")
+	assert_eq(host.equipment_snapshot()["slots"], initial)
+	assert_eq(host.equipment_snapshot()["assembly_shared_cooldown_until"], -1)
+	input["cfg"]["params"]["assembly_shared_cooldown_ticks"] = 3
+	var started: Dictionary = runner.start(input["cfg"], input["options"])
+	assert_true(started["ok"], "ED-17-19 runner preflight: " + str(started))
+	if not started["ok"]:
+		return
+	assert_true(host.request_equipment_changes({"slot_a": null})["ok"])
+	assert_eq(host.equipment_snapshot()["slots"], initial, "Staging must not publish a partial state")
+	assert_true(runner.advance_ticks(1)["ok"])
+	var state: Dictionary = host.equipment_snapshot()
+	assert_eq(state["slots"], {"slot_a": null, "slot_b": "relic_old"})
+	assert_eq(state["pending"], {})
+	assert_eq(state["assembly_shared_cooldown_until"], 4)
+	assert_eq(state["skill_cooldown_until"], -1)
+	assert_eq(state["passive_internal_cooldown_until"], -1)
+	assert_true(runner.stop()["ok"])
+
+
+func test_19_two_slots_share_cfg_cooldown_and_same_operation_recovers() -> void:
+	var outcomes: Array = []
+	for duration in [3, 5]:
+		for slot in ["slot_a", "slot_b"]:
+			var input: Dictionary = _inputs([1])
+			input["cfg"]["params"]["assembly_shared_cooldown_ticks"] = duration
+			var host: RefCounted = input["host"]
+			var runner: RefCounted = input["runner"]
+			var initial: Dictionary = {"slot_a": "crystal_old", "slot_b": "relic_old"}
+			var first_batch: Dictionary = {"slot_a": null, "slot_b": "relic_new"}
+			assert_true(host.configure_equipment({"slots": initial})["ok"])
+			var started: Dictionary = runner.start(input["cfg"], input["options"])
+			assert_true(started["ok"], "ED-17-19 runner preflight: " + str(started))
+			if not started["ok"]:
+				return
+			# Caller mutations must not become a second duration authority.
+			input["cfg"]["params"]["assembly_shared_cooldown_ticks"] = 99
+			assert_true(host.request_equipment_changes(first_batch)["ok"])
+			assert_eq(host.equipment_snapshot()["slots"], initial)
+			assert_eq(host.equipment_snapshot()["pending"], first_batch)
+			assert_true(runner.advance_ticks(1)["ok"])
+			assert_eq(runner.snapshot_state()["clock"]["tick"], 1)
+			var applied: Dictionary = host.equipment_snapshot()
+			assert_eq(applied["slots"], {"slot_a": null, "slot_b": "relic_new"})
+			assert_eq(applied["pending"], {})
+			assert_eq(applied["assembly_shared_cooldown_until"], 1 + duration)
+			assert_true(runner.advance_ticks(1)["ok"])
+			var operation: Dictionary = {}
+			operation[slot] = "replacement_after_cooldown"
+			var refused: Dictionary = host.request_equipment_changes(operation)
+			outcomes.append(refused["ok"])
+			assert_false(refused["ok"])
+			assert_eq(refused["code"], "EQUIPMENT_COOLDOWN")
+			assert_eq(refused["path"], "params.assembly_shared_cooldown_ticks")
+			assert_eq(refused["error"], "Equipment is cooling down; remaining ticks: %d" % (duration - 1))
+			assert_eq(host.equipment_snapshot(), applied, "Rejected operation changes neither slot nor pending batch")
+			assert_true(runner.advance_ticks(duration - 2)["ok"])
+			assert_eq(runner.snapshot_state()["clock"]["tick"], duration)
+			var last_tick: Dictionary = host.request_equipment_changes(operation)
+			assert_false(last_tick["ok"])
+			assert_eq(last_tick["code"], "EQUIPMENT_COOLDOWN")
+			assert_eq(last_tick["error"], "Equipment is cooling down; remaining ticks: 1")
+			assert_eq(host.equipment_snapshot(), applied)
+			assert_true(runner.advance_ticks(1)["ok"])
+			assert_eq(runner.snapshot_state()["clock"]["tick"], duration + 1)
+			var recovered: Dictionary = host.request_equipment_changes(operation)
+			outcomes.append(recovered["ok"])
+			assert_true(recovered["ok"], str(recovered))
+			if not recovered["ok"]:
+				return
+			assert_true(recovered["staged"])
+			assert_eq(host.equipment_snapshot()["pending"], operation, "Exactly the previously refused operation is staged")
+			assert_eq(host.equipment_snapshot()["slots"], applied["slots"], "Acceptance is not premature publication")
+			assert_true(runner.advance_ticks(1)["ok"])
+			var expected: Dictionary = applied["slots"].duplicate(true)
+			expected[slot] = "replacement_after_cooldown"
+			var final_state: Dictionary = host.equipment_snapshot()
+			assert_eq(final_state["slots"], expected, "Nonempty actual slot state, not just an ok flag")
+			assert_eq(final_state["pending"], {})
+			assert_eq(final_state["assembly_shared_cooldown_until"], 2 * duration + 2, "Bound CFG duration is reused, not caller's 99")
+			assert_true(runner.stop()["ok"])
+	assert_eq(outcomes, [false, true, false, true, false, true, false, true])
+
+

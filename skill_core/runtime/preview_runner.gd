@@ -240,7 +240,7 @@ func start(cfg: Variant, options: Dictionary) -> Dictionary:
 	_cast_id = "preview:%d" % _run_seq
 	_run_seq += 1
 	if _runtime_host != null:
-		var bound: Dictionary = _runtime_host._bind(_templates, roots, _tick_rate)
+		var bound: Dictionary = _runtime_host._bind(_templates, roots, _tick_rate, _cfg["params"])
 		if not bound["ok"]:
 			return _failure(bound["path"], bound["error"])
 	for launch in roots:
