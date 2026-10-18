@@ -158,6 +158,105 @@ func create_sim(cfg: Dictionary, seed: int = 0) -> Dictionary:
 	return {"ok": true, "diagnostics": [], "sim": {"runner": runner}, "fingerprint": started["fingerprint"]}
 
 # 职责：推进模拟固定步；参数：sim 为模拟状态、ticks 为步数；返回：统一结果包；对应真源：卷二第 14 章。
+# Narrow host-adapter entry for M6. The frozen create_sim contract remains
+# unchanged; runtime targets and settlement handlers stay outside CFG.
+func create_sim_with_hosts(cfg: Dictionary, seed: int = 0, hosts: Dictionary = {}) -> Dictionary:
+	var failure: Callable = func(path: String, message: String) -> Dictionary:
+		return {"ok": false, "path": path, "error": message, "diagnostics": []}
+	var diagnostics: Array = CodecScript.validate_structure(cfg)
+	if not diagnostics.is_empty():
+		return {"ok": false, "path": "cfg", "error": "CFG structure rejected", "diagnostics": diagnostics}
+	var schema: RefCounted = SchemaScript.new()
+	if not schema.configure():
+		return failure.call("schema", schema.last_error)
+	var checked: Dictionary = schema.validate(cfg)
+	if not checked["ok"]:
+		return {"ok": false, "path": "cfg", "error": "CFG schema rejected", "diagnostics": checked["diagnostics"]}
+	if not hosts.has("targets") or not hosts["targets"] is Array:
+		return failure.call("hosts.targets", "Explicit target roster array required")
+	if not hosts.has("handlers") or not hosts["handlers"] is Dictionary:
+		return failure.call("hosts.handlers", "Explicit settlement handler table required")
+	var targets: Array = hosts["targets"].duplicate(true)
+	var supplied_handlers: Dictionary = hosts["handlers"]
+	var catalog_path: String = "res://data/bricks/brick_catalog.json"
+	if not FileAccess.file_exists(catalog_path):
+		return failure.call("catalog", "Missing brick catalog")
+	var catalog: Variant = JSON.parse_string(FileAccess.get_file_as_string(catalog_path))
+	if not catalog is Array or catalog.is_empty():
+		return failure.call("catalog", "Expected nonempty brick catalog array")
+	var carriers: Dictionary = {}
+	for entry in catalog:
+		if not entry is Dictionary:
+			return failure.call("catalog", "Expected catalog entry object")
+		var id: Variant = entry.get("brick_id", null)
+		var carrier: Variant = entry.get("carrier", null)
+		if not id is String or id.is_empty() or not carrier is String or carriers.has(id):
+			return failure.call("catalog", "Invalid or duplicate catalog identity/carrier")
+		carriers[id] = carrier
+	var roots: Array = []
+	for index in range(cfg["bricks"].size()):
+		var brick: Dictionary = cfg["bricks"][index]
+		var brick_id: Variant = brick.get("brick_id", null)
+		var brick_path: String = "bricks[%d]" % index
+		if not brick_id is String or not carriers.has(brick_id):
+			return failure.call(brick_path + ".brick_id", "Brick is not registered in catalog")
+		if brick["carrier"] != carriers[brick_id]:
+			return failure.call(brick_path + ".carrier", "Carrier disagrees with catalog")
+		if carriers[brick_id] != BodyScript.CARRIER_INDEPENDENT:
+			continue
+		var registration: Variant = brick.get("default_cfg", null)
+		if not registration is Dictionary:
+			return failure.call(brick_path + ".default_cfg", "Root registration must be an object")
+		var template_id: Variant = registration.get("template_id", null)
+		var shot_id: Variant = registration.get("shot_id", null)
+		if not template_id is String or template_id.is_empty() or not shot_id is String or shot_id.is_empty():
+			return failure.call(brick_path + ".default_cfg", "Explicit template_id and shot_id required")
+		roots.append({"template_id": template_id, "shot_id": shot_id, "instance_id": "api:root:%d" % index})
+	if roots.is_empty():
+		return failure.call("bricks", "No catalog-classified independent root registration")
+	var metadata_path: String = "res://data/params_meta.json"
+	if not FileAccess.file_exists(metadata_path):
+		return failure.call("hosts.handlers", "Missing part type metadata")
+	var metadata: Variant = JSON.parse_string(FileAccess.get_file_as_string(metadata_path))
+	var enums: Variant = metadata.get("enums", null) if metadata is Dictionary else null
+	var part_types: Variant = enums.get("part_type", null) if enums is Dictionary else null
+	if not part_types is Array or part_types.is_empty():
+		return failure.call("hosts.handlers", "Expected nonempty part_type registry")
+	var handlers: Dictionary = {}
+	for kind in part_types:
+		if not kind is String or kind.is_empty():
+			return failure.call("hosts.handlers", "Invalid registered part type")
+		var handler: Variant = supplied_handlers.get(kind, null)
+		if not handler is Callable or not handler.is_valid():
+			return failure.call("hosts.handlers." + str(kind), "Missing valid settlement host adapter")
+		handlers[kind] = handler
+	var resolved: Dictionary = ResolverScript.new().resolve(cfg)
+	if not resolved["ok"]:
+		return {"ok": false, "path": "params", "error": "Parameter resolution rejected", "diagnostics": resolved["diagnostics"]}
+	var params: Variant = resolved["resolved"].get("params", null)
+	var templates: Variant = params.get("templates", null) if params is Dictionary else null
+	if not templates is Array or templates.is_empty():
+		return failure.call("params.templates", "Nonempty template registry required")
+	var families: Dictionary = {}
+	for template in templates:
+		if not template is Dictionary:
+			return failure.call("params.templates", "Expected template object")
+		var template_key: Variant = template.get("template_id", null)
+		if not template_key is String or template_key.is_empty():
+			return failure.call("params.templates", "Explicit template identity required")
+		families[template_key] = template_key
+	var options: Dictionary = {"seed": seed, "roots": roots, "handlers": handlers,
+		"template_families": families, "derivation_bindings": {}, "targets": targets}
+	for optional_key in ["project_config", "motion_inputs", "runtime_host"]:
+		if hosts.has(optional_key):
+			options[optional_key] = hosts[optional_key]
+	var runner: RefCounted = RunnerScript.new()
+	var started: Dictionary = runner.start(cfg, options)
+	print("SkillApi.create_sim_with_hosts PreviewRunner.start: ", started)
+	if not started["ok"]:
+		return started
+	return {"ok": true, "diagnostics": [], "sim": {"runner": runner}, "fingerprint": started["fingerprint"]}
+
 func step_sim(sim: Variant, ticks: int = 1) -> Dictionary:
 	# const RunnerScript hoisted to script scope
 	# const DiagnosticScript hoisted to script scope
