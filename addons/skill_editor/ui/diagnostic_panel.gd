@@ -84,7 +84,7 @@ func set_diagnostics(diagnostics: Variant, sources: Dictionary = {}, _overrides:
 			return _fail("诊断元素必须是 Diagnostic")
 	var result: Variant = _sorter.sort_diagnostics(diagnostics)
 	if not result is Dictionary or result.get("ok", false) != true or not result.get("diagnostics", null) is Array:
-		var reason: String = String(result.get("error", "排序失败")) if result is Dictionary else "排序失败"
+		var reason: String = str(result.get("error", "排序失败")) if result is Dictionary else "排序失败"
 		return _fail("DiagnosticSorter: " + reason)
 	var sorted: Array = result["diagnostics"]
 	var order: Array = _metadata["severity_order"]
@@ -181,7 +181,7 @@ func _entry_text(entry: Dictionary, view: String) -> String:
 	var fields: Array = _metadata["view_fields"][view]
 	var parts: PackedStringArray = PackedStringArray()
 	for field in fields:
-		parts.append(String(entry["values"][field]))
+		parts.append(str(entry["values"][field]))
 	var text: String = " | ".join(parts)
 	if entry["from_default"]:
 		text = _metadata["default_notice"] + " · " + text

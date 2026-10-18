@@ -129,8 +129,8 @@ func test_missing_editor_bridge_degrades_without_api_call() -> void:
 func test_plugin_content_contains_both_panels() -> void:
 	var panel: Control = ROOT_SCENE.instantiate()
 	add_child_autofree(panel)
-	assert_not_null(panel.get_node_or_null("SkillListPanel/Skills"))
-	assert_not_null(panel.get_node_or_null("BrickPicker/Bricks"))
+	assert_not_null(panel.get_node_or_null("Body/SkillListPanel/Skills"))
+	assert_not_null(panel.get_node_or_null("Body/BrickPicker/Bricks"))
 
 
 func test_missing_crud_interfaces_do_not_mutate_list() -> void:
