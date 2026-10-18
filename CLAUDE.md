@@ -90,11 +90,16 @@ GODOT_DISABLE_LEAK_CHECKS=1 "$GODOT" --headless --display-driver headless \
   -s res://addons/gut/gut_cmdln.gd -gtest=res://tests/<文件名>.gd -gexit
 ```
 
-**五个坑（已踩过，别再踩）**：
+**八个坑（已踩过，别再踩）**：
 1. `godot` **不在 PATH**（portable 版），必须用上面的绝对路径。写 `godot` 会 command not found。
 2. **版本必须锁 4.7.1**。用 4.7.2 跑过一次 import，把 `.godot/` 缓存写成 4.7.2 格式，与用户开着的 4.7.1 编辑器抢同一份缓存，**直接把编辑器搞崩过**。`Downloads/Godot_v4.7.2-.../` 那个**禁用**。
 3. **禁止 `-gdir=res://tests -ginclude_subdirs`**。实测该模式会挂起 5 分钟无输出直到超时。必须用 `-gtest=` 单文件模式，每个文件 0.4 秒。全量门禁 = 对每个 `res://tests/test_*.gd` 串行循环。
 4. `GODOT_DISABLE_LEAK_CHECKS=1` 不能省，否则引擎退出噪声会让退出码不等于测试结果（绿跑变红）。
+5. **别把函数头写丢**（T-011 真踩过）：`r_types.gd` 里 `_type_or_range_error(value, entry) -> String` 的**签名行在编辑中丢失**，
+   函数体变成游离代码，`--check-only` 一次抛 7 条 Parse Error（`Function "_type_or_range_error()" not found in base self` +
+   一串 `Identifier "entry"/"value" not declared` + `Cannot return a value of type "String" as "Array[String]"`）。
+   **只有第一条（not found in base self）是真定位点**，后面的都是连锁噪声。写完函数体回头确认签名行还在；
+   看到 `Function X() not found in base self` 先查是不是函数头没了。
 6. **Variant 跨类型比较会抛运行时错误**（T-012/T-033 真踩过）：`permission` 这类「作者可能乱填」的字段
    被填成 Array / int / null 时，`value == "some_string"` 或 `value != "x"` 会抛
    `Invalid operands 'Array' and 'String' in operator '=='`。它**不中断脚本**，但被 GUT 计为
@@ -105,11 +110,11 @@ GODOT_DISABLE_LEAK_CHECKS=1 "$GODOT" --headless --display-driver headless \
    `dict.new_key = v` → 键是 `&"new_key"`；`key is String` 为 false，`dict.has("new_key")` 取不到，
    与素材（JSON 解析出来是 String 键）对不上。新键一律写 `dict["new_key"] = v`。
    已有键用点语法赋值没问题。
-5. **别把函数头写丢**（T-011 真踩过）：`r_types.gd` 里 `_type_or_range_error(value, entry) -> String` 的**签名行在编辑中丢失**，
-   函数体变成游离代码，`--check-only` 一次抛 7 条 Parse Error（`Function "_type_or_range_error()" not found in base self` +
-   一串 `Identifier "entry"/"value" not declared` + `Cannot return a value of type "String" as "Array[String]"`）。
-   **只有第一条（not found in base self）是真定位点**，后面的都是连锁噪声。写完函数体回头确认签名行还在；
-   看到 `Function X() not found in base self` 先查是不是函数头没了。
+8. **给显式类型变量赋 null 会抛运行时错误**（T-034 真踩过）：`var list: Array = by_target.get(target, null)`
+   在键不存在时抛 `Trying to assign value of type 'Nil' to a variable of type 'Array'`；
+   它**不中断脚本**但让函数返回空值，下游 `result.ok` 再报一次 `Invalid access to property or key 'ok'`，
+   两条连报且第二条具有误导性。从容器取值且可能为空时，变量一律声明为 `Variant`，再用
+   `is Array` / `is Dictionary` 判定后按需创建（与坑 2「默认值写 null」是同一家族：判空在赋值之后，不在赋值之时）。
 
 ### ✅ 唯一例外：你被允许跑 `--check-only` 语法检查
 
@@ -157,6 +162,8 @@ timeout 60 "$GODOT" --headless --check-only --script res://<你改的文件>.gd
    - **Variant 跨类型比较**（T-012/T-033）：作者可乱填的字段先转 `String`（非字符串即空），
      再参与 `==`/`!=`，否则 GUT 记为 `Unexpected Errors`（见第五节坑 6）。
    - **点语法写新键变 StringName**（T-033）：新键必须 `dict["key"] = v`（见第五节坑 7）。
+   - **显式类型变量被赋 null**（T-034）：`var arr: Array = dict.get(k, null)` 会抛运行时错误，
+     容器取值一律先声明 `Variant`，再用 `is` 判定（见第五节坑 8）。
    编译错误会让整脚本加载失败，代价很高；
 3. 回执里写「自测声明：未运行引擎，已静态复核 X 处」，并把你认为可能红的点列进「未决与风险」。
 

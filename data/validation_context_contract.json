@@ -87,6 +87,54 @@
       "consumers": ["V-067"],
       "required_by": ["V-067"],
       "semantics": "{ depth_bound, source_mark_bound, cooldown_bound, budget_bound, worst_case_note_complete }；非空 self_chain_note 不等于说明完整，不搜索中文关键词"
+    },
+    "player_attribute_bindings": {
+      "type": "Dictionary",
+      "consumers": ["V-077"],
+      "required_by": ["V-077"],
+      "semantics": "{ <player_attribute>: { resolved_path, resolved_value, matches } } —— 玩家手填属性到当前生效参数的绑定与解析结果；matches=false 或解析失败 → V-077 警告（可保存，必须进诊断）。空 Dictionary 证明无待查属性；缺失或非 Dictionary → 显式失败。不得按显示文本猜字段，也不得以『非空字符串』证明一致"
+    },
+    "resource_resolution": {
+      "type": "Dictionary",
+      "consumers": ["V-078"],
+      "required_by": ["V-078"],
+      "semantics": "{ <resource_path>: { resolved, placeholder_legal } } —— resolved=false 且 placeholder_legal=true → V-078 警告（可保存）；resolved=false 且无合法占位 → 交资源缺失的阻止规则处理，不得把所有资源缺失一律降为警告"
+    },
+    "probe_credentials": {
+      "type": "Dictionary",
+      "consumers": ["V-079"],
+      "required_by": ["V-079"],
+      "semantics": "{ <brick_id 或 produces 路径>: { result: pass/fail, content_fingerprint, runtime_version, capabilities[], coverage } } —— 真源 14.6：凭据必须绑定积木内容指纹、运行时版本和启用能力；result 非 pass、缺任一绑定项或 coverage 不完整 → V-079 阻止保存，定位到引入该能力的积木卡或 params.triggers[i].produces；不得凭单个无绑定成功布尔冒充证据"
+    },
+    "baseline_version_state": {
+      "type": "Dictionary",
+      "consumers": ["V-081"],
+      "required_by": ["V-081"],
+      "semantics": "{ baseline_version, current_underlying_version, operation } —— 保存时底层定义已被其他操作更新：两者不相等 → V-081 阻止保存，定位 meta.version；缺失或非 Dictionary → 显式失败"
+    },
+    "default_applications": {
+      "type": "Array",
+      "consumers": ["V-082"],
+      "required_by": ["V-082"],
+      "semantics": "[ { path, default_value, author_filled, legally_applied } ] —— legally_applied=true 且 author_filled=false → V-082 提示（SEV_HINT，可保存，必须进诊断），定位实际默认槽位；不得只因字段不存在就推断默认值已合法应用"
+    },
+    "migration_state": {
+      "type": "Dictionary",
+      "consumers": ["V-083"],
+      "required_by": ["V-083"],
+      "semantics": "{ migrating, source_version, target_version, path_complete, lossless } —— migrating=true 且（target_version 缺失/未知 或 path_complete=false 或 lossless=false）→ V-083 阻止保存，定位 schema_version；migrating=false（普通当前版本）不触发本规则"
+    },
+    "preview_fingerprint": {
+      "type": "Dictionary",
+      "consumers": ["V-084"],
+      "required_by": ["V-084"],
+      "semantics": "{ preview_fingerprint, current_fingerprint, operation: save|certify } —— 见 path_ruling.V-084；operation 缺失或不是 save/certify → 显式失败"
+    },
+    "damage_number_semantics": {
+      "type": "Dictionary",
+      "consumers": ["V-076"],
+      "required_by": [],
+      "semantics": "{ cross_target, cross_type, writeback } —— 数字合并的跨目标/跨类型/逻辑回写事实（可选）。缺失登记 notice 并跳过，不算通过证据（failure_policy.optional_missing）；本地仍必须校验 source/merge_policy 枚举与 fallback_total const true（见 presentation_meta.json 的 damage_number_policy）"
     }
   },
 
@@ -97,6 +145,9 @@
   },
 
   "path_ruling": {
-    "V-060": "诊断定位落到 Schema 落点 params.triggers[i].record（D-24 + 别名表）；作者提交未登记的 .on 输入由未知字段规则（V-019）处理，不静默迁移、不改名"
-  }
+    "V-060": "诊断定位落到 Schema 落点 params.triggers[i].record（D-24 + 别名表）；作者提交未登记的 .on 输入由未知字段规则（V-019）处理，不静默迁移、不改名",
+    "V-084": "真源 14.5 后段（133）：只阻止把旧预览结果认证为当前定义的『已验证保存』。context.preview_fingerprint.operation='certify' 且两枚指纹不同 → V-084 阻止保存（CSV 严重度不变）；operation='save' 且指纹不同 → 普通合法 CFG 可保存，不发阻止诊断，改为 notice『未预览/未认证』。不得用严重度覆盖表解决入口差异，也不得把未经新预览的定义显示为已验证"
+  },
+
+  "_T013_note": "V-070…V-084 的本地可计算部分（七槽、字段类型/枚举/范围/const、段启用判据、拖尾关系、订阅禁值、回写禁区、runtime_hints 未登记叶）由校验器自己算，素材见 res://data/presentation_meta.json（审核方 2026-10-18 补抽：leaves/arrays/objects/section_enable/trail_carrier_policy/damage_number_policy/subscription_fields/logic_writeback/runtime_hints）。"
 }
