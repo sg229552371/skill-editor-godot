@@ -1,0 +1,33 @@
+{
+  "schema_version": "0.1",
+  "_source": "T-045 顶部 PROVISIONAL_META 经审核方复核后固化（2026-10-18）；事件依据 D-08（只有 hit/vanish），预算角色与继承项依据 V-057/V-058 与 project_limits.json，关系依据真源 7153，records 为运行期账本键名",
+  "_reviewed_by": "WorkBuddy",
+  "_note": "派生运行期的绑定素材。键名一律由本文件驱动，derive.gd 不得硬编码；缺失/解析失败按 D-21 显式失败。本文件不含任何项目性能数值（那些在 project_limits.json，且带 _provisional 的项必须由项目配置注入覆盖）。",
+
+  "event_roles": {
+    "contact": "hit",
+    "termination": "vanish",
+    "_note": "D-08：事件只有 hit / vanish 两种；候选接触与份记录都不是事件，不入 FIFO。"
+  },
+  "budget_roles": {
+    "generation": "max_generation",
+    "cast": "cast_budget",
+    "depth": "max_chain_depth",
+    "_note": "硬上限名 → project_limits.hard_caps 的键；默认值名 → project_limits.defaults 的键。"
+  },
+  "inherited_budgets": ["split_budget", "chain_remaining"],
+  "_inherited_note": "V-057/V-058：子体必须递减并保留这两项，不得重置。visited 不属于继承预算，由 binding.reject_visited 单独表达。",
+  "relation": "chain_depth_ge_generation",
+  "_relation_note": "真源 7153：generation 只数派生，chain_depth 数派生+被动触发生成，故恒定 chain_depth >= generation；relations 中该值必须为 true 才视为已强制。",
+  "records": {
+    "generation": "gen_limit",
+    "budget": "budget_drop",
+    "depth": "chain_depth_limit",
+    "repeat": "proc_mask",
+    "visited": "visited",
+    "purge": "purge",
+    "created": "created",
+    "error": "derive_error",
+    "_note": "运行期账本记录键名。purge 必须静默：不发 vanish、不派生、不补 hit；budget_drop 是 debug_record 的 kind，不是事件也不是原因码。"
+  }
+}

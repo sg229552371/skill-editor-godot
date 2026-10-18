@@ -1,16 +1,16 @@
 # 开发进度看板（WorkBuddy 维护，每次汇报刷新）
 
 > 引擎：Godot **4.7.1**（`Ryko.GodotHub/godot-versions/4.7.1-stable`）｜门禁归 WorkBuddy 独占，Claude CLI 只写代码
-> 更新：2026-10-18 21:10
+> 更新：2026-10-18 21:25
 
 ## 一、总览
 
 | 项 | 数 |
 |---|---|
-| 已 PASS 并合入主干的任务卡 | 17（基线 10 + T-030/042 + T-010/011/012/032/033/043/044） |
-| 在跑（CLI 后台） | 3（T-045 线C / T-034 线B / T-013 线A） |
+| 已 PASS 并合入主干的任务卡 | 19（基线 10 + T-030/042 + T-010/011/012/032/033/043/044 + **T-034/T-045**） |
+| 在跑（CLI 后台） | 1（**T-013 线A 二轮**，素材已补齐后重派） |
 | 待派 | 见第四节 |
-| 全量测试 | **246/246 绿**（15 个测试文件） |
+| 全量测试 | **285/285 绿**（17 个测试文件） |
 
 ## 二、已 PASS（按完成时间）
 
@@ -28,14 +28,14 @@
 | **T-012** | **V-039…V-069 修饰器/派生安全/被动触发** | `validate/rules/r_modifier.gd` | **41/41，756 asserts**（`4ce0969`，坑 6） |
 | **T-033** | **修饰器引擎三档权限** | `modify/modifier_engine.gd` | **24/24，1433 asserts**（`4af27a7`，坑 6+7） |
 | **T-044** | **结算份 parts（ED-17-01…06）** | `runtime/settle.gd` + `data/settle_meta.json` | **23/23，487 asserts**（`cd1ad30`，D-28） |
+| **T-034** | **叠加运算 stack_rule（set→add→mul→clamp，从基准重算）** | `modify/stack_rule.gd` | **11/11，48 asserts**（`0089d7e`，修坑 8 后转绿） |
+| **T-045** | **派生 hit/vanish + 7 原因码 + 预算（purge 静默、三代继承）** | `runtime/derive.gd` | **28/28，602 asserts**（`9d40721`） |
 
 ## 三、在跑（CLI 后台）
 
 | 卡 | 线 | 产出 | 状态 |
 |---|---|---|---|
-| T-045 | C 运行时 | `runtime/derive.gd`（派生 hit/vanish + 原因码 + 预算） | 21:0x 派发，依赖 T-044 已 PASS |
-| T-034 | B 解析 | `modify/stack_rule.gd`（叠加运算 set→add→mul→clamp） | 21:0x 派发，依赖 T-033 已 PASS |
-| T-013 | A 校验 | `validate/rules/r_present.gd`（V-070…084） | 21:0x 派发，已备 `presentation_meta.json` |
+| **T-013（二轮）** | A 校验 | `validate/rules/r_present.gd`（V-070…084） | 21:2x 重派。首轮 BLOCKED（素材不全）→ 审核方已补 `presentation_meta.json`（60 叶 + 启用判据/拖尾关系/合并边界/订阅禁值/回写禁区/runtime_hints）与 context 契约 V-076…084，并裁定 V-073 两段式、V-075 关系、V-080 未登记叶、V-084 入口区分 |
 
 **验收流程（每张卡固定）**：`--check-only` 编译 → 单文件 GUT 串行 → 全量回归 → 写复核结论到 `reports/T-xxx.md` → 判 PASS 才提交（`T-xxx` 开头 commit）。
 
@@ -52,9 +52,9 @@
 · `identity_meta.json` · `params_meta.json`(叶 159/数组 26/对象 28/tick 15/枚举 14)
 · `exposed_fields_meta.json` · `shape_hit_meta.json` · `settle_meta.json` · `presentation_meta.json`
 · `project_limits.json`(硬上限，含 `_provisional`) · `item_permission_policy.json` · `protected_targets.json`
-· `record_fields.json` · `validation_context_contract.json`
+· `record_fields.json` · `validation_context_contract.json`（已登记 V-076…084 context 键 + `path_ruling.V-084`）
 
-抽取脚本：`S_docs/collab/assets/extract_params_meta.py`
+抽取脚本：`S_docs/collab/assets/extract_params_meta.py` · `extract_presentation_meta.py`（本轮新增，抽 presentation 60 叶 + 七段结构）
 
 ## 六、未决（不阻塞，见 02-决策台账.md）
 
@@ -77,3 +77,7 @@ U-09 YamlLite chomping（`>-` `|-`）· U-11 V-018 动词词表 · U-12 切句�
 - **坑 5** 函数头丢失（第一条 `Function X not found in base self` 是真定位点）
 - **坑 6** Variant 跨类型比较抛运行时错误 → GUT 记 Unexpected Errors，断言只差 1，极难看出
 - **坑 7** 点语法给 Dictionary 写新键生成 StringName 键，不是 String（`has("x")` 取不到）
+- **坑 8**（本轮 T-034 新踩）给**显式类型变量**赋 null 抛运行时错误：`var list: Array = dict.get(k, null)`；
+  它不中断脚本但让函数返回空值，下游 `result.ok` 再报一条误导性错误。**容器取值一律先声明 `Variant` 再 `is` 判定**
+- **D-29**（本轮）V-073 两段式：类型/范围走 Schema（minimum 0），「启用时正整数」走启用态（`enabled_minimum_overrides`）
+- **D-30**（本轮）V-084 入口区分：certify 指纹不同 → 阻止保存；save 指纹不同 → 可保存 + 「未预览」notice（真源 133，不动 CSV 严重度）
