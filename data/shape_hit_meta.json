@@ -1,0 +1,58 @@
+{
+  "schema_version": "0.1",
+  "_source": "S_docs/collab/assets/schema_v0_1.yaml $defs.geometry(296-308) / $defs.hit_policy(172-190) / $defs.geometry_shape(62-64) 机械抽取；kernel 绑定为运行期实现映射，非 CFG 字段",
+  "_extracted_by": "WorkBuddy",
+  "_extracted_on": "2026-10-18",
+  "geometry_shape_field": "shape",
+  "shapes": {
+    "circle": {
+      "kernel": "disk",
+      "arguments": ["radius"],
+      "_note": "圆心=作用体位置；距离 <= radius 为候选接触"
+    },
+    "sector": {
+      "kernel": "wedge",
+      "arguments": ["radius", "sector_angle"],
+      "_note": "U-T043-geometry：sector_angle 按全角处理，方向为角平分线；边界相等算命中（待评审）"
+    },
+    "line": {
+      "kernel": "forward_box",
+      "arguments": ["length", "width"],
+      "_note": "U-T043-geometry：前向平端矩形，原点在起点、沿方向延伸 length，半宽 width/2；不扩展端帽（保守约定，待评审）"
+    },
+    "rectangle": {
+      "kernel": "centered_box",
+      "arguments": ["length", "width"],
+      "_note": "U-T043-geometry：以作用体位置为中心的矩形（待评审）"
+    }
+  },
+  "geometry_fields": {
+    "shape": {"type": "string", "enum": ["circle", "sector", "line", "rectangle"], "required": true},
+    "radius": {"type": "number", "exclusiveMinimum": 0},
+    "sector_angle": {"type": "number", "exclusiveMinimum": 0, "maximum": 100, "default": 25},
+    "length": {"type": "number", "exclusiveMinimum": 0},
+    "width": {"type": "number", "exclusiveMinimum": 0},
+    "wavefront_start_radius": {"type": "number", "minimum": 0, "default": 0},
+    "wavefront_end_radius": {"type": "number", "exclusiveMinimum": 0},
+    "wavefront_speed": {"type": "number", "exclusiveMinimum": 0},
+    "area_profile": {"type": "string", "runtime_adapter_required": true}
+  },
+  "hit_policy_fields": {
+    "per_target_limit": {"type": "integer", "minimum": 1, "default": 1, "description": "按候选接触计数，不是成立 hit 次数。"},
+    "rehit_interval_ticks": {"type": "integer", "minimum": 1},
+    "max_hits": {"type": "integer", "minimum": 1, "description": "只计成立 hit；省略表示没有该项限制"}
+  },
+  "hit_policy_required": ["per_target_limit"],
+  "policy_roles": {
+    "target_limit": "per_target_limit",
+    "interval": "rehit_interval_ticks",
+    "hit_limit": "max_hits"
+  },
+  "hit_event": "hit",
+  "_decisions": {
+    "D-08": "事件只有 hit / vanish；purge 静默：不发 vanish、不派生、不补 hit",
+    "candidate_vs_hit": "候选接触与成立 hit 分别计数；全闪避消耗目标额度、不耗 max_hits、不逐 tick 重掷（真源 14.6 完整性账本）",
+    "fifo": "同一 tick 内 FIFO；死亡目标不再产生 hit；闪避等随机判定走可注入种子 RNG（真源 6359-6363）",
+    "D-09": "判定只吃逻辑流种子；表现 RNG 不参与判定"
+  }
+}
