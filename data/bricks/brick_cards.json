@@ -1,0 +1,1439 @@
+{
+ "_note": "离线抽取自技能系统书 ch04 的 YAML 卡片块；运行期只读本 JSON，不解析 md/yaml（D-22）。",
+ "_source": "S_docs/collab/assets/_raw_ch04_bricks.md",
+ "card_count": 28,
+ "cards": [
+  {
+   "brick_id": "projectile_bolt",
+   "name": "直线飞弹",
+   "tagline": "沿固定方向飞行并接触敌人",
+   "carrier": "independent",
+   "summary": "生成一个沿出手方向运动的效果体。候选接触逐目标结算，额度用尽后结束。适合单发、齐发及穿透脉冲的基础形态。",
+   "default_cfg": {
+    "carrier": "independent",
+    "lifetime_ticks": 100,
+    "hit_policy": {
+     "per_target_limit": 1,
+     "max_hits": 1
+    },
+    "params": {
+     "motion": "linear",
+     "shape": "circle",
+     "speed": 6,
+     "radius": 8,
+     "range": 600,
+     "damage": 20,
+     "shotgun_allowed": false
+    }
+   },
+   "author_params": [
+    "params.speed",
+    "params.radius",
+    "params.range",
+    "params.damage",
+    "hit_policy.max_hits",
+    "params.shotgun_allowed"
+   ],
+   "locked_params": {
+    "carrier": "独立生命周期不可换型",
+    "hit_policy.per_target_limit": "防止连续重掷闪避",
+    "origin": "来源链由管线管理"
+   },
+   "relic_params": {
+    "params.speed": "可改",
+    "params.radius": "可改",
+    "params.range": "可改",
+    "params.damage": "可改",
+    "hit_policy.max_hits": "可改",
+    "pierce_behavior": "可加",
+    "split_behavior": "可加",
+    "origin": "禁止",
+    "mutate_live_instance": "禁止"
+   },
+   "presentation": [
+    "fx",
+    "sfx",
+    "anim",
+    "trail",
+    "damage_number"
+   ],
+   "player_text": [
+    "射出飞弹，沿前方直线飞行。",
+    "飞弹击中敌人时造成伤害。",
+    "达到射程后消散。"
+   ],
+   "status": "已登记"
+  },
+  {
+   "brick_id": "projectile_lob",
+   "name": "定点抛射炮弹",
+   "tagline": "飞向落点并在抵达时范围结算",
+   "carrier": "independent",
+   "summary": "生成一个具有落点和飞行时长的炮弹效果体。抵达时先对范围内目标结算，再按 landed 结束。适合重型火炮及地面投掷。",
+   "default_cfg": {
+    "carrier": "independent",
+    "lifetime_ticks": 60,
+    "hit_policy": {
+     "per_target_limit": 1
+    },
+    "params": {
+     "motion": "lob",
+     "landing_radius": 80,
+     "physical_damage": 30,
+     "fire_damage": 10,
+     "reason_filter": [
+      "landed"
+     ]
+    }
+   },
+   "author_params": [
+    "lifetime_ticks",
+    "params.landing_radius",
+    "params.physical_damage",
+    "params.fire_damage",
+    "params.reason_filter"
+   ],
+   "locked_params": {
+    "carrier": "炮弹需要独立存活",
+    "landing_order": "落点接触先于终止",
+    "arc_height": "仅由表现配置消费"
+   },
+   "relic_params": {
+    "lifetime_ticks": "可改",
+    "params.landing_radius": "可改",
+    "params.physical_damage": "可改",
+    "params.fire_damage": "可改",
+    "landing_zone_behavior": "可加",
+    "landing_order": "禁止",
+    "mutate_live_instance": "禁止"
+   },
+   "presentation": [
+    "fx",
+    "sfx",
+    "anim",
+    "trail",
+    "camera",
+    "damage_number"
+   ],
+   "player_text": [
+    "向目标地面发射一枚炮弹。",
+    "炮弹落地时炸伤附近的敌人。",
+    "炮弹被拦截时不会在落点爆炸。"
+   ],
+   "status": "已登记"
+  },
+  {
+   "brick_id": "periodic_zone",
+   "name": "周期区域",
+   "tagline": "在固定区域按间隔施加效果",
+   "carrier": "independent",
+   "summary": "生成一个静止且有寿命的区域效果体。每个脉冲对当前合法目标发起接触。伤害区与治疗区复用形状和节奏，但由份类型及阵营区分。",
+   "default_cfg": {
+    "carrier": "independent",
+    "lifetime_ticks": 180,
+    "hit_policy": {
+     "per_target_limit": 3,
+     "rehit_interval_ticks": 60
+    },
+    "params": {
+     "motion": "stationary",
+     "shape": "circle",
+     "radius": 80,
+     "pulse_amount": 8,
+     "part_type": "fire",
+     "include_self": false
+    }
+   },
+   "author_params": [
+    "lifetime_ticks",
+    "hit_policy.per_target_limit",
+    "hit_policy.rehit_interval_ticks",
+    "params.radius",
+    "params.pulse_amount",
+    "params.part_type",
+    "params.include_self"
+   ],
+   "locked_params": {
+    "expiry_priority": "到期不额外结算脉冲",
+    "pulse_clock": "只用逻辑tick",
+    "origin": "不允许脉冲重开来源链"
+   },
+   "relic_params": {
+    "lifetime_ticks": "可改",
+    "hit_policy.rehit_interval_ticks": "可改",
+    "hit_policy.per_target_limit": "可改",
+    "params.radius": "可改",
+    "params.pulse_amount": "可改",
+    "expired_burst_behavior": "可加",
+    "expiry_priority": "禁止",
+    "mutate_live_instance": "禁止"
+   },
+   "presentation": [
+    "fx",
+    "sfx",
+    "damage_number",
+    "status_icon"
+   ],
+   "player_text": [
+    "在地面留下一片作用区域。",
+    "区域内的敌人每隔一段时间受到伤害。",
+    "持续一段时间后区域消失。"
+   ],
+   "status": "已登记"
+  },
+  {
+   "brick_id": "delayed_patch",
+   "name": "延迟地面判定",
+   "tagline": "等待后在指定位置进行一次范围接触",
+   "carrier": "independent",
+   "summary": "生成一个等待期间存活但不判定的地面效果体。开始延迟结束时进行一次范围接触。适合地刺列、定时地雷和亡魂魂印。",
+   "default_cfg": {
+    "carrier": "independent",
+    "lifetime_ticks": 7,
+    "hit_policy": {
+     "per_target_limit": 1
+    },
+    "params": {
+     "motion": "stationary",
+     "shape": "circle",
+     "start_delay": 6,
+     "active_ticks": 1,
+     "radius": 50,
+     "damage": 20
+    }
+   },
+   "author_params": [
+    "params.start_delay",
+    "params.active_ticks",
+    "params.radius",
+    "params.damage"
+   ],
+   "locked_params": {
+    "lifetime_ticks": "由等待与活动窗口一致性计算",
+    "delay_event": "等待结束不是技能事件",
+    "origin": "不得借延迟另开预算"
+   },
+   "relic_params": {
+    "params.start_delay": "可改",
+    "params.radius": "可改",
+    "params.damage": "可改",
+    "expired_zone_behavior": "可加",
+    "delay_event": "禁止",
+    "mutate_live_instance": "禁止"
+   },
+   "presentation": [
+    "fx",
+    "sfx",
+    "camera",
+    "damage_number"
+   ],
+   "player_text": [
+    "在指定地面留下一个印记。",
+    "片刻后印记爆发，伤害附近的敌人。",
+    "爆发结束后印记消失。"
+   ],
+   "status": "已登记"
+  },
+  {
+   "brick_id": "expanding_wave",
+   "name": "扩张波前",
+   "tagline": "让判定边界向外推进",
+   "carrier": "independent",
+   "summary": "生成一个半径随逻辑tick扩张的效果体。目标首次被波前覆盖时进行接触。适合地震波和具有远近先后的冲击。",
+   "default_cfg": {
+    "carrier": "independent",
+    "lifetime_ticks": 40,
+    "hit_policy": {
+     "per_target_limit": 1
+    },
+    "params": {
+     "motion": "expanding",
+     "shape": "circle",
+     "initial_radius": 0,
+     "wave_speed": 5,
+     "max_radius": 200,
+     "damage": 18
+    }
+   },
+   "author_params": [
+    "lifetime_ticks",
+    "params.wave_speed",
+    "params.max_radius",
+    "params.damage"
+   ],
+   "locked_params": {
+    "hit_policy.per_target_limit": "已覆盖目标不能重复判定",
+    "wave_event": "波前到位不是事件",
+    "past_contacts": "扩大范围不回写过去接触"
+   },
+   "relic_params": {
+    "lifetime_ticks": "可改",
+    "params.wave_speed": "可改",
+    "params.max_radius": "可改",
+    "params.damage": "可改",
+    "expired_zone_behavior": "可加",
+    "wave_event": "禁止",
+    "mutate_live_instance": "禁止"
+   },
+   "presentation": [
+    "fx",
+    "sfx",
+    "camera",
+    "damage_number"
+   ],
+   "player_text": [
+    "释放向外扩散的冲击波。",
+    "波前扫过敌人时造成伤害。",
+    "扩散结束后冲击波消散。"
+   ],
+   "status": "已登记"
+  },
+  {
+   "brick_id": "orbit_blade",
+   "name": "环绕飞刃",
+   "tagline": "围绕参考中心移动并间隔接触",
+   "carrier": "independent",
+   "summary": "生成一个按轨道运动的独立效果体。接触以实例和目标为键独立计时。适合护身岩盘、环绕刀刃及外围持续压制。",
+   "default_cfg": {
+    "carrier": "independent",
+    "lifetime_ticks": 120,
+    "hit_policy": {
+     "per_target_limit": 4,
+     "rehit_interval_ticks": 30
+    },
+    "params": {
+     "motion": "orbit",
+     "orbit_radius": 60,
+     "angular_speed": 6,
+     "phase": 0,
+     "radius": 10,
+     "damage": 10
+    }
+   },
+   "author_params": [
+    "lifetime_ticks",
+    "params.orbit_radius",
+    "params.angular_speed",
+    "params.phase",
+    "params.radius",
+    "params.damage",
+    "hit_policy.per_target_limit",
+    "hit_policy.rehit_interval_ticks"
+   ],
+   "locked_params": {
+    "carrier": "轨道引用不等于自身位移载体",
+    "rehit_key": "按实例与目标计时",
+    "phase_history": "不重算已经走过的轨迹"
+   },
+   "relic_params": {
+    "lifetime_ticks": "可改",
+    "params.orbit_radius": "可改",
+    "params.angular_speed": "可改",
+    "params.damage": "可改",
+    "hit_policy.rehit_interval_ticks": "可改",
+    "hit_patch_behavior": "可加",
+    "phase_history": "禁止",
+    "mutate_live_instance": "禁止"
+   },
+   "presentation": [
+    "fx",
+    "sfx",
+    "trail",
+    "damage_number"
+   ],
+   "player_text": [
+    "生成绕你旋转的飞刃。",
+    "飞刃会反复击打靠近的敌人。",
+    "持续一段时间后飞刃消散。"
+   ],
+   "status": "已登记"
+  },
+  {
+   "brick_id": "returning_blade",
+   "name": "回旋投掷",
+   "tagline": "向外飞行后返回参考点",
+   "carrier": "independent",
+   "summary": "生成具有去程与回程的独立效果体。去回程共享接触记录。适合回旋刃与投掷后归位的攻击。",
+   "default_cfg": {
+    "carrier": "independent",
+    "lifetime_ticks": 120,
+    "hit_policy": {
+     "per_target_limit": 1
+    },
+    "params": {
+     "motion": "return",
+     "speed": 6,
+     "range": 240,
+     "radius": 10,
+     "damage": 20
+    }
+   },
+   "author_params": [
+    "lifetime_ticks",
+    "params.speed",
+    "params.range",
+    "params.radius",
+    "params.damage",
+    "hit_policy.per_target_limit"
+   ],
+   "locked_params": {
+    "return_event": "转向不是事件",
+    "contact_history": "回程默认不重置接触表",
+    "returned": "归位只终止一次"
+   },
+   "relic_params": {
+    "params.speed": "可改",
+    "params.range": "可改",
+    "params.damage": "可改",
+    "return_rehit_behavior": "可加",
+    "returned_burst_behavior": "可加",
+    "contact_history": "禁止",
+    "mutate_live_instance": "禁止"
+   },
+   "presentation": [
+    "fx",
+    "sfx",
+    "trail",
+    "damage_number"
+   ],
+   "player_text": [
+    "投出一把向外飞行后返回的飞刃。",
+    "飞刃沿途击伤敌人。",
+    "回到身边后收回。"
+   ],
+   "status": "已登记"
+  },
+  {
+   "brick_id": "sustained_beam",
+   "name": "持续射线",
+   "tagline": "在存活期间维持线形接触区域",
+   "carrier": "independent",
+   "summary": "生成有寿命的线形效果体。沿射线覆盖目标并按声明间隔重复接触。适合持续光束，与一次性射线分开登记。",
+   "default_cfg": {
+    "carrier": "independent",
+    "lifetime_ticks": 120,
+    "hit_policy": {
+     "per_target_limit": 4,
+     "rehit_interval_ticks": 30
+    },
+    "params": {
+     "motion": "stationary",
+     "shape": "line",
+     "length": 400,
+     "width": 12,
+     "damage": 10
+    }
+   },
+   "author_params": [
+    "lifetime_ticks",
+    "params.length",
+    "params.width",
+    "params.damage",
+    "hit_policy.per_target_limit",
+    "hit_policy.rehit_interval_ticks"
+   ],
+   "locked_params": {
+    "carrier": "有存活期不能使用none",
+    "beam_tick": "接触不依赖贴图帧",
+    "contact_order": "按统一顺序结算"
+   },
+   "relic_params": {
+    "lifetime_ticks": "可改",
+    "params.length": "可改",
+    "params.width": "可改",
+    "params.damage": "可改",
+    "hit_policy.rehit_interval_ticks": "可改",
+    "hit_zone_behavior": "可加",
+    "beam_tick": "禁止",
+    "mutate_live_instance": "禁止"
+   },
+   "presentation": [
+    "fx",
+    "sfx",
+    "anim",
+    "trail",
+    "damage_number"
+   ],
+   "player_text": [
+    "向前维持一道光束。",
+    "光束持续伤害覆盖到的敌人。",
+    "持续结束后光束熄灭。"
+   ],
+   "status": "已登记"
+  },
+  {
+   "brick_id": "homing_projectile",
+   "name": "追踪飞弹",
+   "tagline": "追向目标并保留有限飞行终点",
+   "carrier": "independent",
+   "summary": "生成在运动中追踪目标的效果体。目标丢失默认保持最后朝向。适合导弹与需要追踪能力的子弹配方。",
+   "default_cfg": {
+    "carrier": "independent",
+    "lifetime_ticks": 100,
+    "hit_policy": {
+     "per_target_limit": 1,
+     "max_hits": 1
+    },
+    "params": {
+     "motion": "homing",
+     "speed": 5,
+     "radius": 8,
+     "range": 500,
+     "damage": 20,
+     "on_target_lost": "continue"
+    }
+   },
+   "author_params": [
+    "lifetime_ticks",
+    "params.speed",
+    "params.radius",
+    "params.range",
+    "params.damage",
+    "params.on_target_lost"
+   ],
+   "locked_params": {
+    "retarget_event": "目标变化不是技能事件",
+    "origin": "追踪不重开来源链",
+    "target_history": "不回写已选目标"
+   },
+   "relic_params": {
+    "params.speed": "可改",
+    "params.range": "可改",
+    "params.damage": "可改",
+    "hit_split_behavior": "可加",
+    "retarget_event": "禁止",
+    "mutate_live_instance": "禁止"
+   },
+   "presentation": [
+    "fx",
+    "sfx",
+    "trail",
+    "damage_number"
+   ],
+   "player_text": [
+    "发射追向敌人的飞弹。",
+    "命中时造成伤害。",
+    "失去目标后继续向前飞行，最终消散。"
+   ],
+   "status": "已登记"
+  },
+  {
+   "brick_id": "ricochet_projectile",
+   "name": "目标间弹射",
+   "tagline": "命中后转向另一个未访问目标",
+   "carrier": "independent",
+   "summary": "一个效果体在命中后改变目标与方向。弹射不创建新实例，访问记录持续保留。适合目标之间的跳弹，不宣称覆盖墙面反射。",
+   "default_cfg": {
+    "carrier": "independent",
+    "lifetime_ticks": 100,
+    "hit_policy": {
+     "per_target_limit": 1,
+     "max_hits": 3
+    },
+    "params": {
+     "motion": "ricochet",
+     "speed": 6,
+     "search_radius": 160,
+     "damage": 12,
+     "visited": []
+    }
+   },
+   "author_params": [
+    "lifetime_ticks",
+    "hit_policy.max_hits",
+    "params.speed",
+    "params.search_radius",
+    "params.damage"
+   ],
+   "locked_params": {
+    "visited": "访问记录由运行时维护",
+    "instance_id": "转向保持同一身份",
+    "collision_order": "不允许同次接触叠加互斥行为"
+   },
+   "relic_params": {
+    "hit_policy.max_hits": "可改",
+    "params.speed": "可改",
+    "params.search_radius": "可改",
+    "params.damage": "可改",
+    "exhausted_zone_behavior": "可加",
+    "visited": "禁止",
+    "mutate_live_instance": "禁止"
+   },
+   "presentation": [
+    "fx",
+    "sfx",
+    "trail",
+    "damage_number"
+   ],
+   "player_text": [
+    "射出会在敌人之间跳转的弹丸。",
+    "每次碰到新的敌人都会造成伤害。",
+    "无法继续跳转时弹丸消散。"
+   ],
+   "status": "已登记"
+  },
+  {
+   "brick_id": "chain_projectile",
+   "name": "逐代连锁",
+   "tagline": "命中后生成飞向未访问目标的子体",
+   "carrier": "independent",
+   "summary": "生成能够在hit上接出下一段的效果体。每段子体拥有新身份并递减剩余额度。适合链电的飞行版本与目标间传递攻击。",
+   "default_cfg": {
+    "carrier": "independent",
+    "lifetime_ticks": 60,
+    "hit_policy": {
+     "per_target_limit": 1,
+     "max_hits": 1
+    },
+    "params": {
+     "motion": "linear",
+     "speed": 8,
+     "damage": 12,
+     "chain_remaining": 1,
+     "visited": [],
+     "search_radius": 160
+    }
+   },
+   "author_params": [
+    "lifetime_ticks",
+    "params.speed",
+    "params.damage",
+    "params.chain_remaining",
+    "params.search_radius"
+   ],
+   "locked_params": {
+    "visited": "必须向子体传递",
+    "max_generation": "加深由技能设计卡审批",
+    "origin": "子体不得重置来源链"
+   },
+   "relic_params": {
+    "params.speed": "可改",
+    "params.damage": "可改",
+    "params.search_radius": "可改",
+    "params.chain_remaining": "可改",
+    "terminal_zone_behavior": "可加",
+    "max_generation": "禁止",
+    "mutate_live_instance": "禁止"
+   },
+   "presentation": [
+    "fx",
+    "sfx",
+    "trail",
+    "damage_number"
+   ],
+   "player_text": [
+    "释放在敌人之间传递的能量。",
+    "能量命中后会继续寻找新的敌人。",
+    "传递次数用尽或找不到目标时消散。"
+   ],
+   "status": "已登记"
+  },
+  {
+   "brick_id": "summon_unit",
+   "name": "召唤协战单位",
+   "tagline": "创建拥有独立施法闭环的单位",
+   "carrier": "independent",
+   "summary": "生成带owner归属的召唤效果体。召唤物使用自己的施法者闭环和子技能。适合无人机、协战单位及有限寿命召唤。",
+   "default_cfg": {
+    "carrier": "independent",
+    "lifetime_ticks": 600,
+    "params": {
+     "summon_cap": 3,
+     "bind_owner": true,
+     "inheritable": false
+    }
+   },
+   "author_params": [
+    "lifetime_ticks",
+    "params.summon_cap",
+    "params.bind_owner",
+    "params.inheritable",
+    "params.child_skill_ref"
+   ],
+   "locked_params": {
+    "owner_id": "由召唤来源绑定",
+    "caster_id": "召唤物自己的施放必须使用自身身份",
+    "cap_overflow": "超限旧者按purge处理"
+   },
+   "relic_params": {
+    "lifetime_ticks": "可改",
+    "params.summon_cap": "可改",
+    "summon_support_behavior": "可加",
+    "owner_id": "禁止",
+    "caster_id": "禁止",
+    "mutate_live_instance": "禁止"
+   },
+   "presentation": [
+    "fx",
+    "sfx",
+    "anim",
+    "status_icon"
+   ],
+   "player_text": [
+    "召唤协战单位来到战场。",
+    "协战单位会自行寻找目标并使用自己的技能。",
+    "持续结束后离开战场。"
+   ],
+   "status": "已登记"
+  },
+  {
+   "brick_id": "aura_zone",
+   "name": "光环作用区",
+   "tagline": "在范围内周期施加已登记状态",
+   "carrier": "independent",
+   "summary": "生成负责范围筛选的光环效果体。合法目标通过接触获得增益或减益。状态持续由附着预设负责，不把区域本身当作目标身上的状态。",
+   "default_cfg": {
+    "carrier": "independent",
+    "lifetime_ticks": 180,
+    "hit_policy": {
+     "per_target_limit": 6,
+     "rehit_interval_ticks": 30
+    },
+    "params": {
+     "motion": "stationary",
+     "shape": "circle",
+     "radius": 120,
+     "include_self": true,
+     "part_type": "buff"
+    }
+   },
+   "author_params": [
+    "lifetime_ticks",
+    "params.radius",
+    "params.include_self",
+    "hit_policy.per_target_limit",
+    "hit_policy.rehit_interval_ticks",
+    "params.status_ref"
+   ],
+   "locked_params": {
+    "status_ref": "必须引用已登记状态配置",
+    "restack_order": "接触与刷新不能绕过结算",
+    "owner_link": "不等于施法者位移状态"
+   },
+   "relic_params": {
+    "lifetime_ticks": "可改",
+    "params.radius": "可改",
+    "hit_policy.rehit_interval_ticks": "可改",
+    "additional_status_behavior": "可加",
+    "restack_order": "禁止",
+    "mutate_live_instance": "禁止"
+   },
+   "presentation": [
+    "fx",
+    "sfx",
+    "status_icon"
+   ],
+   "player_text": [
+    "展开一片光环作用区域。",
+    "区域内的队友会持续获得增益。",
+    "光环结束后不再补充增益。"
+   ],
+   "status": "已登记"
+  },
+  {
+   "brick_id": "cosmetic_body",
+   "name": "纯表现效果体",
+   "tagline": "独立显示可丢弃的装饰效果",
+   "carrier": "independent",
+   "summary": "生成没有判定与效果份的表现实例。生命周期只用于装饰持续与回收。适合尘土、残光和不承担命中语义的碎屑。",
+   "default_cfg": {
+    "carrier": "independent",
+    "lifetime_ticks": 20,
+    "params": {
+     "motion": "stationary"
+    }
+   },
+   "author_params": [
+    "lifetime_ticks"
+   ],
+   "locked_params": {
+    "hit_policy": "禁止建立接触判定",
+    "parts": "禁止携带结算份",
+    "budget_class": "纯表现不得升级成关键判定"
+   },
+   "relic_params": {
+    "lifetime_ticks": "可改",
+    "cosmetic_variant_behavior": "可加",
+    "hit_policy": "禁止",
+    "parts": "禁止",
+    "mutate_live_instance": "禁止"
+   },
+   "presentation": [
+    "fx",
+    "sfx",
+    "trail"
+   ],
+   "player_text": [
+    "在周围扬起尘土与残光。",
+    "装饰不会伤害敌人。",
+    "片刻后自然消散。"
+   ],
+   "status": "已登记"
+  },
+  {
+   "brick_id": "wall_reflection_candidate",
+   "name": "墙面反射候选",
+   "tagline": "预留墙与目标之间的反射能力",
+   "carrier": "independent",
+   "summary": "候选产物仍是独立飞行效果体。现有目标间弹射不能定义墙面法线与材质。缺少环境碰撞契约，暂不提供可运行默认。",
+   "default_cfg": {},
+   "author_params": [
+    "待登记的墙面过滤",
+    "待登记的反射额度",
+    "待登记的角落裁定"
+   ],
+   "locked_params": {
+    "status": "缺少环境契约不得转已登记",
+    "hit": "不得把墙接触伪造为目标命中",
+    "event_set": "不得新增第三事件"
+   },
+   "relic_params": {
+    "reflection_count": "禁止",
+    "reflection_behavior": "禁止",
+    "origin": "禁止",
+    "mutate_live_instance": "禁止"
+   },
+   "presentation": [
+    "fx",
+    "sfx",
+    "trail"
+   ],
+   "player_text": [
+    "弹丸可以在墙面与敌人之间转折。",
+    "碰到敌人时造成伤害。",
+    "反射能力耗尽后消散。"
+   ],
+   "status": "候选"
+  },
+  {
+   "brick_id": "displacement_hitbox_candidate",
+   "name": "位移跟随判定候选",
+   "tagline": "冲刺或跳跃期间跟随施法者判定",
+   "carrier": "self",
+   "summary": "意图是生成依附施法者位移状态的跟随判定体。self 是主书稿规定的位移载体，但本轮不新增可用积木。当前仍为不进首发的候选，缺少位移路径命中与跟随判定体契约，禁止导出。",
+   "default_cfg": {},
+   "author_params": [
+    "dash_distance",
+    "dash_duration_ticks",
+    "dash_damage",
+    "landing_radius"
+   ],
+   "locked_params": {
+    "carrier": "self 载体当前无可用积木，未补齐位移路径契约前禁止导出",
+    "displacement_state": "状态本身不是效果体",
+    "cast_gate": "位移期间不能施放其他技能"
+   },
+   "relic_params": {
+    "dash_distance": "禁止",
+    "dash_duration_ticks": "禁止",
+    "landing_behavior": "禁止",
+    "cast_gate": "禁止",
+    "mutate_live_instance": "禁止"
+   },
+   "presentation": [
+    "fx",
+    "sfx",
+    "anim",
+    "trail",
+    "camera",
+    "damage_number"
+   ],
+   "player_text": [
+    "向前冲刺并撞击沿途敌人。",
+    "抵达终点时震击周围。",
+    "冲刺中无法使用其他技能，中途受阻就会停下。"
+   ],
+   "status": "候选"
+  },
+  {
+   "brick_id": "absorb_shield",
+   "name": "吸收护盾",
+   "tagline": "为宿主保留有限吸收额度",
+   "carrier": "attached",
+   "summary": "生成挂在目标上的护盾效果体。挂载以护盾份结算，之后吸收是伤害结算链的一步。适合单体保护及治疗后获得护盾。",
+   "default_cfg": {
+    "carrier": "attached",
+    "lifetime_ticks": 300,
+    "params": {
+     "shield_amount": 30,
+     "shield_ratio": 0.5,
+     "restack_rule": "refresh"
+    }
+   },
+   "author_params": [
+    "lifetime_ticks",
+    "params.shield_amount",
+    "params.shield_ratio",
+    "params.restack_rule",
+    "anchor_target_id"
+   ],
+   "locked_params": {
+    "anchor_target_id": "只能由合法目标绑定",
+    "absorb_order": "减免之后扣血之前",
+    "final_amount": "吸收不得改写减免结果"
+   },
+   "relic_params": {
+    "lifetime_ticks": "可改",
+    "params.shield_amount": "可改",
+    "params.shield_ratio": "可改",
+    "depleted_burst_behavior": "可加",
+    "absorb_order": "禁止",
+    "mutate_live_instance": "禁止"
+   },
+   "presentation": [
+    "fx",
+    "sfx",
+    "damage_number",
+    "status_icon"
+   ],
+   "player_text": [
+    "为目标披上一层护盾。",
+    "护盾会吸收接下来的伤害。",
+    "额度耗尽或持续结束后消失。"
+   ],
+   "status": "已登记"
+  },
+  {
+   "brick_id": "timed_buff",
+   "name": "有期限增益",
+   "tagline": "为宿主维持可刷新或叠层的增益",
+   "carrier": "attached",
+   "summary": "生成可独立回收的有益状态效果体。合法友方挂载时使用增益份。适合增攻、加速和需要独立来源的临时强化。",
+   "default_cfg": {
+    "carrier": "attached",
+    "lifetime_ticks": 180,
+    "params": {
+     "part_type": "buff",
+     "strength": 0.08,
+     "stack_limit": 3,
+     "include_self": true
+    }
+   },
+   "author_params": [
+    "lifetime_ticks",
+    "params.strength",
+    "params.stack_limit",
+    "params.include_self",
+    "params.modifier_ref",
+    "anchor_target_id"
+   ],
+   "locked_params": {
+    "permission": "增益不能自行取得更高修饰权限",
+    "anchor_target_id": "只能绑定合法友方",
+    "origin": "来源贡献不得合并丢失"
+   },
+   "relic_params": {
+    "lifetime_ticks": "可改",
+    "params.strength": "可改",
+    "params.stack_limit": "可改",
+    "expired_heal_behavior": "可加",
+    "permission": "禁止",
+    "mutate_live_instance": "禁止"
+   },
+   "presentation": [
+    "fx",
+    "sfx",
+    "status_icon"
+   ],
+   "player_text": [
+    "为目标施加一段时间的强化。",
+    "强化会提升已说明的能力。",
+    "持续结束后强化消退。"
+   ],
+   "status": "已登记"
+  },
+  {
+   "brick_id": "timed_debuff",
+   "name": "有期限减益",
+   "tagline": "为敌人维持有限层数的削弱",
+   "carrier": "attached",
+   "summary": "生成具有独立来源和期限的有害状态效果体。施加时按有害份处理闪避与免疫。适合易伤、减速和有期限的属性削弱。",
+   "default_cfg": {
+    "carrier": "attached",
+    "lifetime_ticks": 180,
+    "params": {
+     "part_type": "debuff",
+     "strength": 0.1,
+     "stack_limit": 3,
+     "friendly_fire": false
+    }
+   },
+   "author_params": [
+    "lifetime_ticks",
+    "params.strength",
+    "params.stack_limit",
+    "params.modifier_ref",
+    "anchor_target_id"
+   ],
+   "locked_params": {
+    "immune_flags": "免疫类型必须来自注册表",
+    "target_snapshot": "不能冻结以后所有目标状态",
+    "origin": "不能跨来源抹去贡献"
+   },
+   "relic_params": {
+    "lifetime_ticks": "可改",
+    "params.strength": "可改",
+    "params.stack_limit": "可改",
+    "expired_burst_behavior": "可加",
+    "immune_flags": "禁止",
+    "mutate_live_instance": "禁止"
+   },
+   "presentation": [
+    "fx",
+    "sfx",
+    "status_icon"
+   ],
+   "player_text": [
+    "为敌人施加短暂削弱。",
+    "削弱期间敌人的相应能力降低。",
+    "持续结束后恢复。"
+   ],
+   "status": "已登记"
+  },
+  {
+   "brick_id": "attached_regeneration",
+   "name": "附着持续治疗",
+   "tagline": "为同一宿主按周期恢复生命",
+   "carrier": "attached",
+   "summary": "生成挂在友方身上的周期治疗效果体。周期按periodic_tick形成接触而非空间重叠。适合持续恢复与移动中保持的治疗。",
+   "default_cfg": {
+    "carrier": "attached",
+    "lifetime_ticks": 180,
+    "hit_policy": {
+     "per_target_limit": 3,
+     "rehit_interval_ticks": 60
+    },
+    "params": {
+     "periodic_tick": 60,
+     "heal_amount": 8,
+     "include_self": true
+    }
+   },
+   "author_params": [
+    "lifetime_ticks",
+    "params.periodic_tick",
+    "params.heal_amount",
+    "hit_policy.per_target_limit",
+    "anchor_target_id"
+   ],
+   "locked_params": {
+    "spatial_collision": "附着周期不参加空间碰撞",
+    "interval_consistency": "两个间隔值必须一致",
+    "expiry_priority": "到期不补治疗"
+   },
+   "relic_params": {
+    "lifetime_ticks": "可改",
+    "params.periodic_tick": "可改",
+    "params.heal_amount": "可改",
+    "expired_shield_behavior": "可加",
+    "spatial_collision": "禁止",
+    "mutate_live_instance": "禁止"
+   },
+   "presentation": [
+    "fx",
+    "sfx",
+    "damage_number",
+    "status_icon"
+   ],
+   "player_text": [
+    "为目标施加持续恢复效果。",
+    "目标每隔一段时间恢复生命。",
+    "持续结束后恢复效果消失。"
+   ],
+   "status": "已登记"
+  },
+  {
+   "brick_id": "attached_damage_over_time",
+   "name": "附着持续伤害",
+   "tagline": "对宿主按周期结算伤害",
+   "carrier": "attached",
+   "summary": "生成挂在敌人上的周期伤害效果体。燃烧与中毒通过伤害类型及表现区分。需要独立期限与驱散时使用本卡，不以普通数值状态代替。",
+   "default_cfg": {
+    "carrier": "attached",
+    "lifetime_ticks": 180,
+    "hit_policy": {
+     "per_target_limit": 3,
+     "rehit_interval_ticks": 60
+    },
+    "params": {
+     "periodic_tick": 60,
+     "damage": 8,
+     "damage_type": "fire"
+    }
+   },
+   "author_params": [
+    "lifetime_ticks",
+    "params.periodic_tick",
+    "params.damage",
+    "params.damage_type",
+    "hit_policy.per_target_limit",
+    "anchor_target_id"
+   ],
+   "locked_params": {
+    "spatial_collision": "宿主周期不是空间重叠",
+    "interval_consistency": "周期与接触间隔一致",
+    "origin": "每跳不得新建来源链"
+   },
+   "relic_params": {
+    "lifetime_ticks": "可改",
+    "params.periodic_tick": "可改",
+    "params.damage": "可改",
+    "expired_burst_behavior": "可加",
+    "origin": "禁止",
+    "mutate_live_instance": "禁止"
+   },
+   "presentation": [
+    "fx",
+    "sfx",
+    "damage_number",
+    "status_icon"
+   ],
+   "player_text": [
+    "使敌人受到持续侵蚀。",
+    "侵蚀每隔一段时间造成伤害。",
+    "持续结束后侵蚀消退。"
+   ],
+   "status": "已登记"
+  },
+  {
+   "brick_id": "taunt_anchor_candidate",
+   "name": "嘲讽目标约束候选",
+   "tagline": "使敌人的索敌倾向指定保护者",
+   "carrier": "attached",
+   "summary": "候选状态附着在受嘲讽敌人上。已有减益载体能够承载寿命，却未定义仇恨与索敌覆盖契约。缺少跨系统目标选择能力，暂不提供可运行默认。",
+   "default_cfg": {},
+   "author_params": [
+    "待登记的嘲讽时长",
+    "待登记的目标引用",
+    "待登记的多来源优先级"
+   ],
+   "locked_params": {
+    "target_override": "未注册索敌契约不得写入",
+    "event_set": "不增设嘲讽事件",
+    "origin": "不能隐藏嘲讽来源"
+   },
+   "relic_params": {
+    "taunt_duration_ticks": "禁止",
+    "target_override": "禁止",
+    "taunt_behavior": "禁止",
+    "mutate_live_instance": "禁止"
+   },
+   "presentation": [
+    "fx",
+    "sfx",
+    "status_icon"
+   ],
+   "player_text": [
+    "向周围敌人发出挑衅。",
+    "受影响的敌人会优先关注你。",
+    "挑衅效果结束后恢复原有目标选择。"
+   ],
+   "status": "候选"
+  },
+  {
+   "brick_id": "instant_burst",
+   "name": "瞬时圆形爆发",
+   "tagline": "对圆形区域进行一次接触结算",
+   "carrier": "none",
+   "summary": "生成寿命为零的圆形判定效果体。每个合法目标各自结算一条hit。适合落点爆炸、震地冲击及范围非伤害效果的几何底座。",
+   "default_cfg": {
+    "carrier": "none",
+    "lifetime_ticks": 0,
+    "hit_policy": {
+     "per_target_limit": 1
+    },
+    "params": {
+     "shape": "circle",
+     "radius": 90,
+     "damage": 20,
+     "friendly_fire": false
+    }
+   },
+   "author_params": [
+    "params.radius",
+    "params.damage",
+    "params.friendly_fire",
+    "params.parts"
+   ],
+   "locked_params": {
+    "lifetime_ticks": "瞬时寿命必须为零",
+    "motion": "不存在空间运动",
+    "settlement_order": "全部接触先于instant_end"
+   },
+   "relic_params": {
+    "params.radius": "可改",
+    "params.damage": "可改",
+    "instant_end_zone_behavior": "可加",
+    "lifetime_ticks": "禁止",
+    "mutate_live_instance": "禁止"
+   },
+   "presentation": [
+    "fx",
+    "sfx",
+    "anim",
+    "camera",
+    "damage_number"
+   ],
+   "player_text": [
+    "在指定位置引发圆形冲击。",
+    "范围内的敌人受到伤害。",
+    "冲击随即消散。"
+   ],
+   "status": "已登记"
+  },
+  {
+   "brick_id": "instant_fan",
+   "name": "瞬时扇形斩",
+   "tagline": "对前方扇形区域一次结算",
+   "carrier": "none",
+   "summary": "生成寿命为零的扇形判定效果体。方向在出手时确定，每目标独立结算。适合近身挥击，不由刀光扫过时刻决定伤害。",
+   "default_cfg": {
+    "carrier": "none",
+    "lifetime_ticks": 0,
+    "hit_policy": {
+     "per_target_limit": 1
+    },
+    "params": {
+     "shape": "fan",
+     "fan_radius": 90,
+     "fan_angle": 120,
+     "damage": 30
+    }
+   },
+   "author_params": [
+    "params.fan_radius",
+    "params.fan_angle",
+    "params.damage"
+   ],
+   "locked_params": {
+    "lifetime_ticks": "瞬时扇形没有跨tick存活",
+    "facing": "出手确定后不回溯",
+    "animation_callback": "禁止驱动命中"
+   },
+   "relic_params": {
+    "params.fan_radius": "可改",
+    "params.fan_angle": "可改",
+    "params.damage": "可改",
+    "sword_wave_behavior": "可加",
+    "animation_callback": "禁止",
+    "mutate_live_instance": "禁止"
+   },
+   "presentation": [
+    "fx",
+    "sfx",
+    "anim",
+    "trail",
+    "damage_number"
+   ],
+   "player_text": [
+    "挥击前方的扇形区域。",
+    "被扫中的敌人受到伤害。",
+    "挥击结束后刀光消散。"
+   ],
+   "status": "已登记"
+  },
+  {
+   "brick_id": "instant_ray",
+   "name": "瞬时射线",
+   "tagline": "沿一条线形范围立即完成判定",
+   "carrier": "none",
+   "summary": "生成寿命为零的线形效果体。覆盖到的合法目标在同tick逐个结算。适合贯穿射线，不使用超大速度模拟。",
+   "default_cfg": {
+    "carrier": "none",
+    "lifetime_ticks": 0,
+    "hit_policy": {
+     "per_target_limit": 1
+    },
+    "params": {
+     "shape": "line",
+     "length": 400,
+     "width": 12,
+     "damage": 20
+    }
+   },
+   "author_params": [
+    "params.length",
+    "params.width",
+    "params.damage",
+    "hit_policy.max_hits"
+   ],
+   "locked_params": {
+    "lifetime_ticks": "一次性射线不跨tick",
+    "speed": "不以速度模拟瞬时",
+    "direction": "出手朝向固定"
+   },
+   "relic_params": {
+    "params.length": "可改",
+    "params.width": "可改",
+    "params.damage": "可改",
+    "endpoint_burst_behavior": "可加",
+    "speed": "禁止",
+    "mutate_live_instance": "禁止"
+   },
+   "presentation": [
+    "fx",
+    "sfx",
+    "anim",
+    "trail",
+    "damage_number"
+   ],
+   "player_text": [
+    "向前释放一道贯穿射线。",
+    "射线覆盖到的敌人受到伤害。",
+    "光束随即消散。"
+   ],
+   "status": "已登记"
+  },
+  {
+   "brick_id": "instant_heal",
+   "name": "单次治疗",
+   "tagline": "对合法友方立即恢复生命",
+   "carrier": "none",
+   "summary": "生成寿命为零的治疗效果体。合法友方以治疗份结算，溢出不计入实际量。适合单体治疗、生命脉冲和庇护祷言的前段。",
+   "default_cfg": {
+    "carrier": "none",
+    "lifetime_ticks": 0,
+    "hit_policy": {
+     "per_target_limit": 1
+    },
+    "params": {
+     "heal_amount": 60,
+     "include_self": true,
+     "part_type": "heal"
+    }
+   },
+   "author_params": [
+    "params.heal_amount",
+    "params.include_self",
+    "params.target_filter"
+   ],
+   "locked_params": {
+    "killed": "单独治疗不会产生击杀",
+    "evade_policy": "有益份默认不判闪避",
+    "overflow": "超额治疗不计实际量"
+   },
+   "relic_params": {
+    "params.heal_amount": "可改",
+    "same_target_shield_behavior": "可加",
+    "killed": "禁止",
+    "overflow": "禁止",
+    "mutate_live_instance": "禁止"
+   },
+   "presentation": [
+    "fx",
+    "sfx",
+    "anim",
+    "damage_number"
+   ],
+   "player_text": [
+    "为选定队友释放治疗。",
+    "队友立即恢复生命。",
+    "治疗光芒随后消散。"
+   ],
+   "status": "已登记"
+  },
+  {
+   "brick_id": "instant_control",
+   "name": "控制施加",
+   "tagline": "一次接触为目标写入控制状态",
+   "carrier": "none",
+   "summary": "生成寿命为零的控制施加效果体。命中后默认写入目标控制状态而非再建控制实例。适合眩晕、冻结、沉默与定身的施加入口。",
+   "default_cfg": {
+    "carrier": "none",
+    "lifetime_ticks": 0,
+    "hit_policy": {
+     "per_target_limit": 1
+    },
+    "params": {
+     "part_type": "control",
+     "control_type": "stun",
+     "duration_ticks": 45,
+     "interrupts_cast": false,
+     "restack_rule": "refresh"
+    }
+   },
+   "author_params": [
+    "params.control_type",
+    "params.duration_ticks",
+    "params.restack_rule",
+    "params.radius"
+   ],
+   "locked_params": {
+    "params.interrupts_cast": "从控制类型注册表取值",
+    "control_dr": "未定规则默认不启用",
+    "state_expiry": "普通状态到期没有vanish"
+   },
+   "relic_params": {
+    "params.duration_ticks": "可改",
+    "params.radius": "可改",
+    "registered_control_upgrade": "可加",
+    "params.interrupts_cast": "禁止",
+    "mutate_live_instance": "禁止"
+   },
+   "presentation": [
+    "fx",
+    "sfx",
+    "anim",
+    "status_icon"
+   ],
+   "player_text": [
+    "向敌人施加控制。",
+    "被眩晕的敌人暂时无法行动。",
+    "持续结束后恢复行动。"
+   ],
+   "status": "已登记"
+  },
+  {
+   "brick_id": "instant_knockback",
+   "name": "击退施加",
+   "tagline": "一次接触对目标施加受迫位移",
+   "carrier": "none",
+   "summary": "生成寿命为零的击退施加效果体。击退份记录实际位移量，可与伤害或控制同属一条hit。受迫位移不等于施法者主动位移状态。",
+   "default_cfg": {
+    "carrier": "none",
+    "lifetime_ticks": 0,
+    "hit_policy": {
+     "per_target_limit": 1
+    },
+    "params": {
+     "part_type": "knockback",
+     "knockback_distance": 80,
+     "knockback_speed": 8,
+     "interrupts_cast": true
+    }
+   },
+   "author_params": [
+    "params.knockback_distance",
+    "params.knockback_speed",
+    "params.direction",
+    "params.radius"
+   ],
+   "locked_params": {
+    "params.interrupts_cast": "按击退注册语义固定",
+    "displacement_state": "不建立目标的主动位移状态",
+    "movement_lock": "move锁不阻止受迫位移"
+   },
+   "relic_params": {
+    "params.knockback_distance": "可改",
+    "params.knockback_speed": "可改",
+    "params.radius": "可改",
+    "control_part_behavior": "可加",
+    "displacement_state": "禁止",
+    "mutate_live_instance": "禁止"
+   },
+   "presentation": [
+    "fx",
+    "sfx",
+    "anim",
+    "camera",
+    "damage_number"
+   ],
+   "player_text": [
+    "释放向外的冲击。",
+    "被击中的敌人向后退开。",
+    "冲击结束后不再继续推动。"
+   ],
+   "status": "已登记"
+  }
+ ]
+}
