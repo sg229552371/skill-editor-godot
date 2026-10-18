@@ -1,0 +1,46 @@
+{
+  "source": "真源 卷三 Schema v0.1（S_docs/collab/assets/schema_v0_1.yaml 第 59-70、273-312 行）",
+  "note": "运行时运动模块所需元数据的独立抽取件。运行时不得直接解析 schema yaml 全文（性能与脆弱性原因见决策 D-21）",
+  "motion_modes": ["straight", "lob", "orbit", "stationary", "wavefront", "returning", "follow", "homing", "ricochet", "expanding"],
+  "on_target_lost": {
+    "enum": ["continue", "terminate"],
+    "default": "continue"
+  },
+  "motion_fields": {
+    "speed": {"type": "number", "minimum": 0},
+    "acceleration": {"type": "number"},
+    "speed_cap": {"type": "number", "minimum": 0},
+    "range": {"type": "number", "exclusiveMinimum": 0},
+    "tracking_profile": {"type": "string", "$ref": "#/$defs/ref"},
+    "orbit_radius": {"type": "number", "exclusiveMinimum": 0},
+    "angular_speed": {"type": "number"},
+    "phase": {"type": "number"},
+    "attach_to_caster": {"type": "boolean", "default": false},
+    "displacement_profile": {"type": "string", "$ref": "#/$defs/ref"},
+    "bounce_profile": {"type": "string", "$ref": "#/$defs/ref"},
+    "bounce_limit": {"type": "integer", "minimum": 0, "default": 0},
+    "split_budget": {"type": "integer", "minimum": 0, "default": 0},
+    "split_count": {"type": "integer", "minimum": 0, "default": 0},
+    "split_template": {"type": "string", "$ref": "#/$defs/ref"},
+    "chain_remaining": {"type": "integer", "minimum": 0, "default": 0},
+    "chain_template": {"type": "string", "$ref": "#/$defs/ref"},
+    "search_radius": {"type": "number", "exclusiveMinimum": 0}
+  },
+  "geometry_fields": {
+    "shape": {"type": "string", "$ref": "#/$defs/geometry_shape"},
+    "radius": {"type": "number", "exclusiveMinimum": 0},
+    "sector_angle": {"type": "number", "exclusiveMinimum": 0, "maximum": 100, "default": 25},
+    "length": {"type": "number", "exclusiveMinimum": 0},
+    "width": {"type": "number", "exclusiveMinimum": 0},
+    "wavefront_start_radius": {"type": "number", "minimum": 0, "default": 0},
+    "wavefront_end_radius": {"type": "number", "exclusiveMinimum": 0},
+    "wavefront_speed": {"type": "number", "exclusiveMinimum": 0},
+    "area_profile": {"type": "string", "$ref": "#/$defs/ref"}
+  },
+  "constraints": [
+    "mode 必须落在 motion_modes 内；未知模式直接拒收，绝不回退到 straight",
+    "数值字段按 type/minimum/exclusiveMinimum 校验，非有限数（nan/inf）一律拒收",
+    "acceleration 非零时必须同时提供 speed_cap（真源明确的单一权威约束）",
+    "模式名与字段名一律从本文件载入，代码内不得硬编码"
+  ]
+}
