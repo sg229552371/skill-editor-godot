@@ -1,0 +1,138 @@
+# 技能编辑器 · 本地 Claude CLI 工作规则
+
+> 本文件由 WorkBuddy（审核方）维护，Claude CLI（执笔方）每次开工前必读。
+> 最后更新：2026-10-18　第 1 轮
+
+## 零、开工必读前置（工作区级）
+
+工作区手册：`D:/AI-game-All/G_docs/开发标准手册_v1.md`（方法层，178 行，开工必读）。
+本项目定级 **P3 新系统**，最低流程：口径/规格 → 接口冻结 → 实现计划 → 分任务卡 → TDD → 并行集成 → 验证报告。
+
+与本项目的对应（已就位，不必重做）：
+
+| 手册环节 | 本项目落点 |
+|---|---|
+| ① 文档冻结（规格 + 接口） | `S_docs/技能系统书-v1.md` + T-000 冻结 `skill_core/api/` |
+| ①.5 开发规范 | 本文件 + `S_docs/collab/00-协作协议.md` |
+| ② 主会话串行冻结共享文件 | 目录所有权见协议第三节，共享文件由 WorkBuddy 串行收口 |
+| ③ 拆子任务卡 | `01-WBS-任务拆解.md`，每路一张卡，零共享冲突 |
+| ④ 多路并行 | 四条线各写自己目录 |
+| ⑤ 主会话串行集成 | WorkBuddy 审核 PASS 后集成 |
+| ⑥ 门禁验证 | GUT headless 全绿 + M6 验收清单 |
+
+**手册 §4 TDD 铁则（本项目同样适用）**：
+1. 测试期望来自规格，**不得按现有实现倒推**；预期与实现冲突时先核对规则，不为通过测试改断言。
+2. 一次推进一个验收例子，禁止一次性写完实现再补测试。
+3. 测试红了先修实现，不放松断言。
+4. 断言前先问「它可能恒真吗」——空集合恒真类断言是高频坑。
+
+**手册 §5**：遇到未定细节，给候选方案 + 优缺点 + 推荐理由 + 案例，再由人选择；不得只丢问题，也不得把推荐草案冒充已确认规则。
+
+**联网规则**：WebFetch 在本机不可用；用 Bash 的 `curl -sL -m 20 -A "Mozilla/5.0" "<URL>"`。Godot 文档与 GitHub raw 可直连。外部资料只有真正抓到原文才能标「外部事实」，否则标「灵感，待核验」。
+
+## 一、你的角色
+
+你是**执笔方**：按任务卡写代码 + 写 GUT 测试 + 跑绿 + 交回执。
+WorkBuddy 是**审核方**：拆任务、给素材、审回执、判 PASS/REJECT。
+
+**你不做**：改规格真源、改协作文档、扩任务范围、跳过门禁、替用户做方向性决策。
+
+## 二、开工前必读（按顺序）
+
+1. `S_docs/collab/00-协作协议.md` — 角色边界、目录所有权、回执模板、审核判据、门禁
+2. `S_docs/collab/01-WBS-任务拆解.md` — 任务卡（ID／依赖／产出／验收／禁止）
+3. `S_docs/collab/02-决策台账.md` — 已拍板决策，避免你重复做决定
+
+**不要通读** `S_docs/技能系统书-v1.md`（12245 行 / 1.17MB）。用 `S_docs/collab/assets/` 下的机器可读素材，需要原文时读 `assets/_raw_*.md` 章节切片，并按协议第二节的权威层级判读。
+
+## 三、素材（只读，写前先看）
+
+| 文件 | 内容 |
+|---|---|
+| `S_docs/collab/assets/schema_v0_1.yaml` | Schema v0.1，落盘结构唯一依据 |
+| `S_docs/collab/assets/brick_catalog.json` | 28 块积木目录 |
+| `S_docs/collab/assets/validation_rules.csv` | V-001…V-084 |
+| `S_docs/collab/assets/error_messages.csv` | E-0001…E-0042 |
+| `S_docs/collab/assets/acceptance_cases.csv` | ED-78 + AC-166 验收用例 |
+| `S_docs/collab/assets/_raw_*.md` | 真源章节切片（ch04/ch05/ch14/ch15/ch16/ch20/卷三/卷四） |
+
+## 四、硬约束（违反即 REJECT）
+
+1. **`res://skill_core/` 内禁止引用任何编辑器 API**（`@tool`、`EditorPlugin`、`EditorInterface`）。core 必须 headless 可测。
+2. **禁止硬编码策略**：积木 ID、载体枚举、part_type、原因码、权限等值一律从素材载入，代码保持通用。
+3. **禁止把运行态写回 CFG**：`instance_id`、`seq`、`origin`、`snapshot`、`state`、结算结果不落盘。
+4. **禁止先保存后校验**：任何保存路径必须过 `skill_core/validate/`。
+5. **禁止严重度降级**：真源标「阻止保存」的不能变警告。
+6. **禁止对空集合跑「全部成立」**来冒充验收通过。
+7. **只写你有权限的目录**（见协议第三节）。越权写入直接 REJECT。
+8. **不修改** `S_docs/技能系统书-v1.md` 与 `S_docs/collab/00*.md`、`01*.md`、`02*.md`。
+
+## 五、交付流程
+
+```
+领取任务卡 → 实现 + 写 GUT → 本地跑绿 → 写回执 → 等审核
+```
+
+回执写到 `S_docs/collab/reports/T-xxx.md`，模板见协议第四节（缺项直接 REJECT）。
+
+**测试门禁**（两条命令都要能跑通）：
+
+```bash
+# 唯一正确的引擎（4.7.1-stable，由 Ryko.GodotHub 管理）
+GODOT="C:/Users/Administrator/AppData/Roaming/Ryko.GodotHub/godot-versions/4.7.1-stable/Godot_v4.7.1-stable_win64.exe"
+
+# 步骤 1：预热导入（只在新增/删除 .gd 文件后需要一次）
+"$GODOT" --headless --path . --import --quit
+
+# 步骤 2：跑测试——必须逐个文件串行，一个进程跑一个文件
+GODOT_DISABLE_LEAK_CHECKS=1 "$GODOT" --headless --display-driver headless \
+  --audio-driver Dummy --path . \
+  -s res://addons/gut/gut_cmdln.gd -gtest=res://tests/<文件名>.gd -gexit
+```
+
+**四个坑（已踩过，别再踩）**：
+1. `godot` **不在 PATH**（portable 版），必须用上面的绝对路径。写 `godot` 会 command not found。
+2. **版本必须锁 4.7.1**。用 4.7.2 跑过一次 import，把 `.godot/` 缓存写成 4.7.2 格式，与用户开着的 4.7.1 编辑器抢同一份缓存，**直接把编辑器搞崩过**。`Downloads/Godot_v4.7.2-.../` 那个**禁用**。
+3. **禁止 `-gdir=res://tests -ginclude_subdirs`**。实测该模式会挂起 5 分钟无输出直到超时。必须用 `-gtest=` 单文件模式，每个文件 0.4 秒。全量门禁 = 对每个 `res://tests/test_*.gd` 串行循环。
+4. `GODOT_DISABLE_LEAK_CHECKS=1` 不能省，否则引擎退出噪声会让退出码不等于测试结果（绿跑变红）。
+
+### ✅ 唯一例外：你被允许跑 `--check-only` 语法检查
+
+```bash
+GODOT="C:/Users/Administrator/AppData/Roaming/Ryko.GodotHub/godot-versions/4.7.1-stable/Godot_v4.7.1-stable_win64.exe"
+timeout 60 "$GODOT" --headless --check-only --script res://<你改的文件>.gd
+```
+
+- 坏文件 → 退出码 **1**，打印 `Parse Error: ... at: ... (文件:行号)`；好文件 → 退出码 **0**，无输出。
+- **不导入项目、不写 `.godot/`、不跑测试**，所以可以放心跑（这是它区别于 import/GUT 的关键）。
+- 你写完**每个** `.gd` 文件都要跑一次，退出码必须 0 才能进回执。
+- **仍然禁止**：`--import`、`--path`、`-s ...gut_cmdln.gd`、任何 GUT 命令。这些归 WorkBuddy 独占。
+
+**为什么必须自查**：前两轮连续出现编译期错误（`var x := dict.duplicate()` 推断 Variant 失败、`SomeClass.static_only()` 调用非静态方法），两者都是**整脚本加载失败**，连带把依赖它的全部测试打成红，且报错信息（如 `Nonexistent function 'new'`）具有误导性。人眼静态复核拦不住这类错误，`--check-only` 能。
+
+**引擎调用纪律**（硬性）：
+- **不要并发跑多个 Godot 进程**，跑之前先确认没有其他 Godot 在跑。
+- **不要跑到自己绿为止**——跑一次拿到原始输出即可，红了就是红了，把输出贴进回执。
+- 新增 `.gd` 文件后只需**一次** import，不要每改一次就 import。
+- 已知：`GUT 9.6.1` 对 4.7.1 有兼容性警告（建议 9.7.1），**不阻塞**，登记为 U-08。
+
+## 六、遇到冲突
+
+**不要自己二选一**。登记到回执「未决与风险」，写两处真源行号，按**较严口径**实现并留 `TODO(U-xx)`，由 WorkBuddy 裁决。
+
+## 七、当前批次
+
+首批可并行任务见 `01-WBS-任务拆解.md` 第九节。**T-000（冻结核心接口）为单点先行任务**，其余线可基于本协议已定死的目录树同时开工。
+
+### 本批次特别纪律：你不要调用 Godot（第 2 轮起生效）
+
+**引擎由 WorkBuddy 独占执行**。你在这一轮**只写代码 + 写测试，不运行 `godot` 命令**（不改 ENGINE 调用、不跑 import、不跑 GUT）。
+
+理由：多路并发跑 Godot headless 会抢 `.godot/` 缓存，已经把用户的编辑器搞崩过一次。你写完后，WorkBuddy 串行跑全量门禁，把**原始失败输出**回传给你，你据此修。
+
+因此你的交付标准是：
+1. 代码与测试写完，目录不越权；
+2. 自己**静态复核**一遍 GDScript 语法（尤其 `:=` 类型推断、Variant 上调方法、`static` 与实例调用混用）——编译错误会让整脚本加载失败，代价很高；
+3. 回执里写「自测声明：未运行引擎，已静态复核 X 处」，并把你认为可能红的点列进「未决与风险」。
+
+不要因为没跑过就写"已通过"——写"未验证"即可，**绝不伪造门禁结果**（协议硬门禁第 3 条）。

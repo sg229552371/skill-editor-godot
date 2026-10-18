@@ -1,0 +1,5 @@
+.godot/
+test_results/
+*.tmp
+*.log
+.DS_Store

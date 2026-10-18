@@ -1,0 +1,43 @@
+﻿code,audience,template,placeholders
+E-0001,策划,文件结构版本为 {actual}，当前支持 {supported}。请先迁移，不能直接保存为当前版本。,actual：读到的版本；supported：受支持版本集合
+E-0002,策划,技能编号 {id} 不符合 {format}。请分别检查角色、类别、短名和变体。,id：实际 ID；format：冻结命名格式
+E-0003,策划,{field} 的标识 {id} 与 {conflict} 重复或缺失。请提供唯一标识。,field：中文字段及路径；id：待保存标识；conflict：冲突定义或未填写
+E-0004,策划,{field} 为 {actual}，但技能编号要求 {expected}。请统一归属与编号。,field：归属字段；actual：填写值；expected：ID 推导值
+E-0005,策划,技能版本 {version} 不能用于本次内容：{reason}。请保留旧版并递增技能版本。,version：技能版本；reason：格式错误或同版内容冲突
+E-0006,策划,{field} 尚未提供有效值；{context} 要求填写 {expected}。,field：缺失槽位；context：积木或能力；expected：类型与要求
+E-0007,策划,{field} 引用 {ref} 无法使用：{reason}。请重新选择已登记条目。,field：引用位置；ref：引用值；reason：不存在、重复或版本不可用
+E-0008,策划,积木 {brick} 的状态为 {status}，不能作为可运行定义保存。,brick：积木标识；status：候选或预留状态
+E-0009,策划,{field} 是受保护字段，{source} 无权修改。限制依据：{contract}。,field：目标路径；source：覆盖或修饰器；contract：契约条款
+E-0010,策划,玩家文字或属性 {field} 与规则不一致：{reason}。建议：{suggestion}。,field：文字位置；reason：内部术语、超句数或数字脱节；suggestion：可操作建议
+E-0011,程序,字段 {path} 未在 Schema {version} 登记或出现重复键：{key}。未写入目标定义。,path：完整输入路径；version：Schema 版本；key：非法键
+E-0012,策划,{field} 当前为 {actual}，要求 {expected}；该值尚未生效。,field：实际叶字段；actual：值和类型；expected：类型、枚举或范围
+E-0013,策划,{field} 必须使用 {range} 的整数 tick，当前为 {actual}。秒数请先按项目频率换算。,field：时间字段；range：非负或正数要求；actual：输入值
+E-0014,策划,出手点 {index} 的 tick 为 {actual}，不能早于前一点 {previous}。,index：时间表下标；actual：当前 tick；previous：前一 tick
+E-0015,策划,{field} 的载体表示 {actual} 不受支持，允许 {allowed}。瞬时语义不另增运行时载体。,field：载体字段；actual：填写值；allowed：对应可选枚举
+E-0016,策划,瞬时实例的寿命必须为零，{field} 当前为 {actual}。请改寿命或重新选择积木。,field：寿命字段；actual：填写寿命
+E-0017,策划,{brick} 需要重复接触间隔，请填写 {path}，不能默认每个渲染帧判定。,brick：区域或环绕积木；path：缺失间隔路径
+E-0018,策划,派生入口 {actual} 不合法，只允许 {allowed}。份、计时和状态变化不是新事件。,actual：输入入口；allowed：hit、vanish
+E-0019,策划,结束原因 {reason} 不在冻结原因码内；清理不会发送结束事件，也不会派生。,reason：非法原因码
+E-0020,策划,{reason} 默认不派生；若确需此行为，请显式填写 {path} 并保留设计说明。,reason：受限原因；path：授权字段
+E-0021,策划,{brick} 不能使用结束原因 {reason}：{constraint}。,brick：积木或载体；reason：填写原因；constraint：抛射或瞬时限制
+E-0022,策划,修饰器 {modifier} 申请 {permission} 不符合 {constraint}；一个修饰器只能有一档权限。,modifier：标识；permission：权限值；constraint：物品和权限约束
+E-0023,策划,修饰器 {modifier} 的作用域 {scope} 无法匹配：{reason}。,modifier：标识；scope：作用域；reason：缺标签或非法枚举
+E-0024,策划,修饰器 {modifier} 不能修改 {target}：{reason}。请检查已有行为与字段暴露声明。,modifier：标识；target：目标字段；reason：未开放、不存在或歧义
+E-0025,策划,{target} 缺少实时修改的双向许可：{missing}。旧实例不会因此自动更新。,target：目标字段；missing：物品申请或技能 live 声明
+E-0026,策划,{field} 的合并值或范围无效：{detail}。必须在声明边界内得到合法类型。,field：暴露字段或修改目标；detail：上下限及合并结果
+E-0027,策划,{field} 有多个覆盖修饰器，请在 {path} 说明最后挂载者覆盖的结果。,field：被覆盖字段；path：设计说明槽位
+E-0028,策划,{path} 的预计请求 {requested} 可能超过限制 {limit}；运行时将按契约截断。,path：预算或派生路径；requested：请求估算；limit：合法上限
+E-0029,策划,{field} 试图重置 {budget}，会破坏同一来源链的限制。请使用递减后的剩余额度。,field：配置位置；budget：分裂或连锁额度
+E-0030,策划,被动触发 {trigger} 不能订阅 {source}，只可读取 {allowed}。,trigger：标识；source：输入记录名；allowed：四种结算记录
+E-0031,策划,{path} 的产出 {actual} 非法；只能生成效果体或挂修饰器，不能直接改结算结果。,path：产出字段；actual：产出种类
+E-0032,程序,条件 {path} 访问 {field}，但记录 {record} 不提供该字段或该份未成立。,path：条件位置；field：访问字段；record：记录类型
+E-0033,策划,触发 {trigger} 开启了 {exception}，但 {path} 缺少最坏情况及预算说明。,trigger：标识；exception：零冷却或自链；path：说明槽位
+E-0034,策划,正式表现 {path} 不可读取 {source}；调试记录仅供调试面板使用。,path：订阅字段；source：非法来源
+E-0035,程序,表现配置 {path} 尝试写逻辑或驱动出手：{operation}。请保持只读。,path：实际配置位置；operation：非法操作
+E-0036,策划,动画对齐 {path} 缺少 {missing}，无法对应逻辑出手点。,path：对齐项；missing：出手 tick 或动画帧
+E-0037,策划,数字合并 {path} 使用 {actual}，必须按同目标、同类型窗口合并，且不能改伤害。,path：合并规则；actual：实际分组或回写方式
+E-0038,程序,{path} 的契约探针 {probe} 失败：预期 {expected}，实际 {actual}。该能力不能通过装载认证。,path：引入能力的位置；probe：验收编号；expected、actual：差异
+E-0039,策划,保存基线 {base} 已变为 {current}。本次未覆盖，请比较差异后重新提交。,base：打开时版本；current：当前持久化版本
+E-0040,策划,{path} 未填写，已采用契约默认 {value}；展开可查看默认来源 {source}。,path：默认字段；value：实际值；source：契约或登记卡
+E-0041,策划,无法从 Schema {from} 安全迁移到 {to}：{reason}。原文件保持不变。,from、to：源目标版本；reason：缺迁移链或语义歧义
+E-0042,策划,当前预览对应 {preview}，待认证内容为 {current}。请重新预览，不能沿用旧通过标记。,preview、current：版本及内容指纹

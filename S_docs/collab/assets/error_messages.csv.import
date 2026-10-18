@@ -1,0 +1,19 @@
+[remap]
+
+importer="csv_translation"
+type="Translation"
+uid="uid://ccjlc4tmqs0ap"
+
+[deps]
+
+files=["res://S_docs/collab/assets/error_messages.audience.translation", "res://S_docs/collab/assets/error_messages.template.translation", "res://S_docs/collab/assets/error_messages.placeholders.translation"]
+
+source_file="res://S_docs/collab/assets/error_messages.csv"
+dest_files=["res://S_docs/collab/assets/error_messages.audience.translation", "res://S_docs/collab/assets/error_messages.template.translation", "res://S_docs/collab/assets/error_messages.placeholders.translation"]
+
+[params]
+
+compress=1
+delimiter=0
+unescape_keys=false
+unescape_translations=true

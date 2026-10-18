@@ -1,0 +1,198 @@
+[
+  {
+    "brick_id": "projectile_bolt",
+    "name": "直线飞弹",
+    "carrier": "independent",
+    "status": "已登记",
+    "source": "第8、28、30章；穿透与分裂为明确行为"
+  },
+  {
+    "brick_id": "projectile_lob",
+    "name": "定点抛射炮弹",
+    "carrier": "independent",
+    "status": "已登记",
+    "source": "第27章；只在正常落地连接火区"
+  },
+  {
+    "brick_id": "periodic_zone",
+    "name": "周期区域",
+    "carrier": "independent",
+    "status": "已登记",
+    "source": "第22、27章；伤害治疗推力由份类型区分"
+  },
+  {
+    "brick_id": "delayed_patch",
+    "name": "延迟地面判定",
+    "carrier": "independent",
+    "status": "已登记",
+    "source": "第32、33章及H008；定时而非接触触发"
+  },
+  {
+    "brick_id": "expanding_wave",
+    "name": "扩张波前",
+    "carrier": "independent",
+    "status": "已登记",
+    "source": "第8、32章；实际逻辑半径推进"
+  },
+  {
+    "brick_id": "orbit_blade",
+    "name": "环绕飞刃",
+    "carrier": "independent",
+    "status": "已登记",
+    "source": "第8、32章；轨道引用不启动主动位移"
+  },
+  {
+    "brick_id": "returning_blade",
+    "name": "回旋投掷",
+    "carrier": "independent",
+    "status": "已登记",
+    "source": "第8章；去回程共享历史"
+  },
+  {
+    "brick_id": "sustained_beam",
+    "name": "持续射线",
+    "carrier": "independent",
+    "status": "已登记",
+    "source": "第8章；固定朝向默认"
+  },
+  {
+    "brick_id": "homing_projectile",
+    "name": "追踪飞弹",
+    "carrier": "independent",
+    "status": "已登记",
+    "source": "第20章；目标丢失默认继续"
+  },
+  {
+    "brick_id": "ricochet_projectile",
+    "name": "目标间弹射",
+    "carrier": "independent",
+    "status": "已登记",
+    "source": "第30章细则；同一实例改向"
+  },
+  {
+    "brick_id": "chain_projectile",
+    "name": "逐代连锁",
+    "carrier": "independent",
+    "status": "已登记",
+    "source": "第30章；子体递减额度"
+  },
+  {
+    "brick_id": "summon_unit",
+    "name": "召唤协战单位",
+    "carrier": "independent",
+    "status": "已登记",
+    "source": "第22章及H007；有效子技能引用必填"
+  },
+  {
+    "brick_id": "aura_zone",
+    "name": "光环作用区",
+    "carrier": "independent",
+    "status": "已登记",
+    "source": "第22章及H011；区域与目标状态分离"
+  },
+  {
+    "brick_id": "cosmetic_body",
+    "name": "纯表现效果体",
+    "carrier": "independent",
+    "status": "已登记",
+    "source": "第32章；无接触无效果份"
+  },
+  {
+    "brick_id": "wall_reflection_candidate",
+    "name": "墙面反射候选",
+    "carrier": "independent",
+    "status": "候选",
+    "source": "H004；缺环境碰撞契约"
+  },
+  {
+    "brick_id": "displacement_hitbox_candidate",
+    "name": "位移跟随判定候选",
+    "carrier": "self〔评审裁决C04-01订正〕",
+    "status": "候选",
+    "source": "载体经裁决归 `self`；仍缺环境碰撞与路径命中契约，C04-01 继续阻止导出"
+  },
+  {
+    "brick_id": "absorb_shield",
+    "name": "吸收护盾",
+    "carrier": "attached",
+    "status": "已登记",
+    "source": "第22、33A章；吸收不改减免结果"
+  },
+  {
+    "brick_id": "timed_buff",
+    "name": "有期限增益",
+    "carrier": "attached",
+    "status": "已登记",
+    "source": "第22章；纯状态可不升格"
+  },
+  {
+    "brick_id": "timed_debuff",
+    "name": "有期限减益",
+    "carrier": "attached",
+    "status": "已登记",
+    "source": "第22章；有害份与份级免疫"
+  },
+  {
+    "brick_id": "attached_regeneration",
+    "name": "附着持续治疗",
+    "carrier": "attached",
+    "status": "已登记",
+    "source": "第8章；周期不做空间接触"
+  },
+  {
+    "brick_id": "attached_damage_over_time",
+    "name": "附着持续伤害",
+    "carrier": "attached",
+    "status": "已登记",
+    "source": "第6、8章；周期状态升格"
+  },
+  {
+    "brick_id": "taunt_anchor_candidate",
+    "name": "嘲讽目标约束候选",
+    "carrier": "attached",
+    "status": "候选",
+    "source": "H009；缺索敌覆盖契约"
+  },
+  {
+    "brick_id": "instant_burst",
+    "name": "瞬时圆形爆发",
+    "carrier": "none",
+    "status": "已登记",
+    "source": "第8、33B章；逐目标混合份"
+  },
+  {
+    "brick_id": "instant_fan",
+    "name": "瞬时扇形斩",
+    "carrier": "none",
+    "status": "已登记",
+    "source": "第31章；出手朝向冻结"
+  },
+  {
+    "brick_id": "instant_ray",
+    "name": "瞬时射线",
+    "carrier": "none",
+    "status": "已登记",
+    "source": "第8章及H003；不以速度模拟"
+  },
+  {
+    "brick_id": "instant_heal",
+    "name": "单次治疗",
+    "carrier": "none",
+    "status": "已登记",
+    "source": "第22、33A章；名义量与实际量分开"
+  },
+  {
+    "brick_id": "instant_control",
+    "name": "控制施加",
+    "carrier": "none",
+    "status": "已登记",
+    "source": "第22、33B章；施加体与状态分离"
+  },
+  {
+    "brick_id": "instant_knockback",
+    "name": "击退施加",
+    "carrier": "none",
+    "status": "已登记",
+    "source": "第22、33B章；受迫位移非主动位移"
+  }
+]

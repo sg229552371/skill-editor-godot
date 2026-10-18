@@ -1,0 +1,85 @@
+﻿rule_id,condition,severity,field_path,error_code
+V-001,版本缺失、非字符串或不是受支持版本,阻止保存,`schema_version`,E-0001
+V-002,ID 不符合角色、类别、短名、可选变体格式,阻止保存,`skill_id`,E-0002
+V-003,ID 与其他定义冲突,阻止保存,`skill_id`,E-0003
+V-004,角色未登记，或与 ID 组成不符,阻止保存,`meta.role`,E-0004
+V-005,类别不在四种枚举内，或与 ID 不符,阻止保存,`meta.category`,E-0004
+V-006,短名或变体组成不能还原完整 ID,阻止保存,`meta.short_name`、`meta.variant`,E-0004
+V-007,技能版本不符合约定格式或覆盖同版不同内容,阻止保存,`meta.version`,E-0005
+V-008,显示名为空,阻止保存,`meta.name`,E-0006
+V-009,池引用不存在或同一成员重复,阻止保存,`meta.pools[i]`,E-0007
+V-010,标签不存在或重复,阻止保存,`meta.tags[i]`,E-0007
+V-011,积木目录不存在对应定义或版本不可解析,阻止保存,`bricks[i].brick_id`,E-0007
+V-012,保存了未登记或预留积木并要求参与运行,阻止保存,`bricks[i].status`,E-0008
+V-013,登记卡缺少任一冻结字段,阻止保存,`bricks[i].author_params` 等实际缺失槽位,E-0006
+V-014,作者覆盖了积木锁定字段,阻止保存,`params.brick_overrides[i].values` 中实际叶路径,E-0009
+V-015,同一积木覆盖索引不存在或重复赋值不明确,阻止保存,`params.brick_overrides[i].brick_index`,E-0007
+V-016,派生或触发产出引用未解析到有效定义,阻止保存,`params.derivations[i].produces`、`params.triggers[i].produces`,E-0007
+V-017,玩家文字含内部事件、原因码或权限术语,警告,`bricks[i].player_text`,E-0010
+V-018,玩家文字超过三句或动词无对应行为,警告,`bricks[i].player_text`,E-0010
+V-019,出现未登记字段、非法顶层键或重复映射键,阻止保存,原始键的完整路径，如 `params.tick_order`,E-0011
+V-020,登记字段类型不符、数值非有限或不在声明范围,阻止保存,实际叶路径，如 `params.projectile_speed`,E-0012
+V-021,tick 字段为负数、分数或附带秒字符串,阻止保存,`params.windup_ticks`、`params.cooldown_ticks`、`params.lifetime_ticks`,E-0013
+V-022,开始延迟或出手时间点不是非负整数 tick,阻止保存,`params.start_delay_ticks`、`params.shot_ticks[i]`,E-0013
+V-023,出手时间表不是非递减序列或为空却声明主动出手,阻止保存,`params.shot_ticks[i]`,E-0014
+V-024,载体不是主书稿四类载体之一,阻止保存,`params.carrier`、`bricks[i].carrier`,E-0015
+V-025,瞬时无载体实例声明非零寿命,阻止保存,`params.lifetime_ticks`,E-0016
+V-026,持续效果体缺少合法寿命或契约允许的上限声明,阻止保存,`params.lifetime_ticks`,E-0006
+V-027,命中限额不是正整数,阻止保存,`params.hit_policy.per_target_limit`、`params.hit_policy.max_hits`,E-0012
+V-028,重复接触间隔存在但不是正整数 tick,阻止保存,`params.hit_policy.rehit_interval_ticks`,E-0013
+V-029,重复跳伤的区域或环绕积木缺重复间隔,阻止保存,`params.hit_policy.rehit_interval_ticks`,E-0017
+V-030,同时配置限额与间隔，却把二者标成择一生效,阻止保存,`params.hit_policy` 中非法策略叶路径,E-0011
+V-031,目标丢失策略超出 continue、terminate,阻止保存,`params.on_target_lost`,E-0012
+V-032,事件派生订阅不是 hit 或 vanish,阻止保存,`params.derivations[i].on`,E-0018
+V-033,vanish 原因包含 purge 或非冻结原因码,阻止保存,`params.derivations[i].reasons[j]`,E-0019
+V-034,range_end 或 interrupted 派生未显式授权,阻止保存,`params.derivations[i].allow_restricted_reason`,E-0020
+V-035,非抛射积木要求 landed 原因派生,阻止保存,`params.derivations[i].reasons[j]`,E-0021
+V-036,配置要求瞬时实例以其他自然结束原因终止,阻止保存,`params.derivations[i].reasons[j]`,E-0021
+V-037,派生规则试图按每份重复派生或订阅状态到期,阻止保存,`params.derivations[i].on` 及实际非法键,E-0018
+V-038,份类型未登记或固定索引重复,阻止保存,`params.parts[i].type`、`params.parts[i].part_index`,E-0012
+V-039,修饰器标识缺失或重复,阻止保存,`params.modifiers[i].modifier_id`,E-0003
+V-040,单个修饰器声明多个权限或未知权限,阻止保存,`params.modifiers[i].permission`,E-0022
+V-041,水晶申请非 mutate_number 权限,阻止保存,`params.modifiers[i].permission`,E-0022
+V-042,scope 不合法或 tagged 缺少合法匹配标签,阻止保存,`params.modifiers[i].scope`、`meta.tags[i]`,E-0023
+V-043,修改目标未暴露、名称不明确或不是字段引用,阻止保存,`params.modifiers[i].targets[j]`,E-0024
+V-044,mutate_number 目标不存在，试图凭空添加行为,阻止保存,`params.modifiers[i].targets[j]`,E-0024
+V-045,live 权限没有物品申请与目标 live 暴露双向许可,阻止保存,`params.modifiers[i].permission`、`params.exposed_fields[j].live`,E-0025
+V-046,任一权限试图修改来源链、实例身份、快照或历史结果,阻止保存,`params.modifiers[i].targets[j]`,E-0009
+V-047,修饰器试图修改 max_generation、max_chain_depth、allow_self_chain,阻止保存,`params.modifiers[i].targets[j]`,E-0009
+V-048,暴露字段未声明上下限或上下限倒置,阻止保存,`params.exposed_fields[i].min`、`params.exposed_fields[i].max`,E-0026
+V-049,数值叠加类别不是 set、add、mul、clamp,阻止保存,`params.modifiers[i].stack_rule`,E-0012
+V-050,同字段多个 set 未说明最后挂载者覆盖,警告,`params.exposed_fields[i].set_conflict_note`,E-0027
+V-051,合并后值违反类型或积木硬范围，不能合法夹取,阻止保存,`params.modifiers[i].targets[j]`,E-0026
+V-052,inheritable 非布尔或隐式要求全部修饰继承,阻止保存,`params.modifiers[i].inheritable`,E-0012
+V-053,派生上限非非负整数或超过项目硬上限,阻止保存,`params.max_generation`,E-0012
+V-054,已配置派生路径必然被代数上限截断,警告,`params.derivations[i].produces`,E-0028
+V-055,cast_budget 非正整数或缺少可解析项目默认,阻止保存,`params.cast_budget`,E-0006
+V-056,预计路径可能超过合法施放预算,警告,`params.cast_budget`,E-0028
+V-057,分裂配置允许分裂体重置 split_budget,阻止保存,`params.split_budget`,E-0029
+V-058,连锁配置要求每代重置 chain_remaining 或 visited,阻止保存,`params.chain_remaining` 及实际非法键,E-0029
+V-059,触发点标识缺失、重复或不能稳定进入来源标记,阻止保存,`params.triggers[i].trigger_id`、`params.derivations[i].trigger_id`,E-0003
+V-060,被动订阅非四种结算记录，含 hit、vanish、debug_record,阻止保存,`params.triggers[i].on`,E-0030
+V-061,触发产出不是效果体模板或修饰器引用,阻止保存,`params.triggers[i].produces`,E-0031
+V-062,条件访问该记录没有的字段或未成立份,阻止保存,`params.triggers[i].condition`,E-0032
+V-063,触发概率不是零到一的有限数,阻止保存,`params.triggers[i].chance`,E-0012
+V-064,内置冷却缺失、负数或不是整数 tick,阻止保存,`params.triggers[i].internal_cooldown_ticks`,E-0013
+V-065,零内置冷却缺显式说明或有效预算保障,阻止保存,`params.triggers[i].zero_cooldown_note`,E-0033
+V-066,因果深度上限缺失、非法或越过项目硬上限,阻止保存,`params.triggers[i].max_chain_depth`,E-0012
+V-067,允许自链但最坏情况说明不完整,阻止保存,`params.triggers[i].self_chain_note`,E-0033
+V-068,召唤积木缺正整数 summon_cap,阻止保存,`params.summon_cap`,E-0006
+V-069,依附、绑定、霰弹和自链布尔字段类型错误,阻止保存,`params.attach_to_caster`、`params.bind_owner`、`params.shotgun_allowed`、`params.triggers[i].allow_self_chain`,E-0012
+V-070,表现段缺七类必备槽位或出现其他未登记段,阻止保存,`presentation.fx` 等实际槽位,E-0006
+V-071,正式表现订阅 debug_record 或结算之外的调试数据,阻止保存,`presentation.damage_number.sources[i]` 等实际订阅路径,E-0034
+V-072,表现配置存在逻辑回写或动画回调驱动出手,阻止保存,`presentation.anim.alignments[i]` 中实际非法键,E-0035
+V-073,音效启用但并发上限缺失或不是正整数,阻止保存,`presentation.sfx.concurrency_limit`,E-0006
+V-074,动画启用却缺逻辑 tick 与动画帧对齐,阻止保存,`presentation.anim.alignments[i].shot_tick`、`presentation.anim.alignments[i].frame`,E-0036
+V-075,拖尾未区分 independent 与瞬时外观方式,阻止保存,`presentation.trail.carrier_mode`,E-0015
+V-076,数字合并跨目标、跨类型或回写合并后的逻辑伤害,阻止保存,`presentation.damage_number.group_by`,E-0037
+V-077,玩家数字手填值与当前生效参数脱离,警告,`meta.player_attributes`,E-0010
+V-078,资源缺失但有合法禁用占位方式,警告,`presentation.fx.resources[i]` 等实际资源路径,E-0007
+V-079,装载前行为契约探针失败,阻止保存,对应 `bricks[i].brick_id` 或 `params.triggers[i].produces`,E-0038
+V-080,非功能提示试图改变事件、来源链、排序或预算丢弃语义,阻止保存,`runtime_hints` 中实际非法叶路径,E-0009
+V-081,保存时底层定义已被其他操作更新,阻止保存,`meta.version`,E-0039
+V-082,已合法应用默认值但作者尚未显式填写,提示,实际默认槽位，如 `params.shotgun_allowed`,E-0040
+V-083,迁移没有完整路径、目标版本未知或语义不能无损解释,阻止保存,`schema_version`,E-0041
+V-084,预览使用内容与待保存内容指纹不同,阻止保存,`meta.version`,E-0042

@@ -1,0 +1,43 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://addons/skill_editor/ui/skill_list_panel.gd" id="1"]
+
+[node name="SkillListPanel" type="VBoxContainer"]
+custom_minimum_size = Vector2(420, 260)
+script = ExtResource("1")
+
+[node name="Title" type="Label" parent="."]
+layout_mode = 2
+text = "技能列表（本次打开）"
+
+[node name="Path" type="LineEdit" parent="."]
+layout_mode = 2
+placeholder_text = "技能 CFG 路径（由 core 加载）"
+
+[node name="Actions" type="HBoxContainer" parent="."]
+layout_mode = 2
+
+[node name="New" type="Button" parent="Actions"]
+layout_mode = 2
+text = "新建"
+
+[node name="Open" type="Button" parent="Actions"]
+layout_mode = 2
+text = "打开"
+
+[node name="Delete" type="Button" parent="Actions"]
+layout_mode = 2
+text = "删除"
+
+[node name="Rename" type="Button" parent="Actions"]
+layout_mode = 2
+text = "重命名"
+
+[node name="Skills" type="ItemList" parent="."]
+layout_mode = 2
+size_flags_vertical = 3
+custom_minimum_size = Vector2(0, 130)
+
+[node name="Message" type="Label" parent="."]
+layout_mode = 2
+autowrap_mode = 2

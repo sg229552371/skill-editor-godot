@@ -1,0 +1,19 @@
+[remap]
+
+importer="csv_translation"
+type="Translation"
+uid="uid://dofryi3g8svg8"
+
+[deps]
+
+files=["res://S_docs/collab/assets/acceptance_cases.input.translation", "res://S_docs/collab/assets/acceptance_cases.expected.translation", "res://S_docs/collab/assets/acceptance_cases.evidence.translation"]
+
+source_file="res://S_docs/collab/assets/acceptance_cases.csv"
+dest_files=["res://S_docs/collab/assets/acceptance_cases.input.translation", "res://S_docs/collab/assets/acceptance_cases.expected.translation", "res://S_docs/collab/assets/acceptance_cases.evidence.translation"]
+
+[params]
+
+compress=1
+delimiter=0
+unescape_keys=false
+unescape_translations=true

@@ -1,0 +1,19 @@
+[remap]
+
+importer="csv_translation"
+type="Translation"
+uid="uid://do55q1n8uy2ek"
+
+[deps]
+
+files=["res://S_docs/collab/assets/validation_rules.condition.translation", "res://S_docs/collab/assets/validation_rules.severity.translation", "res://S_docs/collab/assets/validation_rules.field.translation", "res://S_docs/collab/assets/validation_rules.error.translation"]
+
+source_file="res://S_docs/collab/assets/validation_rules.csv"
+dest_files=["res://S_docs/collab/assets/validation_rules.condition.translation", "res://S_docs/collab/assets/validation_rules.severity.translation", "res://S_docs/collab/assets/validation_rules.field.translation", "res://S_docs/collab/assets/validation_rules.error.translation"]
+
+[params]
+
+compress=1
+delimiter=0
+unescape_keys=false
+unescape_translations=true

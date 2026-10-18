@@ -1,0 +1,16 @@
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="PackedScene" path="res://addons/skill_editor/ui/skill_list_panel.tscn" id="1"]
+[ext_resource type="PackedScene" path="res://addons/skill_editor/ui/brick_picker.tscn" id="2"]
+
+[node name="SkillEditor" type="HBoxContainer"]
+custom_minimum_size = Vector2(860, 280)
+size_flags_horizontal = 3
+
+[node name="SkillListPanel" parent="." instance=ExtResource("1")]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="BrickPicker" parent="." instance=ExtResource("2")]
+layout_mode = 2
+size_flags_horizontal = 3
