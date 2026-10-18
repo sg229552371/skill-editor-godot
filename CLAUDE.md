@@ -90,7 +90,7 @@ GODOT_DISABLE_LEAK_CHECKS=1 "$GODOT" --headless --display-driver headless \
   -s res://addons/gut/gut_cmdln.gd -gtest=res://tests/<文件名>.gd -gexit
 ```
 
-**九个坑（已踩过，别再踩）**：
+**十三个坑（已踩过，别再踩）**：
 1. `godot` **不在 PATH**（portable 版），必须用上面的绝对路径。写 `godot` 会 command not found。
 2. **版本必须锁 4.7.1**。用 4.7.2 跑过一次 import，把 `.godot/` 缓存写成 4.7.2 格式，与用户开着的 4.7.1 编辑器抢同一份缓存，**直接把编辑器搞崩过**。`Downloads/Godot_v4.7.2-.../` 那个**禁用**。
 3. **禁止 `-gdir=res://tests -ginclude_subdirs`**。实测该模式会挂起 5 分钟无输出直到超时。必须用 `-gtest=` 单文件模式，每个文件 0.4 秒。全量门禁 = 对每个 `res://tests/test_*.gd` 串行循环。
@@ -140,6 +140,13 @@ GODOT_DISABLE_LEAK_CHECKS=1 "$GODOT" --headless --display-driver headless \
     要制造「必然失败」用 `assert_true(false, "...")` 或 `assert_false(true, "...")`。
     同理：写完测试后若 GUT 报 `Ignoring script ... because it does not extend GutTest` 或
     `Nothing was run`，**先查是不是脚本根本没解析过**，不要当成环境问题。
+13. **「区间内出现某类诊断」这类断言会恒真**（T-015 二轮真踩过，审核方反向对照才发现）：
+    测试写「破坏 CFG 后，诊断里出现 V-039…069 区间的规则号」，而**基线（未破坏的）CFG 本身就带 6 条 V-053**，
+    于是断言不改 CFG 也能通过 —— 看起来 5/5 全绿，其实**根本没证明那张卡被触发**。
+    修法（通用）：**先跑一次基线拿到 `baseline`，再断言「相对基线新增的规则号」**
+    （`_new_in_range(baseline, result, first, last).size() > 0`）。
+    凡是「断言某个集合非空 / 某类东西存在」的用例，写之前先问一句：
+    **它在什么情况下会恒真？基线状态是不是就已经满足了？**
 
 ### ✅ 唯一例外：你被允许跑 `--check-only` 语法检查
 
