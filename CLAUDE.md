@@ -119,6 +119,13 @@ GODOT_DISABLE_LEAK_CHECKS=1 "$GODOT" --headless --display-driver headless \
    所以**不要对素材 JSON 里的数值用 `is int` 单判**（`minimum is int` 恒为 false → 该子检查静默不触发，测试只差 1 个断言且报 `actual=[]`，极难看出）。
    素材数值一律按 `value is int or value is float` 判定后再 `float()` 比较；
    反过来，**作者填进 CFG 的值**才用严格 `is int` 做 integer 字段类型校验 —— 两者不要混淆。
+10. **「路径合法性」在素材侧与作者侧是两个判据，不得复用同一个函数**（T-031 真踩过）：
+    `params_meta.json` 的 `arrays[].path` / `objects[].path` **带下标段**（`templates[i].parts`、
+    `templates[i].cast.shot_ticks`），而作者手填的键**严禁 `[` `]`**（下标由解析器生成）。
+    T-031 把两者共用一个 `_valid_path()` → `configure()` 在第一条数组登记上就显式失败 →
+    `_ready=false` → 全部 9 条用例拿到 `{ok:false, diagnostics:[LOCK_GUARD_INVALID]}`，
+    GUT 只显示 `last_error`，完全看不出是素材口径问题。
+    修法：拆成 `_valid_meta_path()`（先 `replace("[i]","")` 再分段校验）与 `_valid_path()`（拒绝 `[`/`]`）。
 
 ### ✅ 唯一例外：你被允许跑 `--check-only` 语法检查
 
@@ -170,6 +177,10 @@ timeout 60 "$GODOT" --headless --check-only --script res://<你改的文件>.gd
      容器取值一律先声明 `Variant`，再用 `is` 判定（见第五节坑 8）。
    - **素材 JSON 里的数字是 float**（T-013）：`is int` 单判恒为 false，会让子检查静默不触发；
      素材数值用 `is int or is float` 判定，只有作者填进 CFG 的值才用严格 `is int`（见第五节坑 9）。
+   - **「路径合法性」在素材侧与作者侧是两个判据**（T-031）：素材登记路径**带 `[i]` 下标段**
+     （`templates[i].parts`），作者输入的键**严禁 `[` `]`**。用同一个校验函数会让 `configure()` 在第一条
+     数组登记上显式失败 → `_ready=false` → 全部用例拿 `LOCK_GUARD_INVALID` 红掉，且失败信息只显示
+     `last_error`，极难看出是素材口径问题（见第五节坑 10）。
    编译错误会让整脚本加载失败，代价很高；
 3. 回执里写「自测声明：未运行引擎，已静态复核 X 处」，并把你认为可能红的点列进「未决与风险」。
 
