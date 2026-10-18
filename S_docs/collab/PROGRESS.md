@@ -50,6 +50,11 @@ T-031 会话报告：`param_resolver.gd` 出现 T-030 的未提交实现、随�
 → 结论：**三条线同时在同一工作树上写文件存在互相回滚风险**。后续改为**最多两条并行**，
 并在派单里加硬条款：不得 `git checkout/clean/stash/revert`、不得删除或恢复他人文件、发现冲突立即停手并在回执里报备。
 
+**冲突溯源（同为 WorkBuddy，21:33 自动化会话）**：上述「外部操作」是本轮汇报自动化做的隔离清理，非回滚。
+当时三个 `claude -p` 进程因主模型额度耗尽被中断，留下**解析不过的半成品**（`param_resolver.gd` 缺函数体导致 T-030 既有测试 0/3；`diagnostic_sorter.gd` / `r_present.gd` / `test_validate_*.gd` 均 Parse Error），
+已把 T-030 PASS 版 `param_resolver.gd` 用 `git checkout` 复位，其余半成品移到 `.workbuddy/wip-2026-10-18/`（Godot 不可见 + gitignored，可原样取回参考）。
+复位后全量回归回到 **285/285 绿**。**后续不再清理在跑会话的文件，只在回执验收阶段处理。**
+
 ## 四、待派（下一步）
 
 **线 A 校验**：T-014（诊断排序）、T-015（六入口编排）、T-016（84 条反例夹具）
@@ -85,6 +90,8 @@ U-09 YamlLite chomping（`>-` `|-`）· U-11 V-018 动词词表 · U-12 切句�
 - **D-26** crystal 仅 mutate_number；relic 的 live 降为 conditional（从严）
 - **D-27** 严重度唯一真源是 CSV（V-050/**V-054**/V-056 警告）
 - **D-28** `evadable` 缺省按有益有害补默认（有害 true / 有益 false）；无敌只让五种伤害元素视为闪避
+- **D-29** V-073 两段式（Schema `minimum 0` 类型范围 ／ 启用态下界 1）· **D-30** V-084 入口区分（certify 阻止 / save 仅 notice）
+- **D-31** 表现段素材与 context 契约补齐 · **D-32** 未复现红灯判定口径：存档原文 → 三连绿 + 独立 `_diag_` 断面复核 → 转加固项不判红（用于 T-034 首轮偶发红灯）
 - **坑 5** 函数头丢失（第一条 `Function X not found in base self` 是真定位点）
 - **坑 6** Variant 跨类型比较抛运行时错误 → GUT 记 Unexpected Errors，断言只差 1，极难看出
 - **坑 7** 点语法给 Dictionary 写新键生成 StringName 键，不是 String（`has("x")` 取不到）
