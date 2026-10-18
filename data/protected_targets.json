@@ -1,0 +1,39 @@
+{
+  "schema_version": "0.1",
+  "_source": "真源 2276/3849-3852(V-046 不得改来源链/实例身份/快照/历史结果)、3853/2276(V-047 不得改 max_generation/max_chain_depth/allow_self_chain)、1081(locked_params: visited 必须向子体传递、max_generation 加深由设计卡审批、origin 子体不得重置来源链)、4292(chain_depth/generation 关系)",
+  "_extracted_by": "WorkBuddy",
+  "_extracted_on": "2026-10-18",
+  "match_mode": "segment",
+  "_match_note": "按**路径段**匹配（不是子串），避免 `params.max_hits` 被 `params.max_generation` 之类的子串相似误伤；精确完整路径优先。",
+  "groups": {
+    "source_chain": {
+      "rule_ids": ["V-046"],
+      "segments": ["origin", "origin_cast_id", "origin_skill", "parent_ref", "proc_mask", "chain_depth", "source_chain"],
+      "_source": "1081「子体不得重置来源链」；4292 来源链视图字段"
+    },
+    "instance_identity": {
+      "rule_ids": ["V-046"],
+      "segments": ["instance_id", "body_id", "caster_id", "owner_id"],
+      "_source": "2274「inheritable 不重写 caster_id 和 origin」"
+    },
+    "snapshot": {
+      "rule_ids": ["V-046"],
+      "segments": ["snapshot", "frozen_snapshot"],
+      "_source": "2276「修改已冻结 snapshot 不允许」；14.6「旧实例快照不变」"
+    },
+    "history": {
+      "rule_ids": ["V-046"],
+      "segments": ["history", "history_result", "ledger", "debug_record"],
+      "_source": "V-046「历史结果」；14.6 完整性账本"
+    },
+    "safety_bounds": {
+      "rule_ids": ["V-047"],
+      "segments": ["max_generation", "max_chain_depth", "allow_self_chain"],
+      "_source": "V-047；1081 relic_params: max_generation 禁止"
+    }
+  },
+  "always_denied_segments": ["max_generation", "max_chain_depth", "allow_self_chain"],
+  "_decisions": {
+    "note": "本表是**受保护目标名单**，不是受保护键名白名单。其余一切目标是否可改，仍由暴露声明（exposed_fields）与权限矩阵决定；未暴露即不可改（V-043）。"
+  }
+}

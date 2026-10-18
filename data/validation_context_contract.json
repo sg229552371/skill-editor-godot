@@ -1,0 +1,102 @@
+{
+  "schema_version": "0.1",
+  "_source": "WorkBuddy 裁决 D-25：校验器不拥有解析能力，只消费已解析事实；缺失即显式失败（D-21）",
+  "_extracted_by": "WorkBuddy",
+  "_extracted_on": "2026-10-18",
+  "_principle": "校验器自己能算的（类型/枚举/范围/唯一性/路径槽位）必须自己算，不得推给 context；需要引用解析、图分析、运算解析、能力判定的一律从 context 消费。context 缺失或类型错 → 该规则显式失败诊断，绝不静默通过、绝不猜、绝不发明 CFG 开关。",
+
+  "severity_source": "res://data/validation_rules.csv",
+  "_severity_note": "严重度唯一真源是 CSV，不做代码覆盖、不按规则 ID 特判。T-012 派发单中「仅 V-050/V-056 为警告」为审核方笔误，CSV 中 V-054 亦为警告，以 CSV 为准。",
+
+  "context_keys": {
+    "capabilities": {
+      "type": "Dictionary",
+      "consumers": ["V-035", "V-036", "V-068"],
+      "required_by": ["V-068"],
+      "semantics": "该卡/模板的能力标记（是否抛射、是否瞬时、是否启用召唤等）；沿用在 T-011 已用的 capabilities / template_capabilities / card_behaviors 三个键，按路径从细到粗回退",
+      "_source": "T-011 已 PASS 的 _capabilities_for 同款契约"
+    },
+    "exposed": {
+      "type": "Dictionary",
+      "consumers": ["V-043", "V-044", "V-045", "V-051"],
+      "required_by": ["V-043", "V-044", "V-045"],
+      "semantics": "已登记暴露字段表：field_path -> { permissions[], live, inheritable, min, max }；由 skill_core/resolve/exposed_fields.gd 的 register_fields 产出，不要重复实现"
+    },
+    "live_requests": {
+      "type": "Array",
+      "consumers": ["V-045"],
+      "required_by": ["V-045"],
+      "semantics": "物品侧申请列表 [{ <reference_role>: field_path, permission }]；与 exposed 的 live 暴露做双向许可"
+    },
+    "set_counts": {
+      "type": "Dictionary",
+      "consumers": ["V-050"],
+      "required_by": [],
+      "semantics": "同一字段被 set 覆盖的次数；>1 且无 set_conflict_note → 警告（可保存）"
+    },
+    "item_category": {
+      "type": "String",
+      "consumers": ["V-041"],
+      "required_by": ["V-041"],
+      "semantics": "修饰来源类别（crystal/relic…），权限矩阵见 res://data/item_permission_policy.json；未登记类别显式失败"
+    },
+    "stack_operations": {
+      "type": "Dictionary",
+      "consumers": ["V-049", "V-050", "V-051"],
+      "required_by": ["V-049"],
+      "semantics": "modifier_id -> 已解析叠加运算 { category: set|add|mul|clamp, operands[], base_value, hard_range:{min,max}, mount_order }；真源 2266「stack_rule 以 ref 编码，不能假装已冻结叠加资源类型」，故类别必须由注册表解析给出"
+    },
+    "derivation_analysis": {
+      "type": "Dictionary",
+      "consumers": ["V-054"],
+      "required_by": ["V-054"],
+      "semantics": "{ truncated_paths: [ {path, blocked_by, generation} ] } —— 必然被代数上限截断的派生路径；必须用理论请求数，不得用运行时截断后的实际创建数"
+    },
+    "budget_estimate": {
+      "type": "Dictionary",
+      "consumers": ["V-056", "V-065"],
+      "required_by": ["V-056"],
+      "semantics": "{ total_requested_instances, capped, guarantee_bindings:[...] }；V-056 只警告；V-065 的「有效预算保障」要求预算确实约束该触发链，不能只因某处有正整数 cast_budget 就算保障"
+    },
+    "reset_writes": {
+      "type": "Array",
+      "consumers": ["V-057", "V-058"],
+      "required_by": [],
+      "semantics": "子体对 split_budget / chain_remaining / visited / 来源链的写入事实 [{ path, kind, source }]；另有直接出现在 CFG 中的非法键由校验器自测"
+    },
+    "produced_types": {
+      "type": "Dictionary",
+      "consumers": ["V-061"],
+      "required_by": ["V-061"],
+      "semantics": "引用 -> \"effect_template\" | \"modifier\" | \"illegal\"；非空字符串或引用存在不等于产出类型合法"
+    },
+    "record_fields": {
+      "type": "Dictionary",
+      "consumers": ["V-062"],
+      "required_by": ["V-062"],
+      "semantics": "见 res://data/record_fields.json；四种记录各自可读字段与份成立前置条件"
+    },
+    "condition_registry": {
+      "type": "Dictionary",
+      "consumers": ["V-062"],
+      "required_by": ["V-062"],
+      "semantics": "已注册条件 ref -> { accessible_fields[], part_filters[] }；真源 2222：condition 用 ref 不用任意表达式，禁止对字符串求值"
+    },
+    "self_chain_evidence": {
+      "type": "Dictionary",
+      "consumers": ["V-067"],
+      "required_by": ["V-067"],
+      "semantics": "{ depth_bound, source_mark_bound, cooldown_bound, budget_bound, worst_case_note_complete }；非空 self_chain_note 不等于说明完整，不搜索中文关键词"
+    }
+  },
+
+  "failure_policy": {
+    "missing_required_context": "显式失败：写 last_error 并返回不可用诊断（同 D-21 元数据不可用语义），不得退化成『零规则即通过』",
+    "wrong_type": "同上，显式失败并报出实际类型",
+    "optional_missing": "跳过该子检查并登记 notice，不算通过证据"
+  },
+
+  "path_ruling": {
+    "V-060": "诊断定位落到 Schema 落点 params.triggers[i].record（D-24 + 别名表）；作者提交未登记的 .on 输入由未知字段规则（V-019）处理，不静默迁移、不改名"
+  }
+}

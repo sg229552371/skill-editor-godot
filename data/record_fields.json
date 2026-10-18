@@ -1,0 +1,43 @@
+{
+  "schema_version": "0.1",
+  "_source": "真源 386（结算记录非事件、只读）、2704-2709（四种记录与载荷）、2210/2222（被动读取结算记录，condition 用 ref 不用任意表达式）、1346（治疗触发须按 heal 份过滤）、248/1759（不得订阅调试记录）",
+  "_extracted_by": "WorkBuddy",
+  "_extracted_on": "2026-10-18",
+  "records": {
+    "hit_settled": {
+      "payload_roles": ["source", "target", "total", "kill_flag", "part_type"],
+      "cannot_claim": ["一定扣了生命", "一定是伤害"],
+      "_source": "2705"
+    },
+    "evaded_all": {
+      "payload_roles": ["source", "target"],
+      "cannot_claim": ["任意一份闪避都触发"],
+      "_source": "2706"
+    },
+    "damage_taken": {
+      "payload_roles": ["target", "actual_amount", "source_chain"],
+      "cannot_claim": ["护盾完全吸收也等于实际扣血"],
+      "_source": "2707"
+    },
+    "cast_started": {
+      "payload_roles": ["caster", "skill", "cast_id"],
+      "cannot_claim": ["每次出手或每个效果体都写一条"],
+      "_source": "2708"
+    }
+  },
+  "not_subscribable": ["hit", "vanish", "debug_record"],
+  "_not_subscribable_source": "2709「hit、vanish 留在技能内部派生规则，不进入被动订阅列表；debug_record 禁止订阅，不能通过专家模式、导入配置或手写文本打开」；7135「debug_record 非事件非结算记录，任何层不得订阅」",
+  "part_filters": {
+    "heal": "治疗触发必须按 heal 份与目标身份过滤，不能只看 hit_settled.total 大于零就当成造成伤害（真源 1346）",
+    "damage": "无敌不影响治疗，但治疗免疫使该份量减为零；满血和免疫不应被误记为伤害",
+    "_note": "份成立条件：订阅某记录不等于该份必定成立；份类型过滤是前置条件"
+  },
+  "condition_contract": {
+    "kind": "registered_ref",
+    "_source": "2222「condition 使用 ref 而不是任意表达式字符串，作者只能从已注册条件里选择；不把表单升级成一门脚本语言」",
+    "_note": "V-062 不得对任意字符串做表达式求值；条件可访问字段由**已注册条件**的注册表提供，注册表未注入 → 显式失败（D-21）"
+  },
+  "_decisions": {
+    "D-24": "四种结算记录 = 本表 records 的键；hit/vanish/debug_record 均非合法订阅记录"
+  }
+}

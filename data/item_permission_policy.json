@@ -1,0 +1,39 @@
+{
+  "schema_version": "0.1",
+  "_source": "真源 3847(V-041)、6868/6878(水晶只能 mutate_number；技能本无分裂时属 add_behavior 且遗物才有该权限)、7230(遗物只能读结算记录再生成效果体或挂修饰器)、8065(三档权限同构，mutate_live_instance 须逐字段限制)、2274(水晶或遗物只能在 relic_params 授权范围内使用；冲突时从严拒绝)、1081(relic_params 示例：max_generation 禁止、mutate_live_instance 禁止)",
+  "_extracted_by": "WorkBuddy",
+  "_extracted_on": "2026-10-18",
+  "permissions": ["mutate_number", "add_behavior", "mutate_live_instance"],
+  "permission_roles": {
+    "mutate_number": "只改已有数值（影响未来），不新增行为",
+    "add_behavior": "新增行为/能力，须技能声明可接",
+    "mutate_live_instance": "可影响场上实例；须逐字段限制"
+  },
+  "categories": {
+    "crystal": {
+      "allowed": ["mutate_number"],
+      "conditional": [],
+      "denied": ["add_behavior", "mutate_live_instance"],
+      "_source": "V-041 + 6878「水晶只能改已配置的分裂数量」"
+    },
+    "relic": {
+      "allowed": ["mutate_number", "add_behavior"],
+      "conditional": ["mutate_live_instance"],
+      "denied": [],
+      "_source": "6878「遗物才有该权限」；8065「水晶/遗物无差别」与本卡第4章示例冲突，按 2274『冲突时从严拒绝』+ 1081『relic_params: mutate_live_instance 禁止』→ 降为 conditional，须过 V-045 双向许可"
+    }
+  },
+  "conditional_rules": {
+    "mutate_live_instance": {
+      "requires": ["item_application", "target_live_exposure"],
+      "_source": "V-045：物品申请与目标 live 暴露双向许可，缺任一即阻止保存"
+    }
+  },
+  "unknown_category": {
+    "policy": "explicit_failure",
+    "_note": "未登记类别一律显式失败（D-21），不得按默认放行、不得猜"
+  },
+  "_decisions": {
+    "D-26": "物品类别→权限矩阵按真源从严裁定；水晶仅 mutate_number；遗物 mutate_live_instance 为 conditional（需 V-045 双向许可），非 outright allowed"
+  }
+}
