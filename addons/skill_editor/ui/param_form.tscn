@@ -1,0 +1,16 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://addons/skill_editor/ui/param_form.gd" id="1_param"]
+
+[node name="ParamForm" type="VBoxContainer"]
+custom_minimum_size = Vector2(640, 260)
+size_flags_vertical = 3
+script = ExtResource("1_param")
+
+[node name="Title" type="Label" parent="."]
+layout_mode = 2
+text = "参数表单"
+
+[node name="Rows" type="VBoxContainer" parent="."]
+layout_mode = 2
+size_flags_vertical = 3

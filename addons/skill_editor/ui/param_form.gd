@@ -52,6 +52,7 @@ func configure(metadata: Dictionary = {}, project: Dictionary = {}, draft: Dicti
 	if _units == null:
 		_units = UNITS_SCRIPT.new()
 	var unit_result: Dictionary = _units.configure(project_meta, params_meta)
+	_ready_for_input = unit_result.get("ok", false) or _tick_field_count() == 0
 	_clear_rows()
 	var leaves: Variant = params_meta.get("leaves", null)
 	if not leaves is Array:
@@ -74,7 +75,6 @@ func configure(metadata: Dictionary = {}, project: Dictionary = {}, draft: Dicti
 		if not _is_exposed(path):
 			continue
 		_add_row(path, entry)
-	_ready_for_input = unit_result.get("ok", false) or _tick_field_count() == 0
 	if not unit_result.get("ok", false) and _tick_field_count() > 0:
 		_add_message("时间单位未配置：" + String(unit_result.get("error", UNREGISTERED)))
 	return {"ok": true, "rows": _rows.size(), "units_ok": unit_result.get("ok", false), "error": unit_result.get("error", "")}
@@ -237,7 +237,7 @@ func _add_row(path: String, entry: Dictionary) -> void:
 		row_box.add_child(unit_label)
 	var lock_label: Label = Label.new()
 	var locked_reason: String = _lock_reason(path)
-	var editable: bool = kind != "unregistered" and locked_reason.is_empty()
+	var editable: bool = kind != "unregistered" and locked_reason.is_empty() and (not tick or _ready_for_input)
 	if not locked_reason.is_empty():
 		lock_label.text = "🔒 " + locked_reason
 		lock_label.tooltip_text = locked_reason
@@ -246,6 +246,16 @@ func _add_row(path: String, entry: Dictionary) -> void:
 	elif not _column_registered(entry, "default") or not _column_registered(entry, "required") or not _column_registered(entry, "level"):
 		lock_label.text = UNREGISTERED
 	row_box.add_child(lock_label)
+	var missing_columns: PackedStringArray = PackedStringArray()
+	if not _column_registered(entry, "range"):
+		missing_columns.append("取值范围：" + UNREGISTERED)
+	if not _column_registered(entry, "required"):
+		missing_columns.append("必填：" + UNREGISTERED)
+	if not _column_registered(entry, "level"):
+		missing_columns.append("分级：" + UNREGISTERED)
+	var columns_label: Label = Label.new()
+	columns_label.text = " / ".join(missing_columns)
+	row_box.add_child(columns_label)
 	var rows: Node = get_node_or_null("Rows")
 	if rows != null:
 		rows.add_child(row_box)
@@ -300,7 +310,7 @@ func _make_control(path: String, entry: Dictionary, kind: String, value: Variant
 func _make_seconds_control(path: String, ticks: Variant) -> SpinBox:
 	var spin: SpinBox = SpinBox.new()
 	spin.name = "Seconds"
-	spin.step = 0.001
+	spin.step = 0.0001
 	spin.allow_greater = true
 	spin.allow_lesser = false
 	var result: Dictionary = _units.ticks_to_seconds(path, int(ticks) if ticks is int or ticks is float else 0)
@@ -567,6 +577,11 @@ func _tick_field_count() -> int:
 	return entries.size() if entries is Array else 0
 
 func _column_registered(entry: Dictionary, column: String) -> bool:
+	if column == "range":
+		for key in ["minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum", "minLength", "maxLength"]:
+			if entry.has(key):
+				return true
+		return false
 	return entry.has(column) or (column == "required" and entry.has("is_required"))
 
 func _clear_rows() -> void:
