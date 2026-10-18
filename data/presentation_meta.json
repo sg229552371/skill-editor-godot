@@ -1,0 +1,68 @@
+{
+  "schema_version": "0.1",
+  "_source": "schema_v0_1.yaml $defs.presentation(587-596) + fx/sfx/anim/trail/camera/damage_number/status_icon(489-586) + 书稿 3885-3900（14.5 表）",
+  "_note": "表现段结构元数据。七类必备槽位与 additionalProperties:false 的未登记段检测都以此为准。",
+
+  "required_sections": ["fx", "sfx", "anim", "trail", "camera", "damage_number", "status_icon"],
+  "_required_sections_note": "真源 3888 V-070「七类必备槽位」= Schema required（587-596 行）。缺任一或出现第八个段 → 阻止保存，定位到实际槽位（如 presentation.fx）。",
+
+  "additional_properties": false,
+  "_additional_note": "每个表现子段都是 additionalProperties:false —— 未登记键由未知字段规则处理，不静默忽略。",
+
+  "sections": {
+    "fx": {"required": [], "enum_fields": {}},
+    "sfx": {"required": ["max_concurrency"], "enum_fields": {
+      "trigger_scope": ["per_hit", "per_target", "per_cast", "per_tick"],
+      "steal_mode": ["oldest", "quietest", "lowest_priority", "none"]
+    }},
+    "anim": {"required": [], "enum_fields": {
+      "frame_policy": ["marker_locked", "time_locked", "nearest"],
+      "interrupt_policy": ["recover_to_idle", "crossfade", "hold_last"],
+      "fast_forward_policy": ["seek_release", "clip_end", "cancel"],
+      "callback_mode": ["none", "presentation_only"]
+    }},
+    "trail": {"required": ["carrier"], "enum_fields": {
+      "carrier": ["independent", "self", "attached", "none"],
+      "follow_mode": ["position", "rotation", "full", "none"],
+      "independent_end_policy": ["fade_then_free", "free_on_vanish"],
+      "instant_end_policy": ["fixed_short_fade", "none"]
+    }},
+    "camera": {"required": [], "enum_fields": {
+      "trigger": ["spawn", "hit", "hit_settled", "vanish", "manual_preview"],
+      "blend_mode": ["additive", "max", "replace"]
+    }},
+    "damage_number": {"required": [], "enum_fields": {
+      "source": ["hit", "hit_settled"],
+      "merge_policy": ["per_hit", "per_target_tick", "per_cast", "none"],
+      "pressure_policy": ["merge_more", "drop_visual_only"]
+    }},
+    "status_icon": {"required": [], "enum_fields": {
+      "source": ["hit", "hit_settled"],
+      "anchor": ["target", "caster", "ui_list"],
+      "stack_mode": ["count", "level", "refresh_only", "unique"],
+      "duration_mode": ["remaining_ticks", "refresh_flash", "fixed"],
+      "interrupts_cast_text": ["hidden", "show_badge"],
+      "visibility_filter": ["owner", "target", "team", "all", "owner_and_target"]
+    }}
+  },
+
+  "rule_field_aliases": {
+    "damage_number.sources": "damage_number.source",
+    "damage_number.group_by": "damage_number.merge_policy",
+    "trail.carrier_mode": "trail.carrier",
+    "sfx.concurrency_limit": "sfx.max_concurrency",
+    "anim.alignments.shot_tick": "anim.logic_release_tick",
+    "anim.alignments.frame": "anim.release_frame"
+  },
+  "_aliases_note": "D-23 通则（V 规则字段统称以 Schema 落点为准）：14.5 表的定位字段是统称，实际 Schema 落点见此映射。CSV 真源原文不动；有别名时以别名为准，没有时退回 CSV 路径。",
+
+  "debug_record": {
+    "subscribable": false,
+    "_note": "真源 7135 + D-24：debug_record 非事件、非结算记录，任何层不得订阅它触发逻辑；正式表现订阅它 → V-071 阻止保存。"
+  },
+  "settlement_records": ["cast_started", "hit_settled", "evaded_all", "damage_taken"],
+  "_settlement_records_note": "D-24：四种结算记录 = params_meta.enums.record。表现可订阅的正式结算记录以此为准；hit / vanish 不是结算记录。",
+
+  "logic_writeback_forbidden": true,
+  "_logic_writeback_note": "V-072：表现配置不得存在逻辑回写，动画回调不得驱动出手（callback_mode 只允许 none / presentation_only；camera.logic_effect 恒为 none）。"
+}
