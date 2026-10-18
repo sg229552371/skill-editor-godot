@@ -90,7 +90,7 @@ GODOT_DISABLE_LEAK_CHECKS=1 "$GODOT" --headless --display-driver headless \
   -s res://addons/gut/gut_cmdln.gd -gtest=res://tests/<文件名>.gd -gexit
 ```
 
-**十四个坑（已踩过，别再踩）**：
+**十五个坑（已踩过，别再踩）**：
 1. `godot` **不在 PATH**（portable 版），必须用上面的绝对路径。写 `godot` 会 command not found。
 2. **版本必须锁 4.7.1**。用 4.7.2 跑过一次 import，把 `.godot/` 缓存写成 4.7.2 格式，与用户开着的 4.7.1 编辑器抢同一份缓存，**直接把编辑器搞崩过**。`Downloads/Godot_v4.7.2-.../` 那个**禁用**。
 3. **禁止 `-gdir=res://tests -ginclude_subdirs`**。实测该模式会挂起 5 分钟无输出直到超时。必须用 `-gtest=` 单文件模式，每个文件 0.4 秒。全量门禁 = 对每个 `res://tests/test_*.gd` 串行循环。
@@ -147,6 +147,12 @@ GODOT_DISABLE_LEAK_CHECKS=1 "$GODOT" --headless --display-driver headless \
     （`_new_in_range(baseline, result, first, last).size() > 0`）。
     凡是「断言某个集合非空 / 某类东西存在」的用例，写之前先问一句：
     **它在什么情况下会恒真？基线状态是不是就已经满足了？**
+15. **新增脚本的 `class_name` 不能当类型名用**（T-023 真踩过，审核方修的）：
+    `class_name` 只在 **全局类缓存** `.godot/global_script_class_cache.cfg` 里，而本项目**不依赖编辑器 import 刷新缓存**
+    （实测已存在很久的 `SkillUnits` 在缓存里 **0 条**，因为 core 模块从来都是 `preload()`、不写裸类名）。
+    所以 `var _units: SkillUnits` / `var form: ParamForm` 这种写法必定
+    `Parse Error: Could not find type "X" in the current scope`，**整脚本加载不了**。
+    写法：声明 `class_name` 可以，但**任何地方要用它做类型标注，一律 `const X = preload("res://...x.gd")` 再用 `X`**。
 14. **坑 9 的隐藏变体：严格 `is int` 会把「素材默认值」判成非法**（T-016 真踩过，审核方在 core 里修的）：
     `r_modifier.gd` 的 `_limit()` 读 `res://data/project_limits.json` 的 `defaults.max_generation`，
     素材 JSON 解析出来是 **float 1.0**，`not value is int` 恒成立 → 报「项目限值不可用」→
