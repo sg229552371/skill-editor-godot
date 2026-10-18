@@ -95,6 +95,16 @@ GODOT_DISABLE_LEAK_CHECKS=1 "$GODOT" --headless --display-driver headless \
 2. **版本必须锁 4.7.1**。用 4.7.2 跑过一次 import，把 `.godot/` 缓存写成 4.7.2 格式，与用户开着的 4.7.1 编辑器抢同一份缓存，**直接把编辑器搞崩过**。`Downloads/Godot_v4.7.2-.../` 那个**禁用**。
 3. **禁止 `-gdir=res://tests -ginclude_subdirs`**。实测该模式会挂起 5 分钟无输出直到超时。必须用 `-gtest=` 单文件模式，每个文件 0.4 秒。全量门禁 = 对每个 `res://tests/test_*.gd` 串行循环。
 4. `GODOT_DISABLE_LEAK_CHECKS=1` 不能省，否则引擎退出噪声会让退出码不等于测试结果（绿跑变红）。
+6. **Variant 跨类型比较会抛运行时错误**（T-012/T-033 真踩过）：`permission` 这类「作者可能乱填」的字段
+   被填成 Array / int / null 时，`value == "some_string"` 或 `value != "x"` 会抛
+   `Invalid operands 'Array' and 'String' in operator '=='`。它**不中断脚本**，但被 GUT 计为
+   `Unexpected Errors` → 整个用例红掉，且断言数只差 1，极难一眼看出。
+   写法：先 `var text: String = value if value is String else ""`，再用 `text` 做比较；
+   语义上「非法值由专门的枚举/类型规则拦截，其余规则跳过，不重复报错」。
+7. **Dictionary 用点语法写「新键」会生成 StringName 键，不是 String**（T-033 真踩过）：
+   `dict.new_key = v` → 键是 `&"new_key"`；`key is String` 为 false，`dict.has("new_key")` 取不到，
+   与素材（JSON 解析出来是 String 键）对不上。新键一律写 `dict["new_key"] = v`。
+   已有键用点语法赋值没问题。
 5. **别把函数头写丢**（T-011 真踩过）：`r_types.gd` 里 `_type_or_range_error(value, entry) -> String` 的**签名行在编辑中丢失**，
    函数体变成游离代码，`--check-only` 一次抛 7 条 Parse Error（`Function "_type_or_range_error()" not found in base self` +
    一串 `Identifier "entry"/"value" not declared` + `Cannot return a value of type "String" as "Array[String]"`）。
@@ -137,13 +147,16 @@ timeout 60 "$GODOT" --headless --check-only --script res://<你改的文件>.gd
 
 因此你的交付标准是：
 1. 代码与测试写完，目录不越权；
-2. 自己**静态复核**一遍 GDScript 语法，重点四条（都是本项目真踩过的坑）：
+2. 自己**静态复核**一遍 GDScript 语法，重点六条（都是本项目真踩过的坑）：
    - `:=` 对 Variant 推断失败（从 Array/Dictionary 取元素、`.duplicate()` 返回值），一律写显式类型；
    - `static` 与实例调用混用（如 `SomeClass.is_tool()` 调非静态方法）；
    - **`.get(key, {})` 用可变容器作默认值会掩盖「键不存在」**——取子节点并按需创建时，
      默认值必须写 `null`，新建的中间层容器必须显式写回父节点（见决策 D-20，曾让 `resolved` 恒为空）；
    - **函数头丢失**（T-011）：函数体游离 → 一串 `Identifier not declared` / 返回类型冲突，
      真定位点是 `Function X() not found in base self` 那一条（见第五节坑 5）。
+   - **Variant 跨类型比较**（T-012/T-033）：作者可乱填的字段先转 `String`（非字符串即空），
+     再参与 `==`/`!=`，否则 GUT 记为 `Unexpected Errors`（见第五节坑 6）。
+   - **点语法写新键变 StringName**（T-033）：新键必须 `dict["key"] = v`（见第五节坑 7）。
    编译错误会让整脚本加载失败，代价很高；
 3. 回执里写「自测声明：未运行引擎，已静态复核 X 处」，并把你认为可能红的点列进「未决与风险」。
 

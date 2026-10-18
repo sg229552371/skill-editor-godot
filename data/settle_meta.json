@@ -1,0 +1,41 @@
+{
+  "schema_version": "0.1",
+  "_source": "schema_v0_1.yaml $defs.part(200-215)/part_type(35-37) + 书稿 2110/1261/1289/1313/1346/1371/1547/1574/3388",
+  "_note": "运行期结算绑定词表，不是 CFG 新增字段。份类型枚举统一消费 params_meta.enums.part_type，此处不复制第二份。",
+
+  "roles": {
+    "index": "part_index",
+    "type": "type",
+    "amount": "amount",
+    "evadable": "evadable"
+  },
+
+  "target_roles": {
+    "invulnerable": "invulnerable",
+    "evade": "evade",
+    "immune": "immune"
+  },
+  "_target_roles_note": "宿主运行态字段名（〔推荐默认〕U-18）：invulnerable 为布尔；evade 是按 part_type 的概率表（0.0 不掷、1.0 必闪避，中间值走逻辑 RNG）；immune 是按标识的免疫表。真源未给出运行态词表，宿主适配器须按此契约提供。",
+
+  "invulnerable_evades": ["physical", "fire", "ice", "lightning", "arcane"],
+  "_invulnerable_evades_note": "真源 1261「宿主无敌时伤害份被视为闪避」；1574「无敌只处理伤害份，不自动防击退」；1547「无敌但没有控制免疫的目标仍可能受控」。故只有五种伤害元素被无敌视为闪避，debuff/knockback/control 不在此列。",
+
+  "immunity_selectors": ["immunity_profile", "control_type"],
+  "immunity_flags": "immune_flags",
+  "_immunity_note": "份级免疫标记：真源 1313「只有明确的份级免疫标记才阻止对应效果」；3388 免疫减免到零 → any_reduced_to_zero=true 且 hit 仍成立，与闪避区分。immunity_profile/control_type 为选择器；immune_flags 为份级标识数组字段（schema:330 default []）。",
+
+  "unresolved_fields": ["amount_profile", "crit_profile", "block_profile", "settlement"],
+  "_unresolved_note": "当前缺具体解析器的字段，必须明确拒绝（不把未解析 profile 当 0 或忽略）。解析器落地后才可移除。真源 2115：amount/amount_profile/evadable 与三个 profile 键均为〔推荐默认〕表单字段。",
+
+  "evadable_default": null,
+  "evadable_default_by_kind": {
+    "physical": true, "fire": true, "ice": true, "lightning": true, "arcane": true,
+    "heal": false, "shield": false, "buff": false,
+    "debuff": true, "knockback": true, "control": true
+  },
+  "_evadable_note": "真源 2110 明写 evadable「按有益有害规则补默认」。有害份（五种伤害 + debuff/knockback/control）判闪避；有益份（heal/shield/buff）不判闪避 —— 1289「有益份不判闪避，无敌目标照常获得增益」、1346「无敌不影响治疗」、1313 减益通常判闪避、1574 有害击退判闪避。全局 evadable_default 保持 null：种类表未覆盖时不猜，显式失败。",
+
+  "hit_record": "hit_settled",
+  "evade_record": "evaded_all",
+  "_record_note": "结算记录名，不是派生事件（D-08：事件只有 hit / vanish）。四种结算记录见 params_meta.enums.record。"
+}
