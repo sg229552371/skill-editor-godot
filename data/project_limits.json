@@ -1,0 +1,29 @@
+{
+  "schema_version": "0.1",
+  "_source": "真源 7131-7137（代数与绝对封顶）、7146-7149（cast_budget）、7153（chain_depth）、4054（预算由项目配置解析，不写死示例值）、11696（F-26：4、64 仅示例，不开最终值）",
+  "_extracted_by": "WorkBuddy",
+  "_extracted_on": "2026-10-18",
+  "_provisional": true,
+  "_provisional_note": "下列数值带 _provisional 标记者为真源明确标注的「示例值，最终值由项目配置与性能测量决定」（F-26）。运行期必须由项目配置注入覆盖；未注入时按 D-21 失败语义显式失败，不得静默使用示例值。",
+  "defaults": {
+    "max_generation": {"value": 1, "_provisional": false, "_source": "Schema 424 行 default: 1 / 真源 7133「默认上限 1 代」"},
+    "cast_budget": {"value": 64, "_provisional": true},
+    "split_budget": {"value": 0, "_provisional": false, "_source": "Schema 426 行 default: 0"},
+    "chain_remaining": {"value": 0, "_provisional": false, "_source": "Schema 427 行 default: 0"}
+  },
+  "hard_caps": {
+    "max_generation": {"value": 4, "_provisional": true, "_source": "真源 7137「全局硬上限（示例：4 代）」"},
+    "cast_budget": {"value": 64, "_provisional": true, "_source": "真源 7147「示例：根与所有派生合计 ≤ 64」"},
+    "max_chain_depth": {"value": 8, "_provisional": true, "_source": "真源未给数值，属项目配置；8 为〔推荐默认〕占位，待测量定稿"}
+  },
+  "relations": {
+    "chain_depth_ge_generation": true,
+    "_source": "真源 7153：generation 只数派生，chain_depth 数派生+被动触发生成，故恒定 chain_depth >= generation"
+  },
+  "_decisions": {
+    "V-053": "max_generation 非非负整数或超硬上限 → 阻止保存",
+    "V-055": "cast_budget 非正整数或缺少可解析项目默认 → 阻止保存（默认来自项目配置，不是写死示例）",
+    "V-056": "预计路径可能超预算 → 警告（可保存）",
+    "V-066": "max_chain_depth 缺失/非法/越硬上限 → 阻止保存"
+  }
+}
