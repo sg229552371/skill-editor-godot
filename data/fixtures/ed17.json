@@ -1,0 +1,168 @@
+{
+  "_task": "T-052; source: 技能系统书-v1.md:4365-4394",
+  "_verification": "not_run: 本卡禁止引擎。ok 是正向验收候选，未宣称通过；blocked 是能力缺口探针，探针通过也不是该 ED 验收通过。",
+  "seed": 1752,
+  "project_config": {
+    "tick_rate": 60,
+    "project_limits": {"hard_caps": {"max_generation": 4, "cast_budget": 64, "max_chain_depth": 8}, "defaults": {"cast_budget": 64, "split_budget": 0, "chain_remaining": 0}}
+  },
+  "cfg": {
+    "schema_version": "0.1", "skill_id": "mage_active_ed17",
+    "meta": {"role": "mage", "category": "active", "short_name": "ed17", "name": "ED17", "version": "1", "author": "T-052"},
+    "bricks": [],
+    "params": {
+      "carrier": "independent", "lifetime_ticks": 12,
+      "cast_budget": 32, "max_generation": 2, "split_budget": 1, "chain_remaining": 0,
+      "safety": {"max_chain_depth": 3},
+      "templates": [{
+        "template_id": "root_recipe", "carrier": "independent", "lifetime_ticks": 12,
+        "targeting": {"target_group": "enemy"}, "motion": {"mode": "straight", "speed": 1},
+        "geometry": {"shape": "circle", "radius": 0.01},
+        "hit_policy": {"per_target_limit": 1, "max_hits": 1},
+        "parts": [{"part_index": 0, "type": "physical", "amount": 10, "evadable": true}], "derivations": []
+      }]
+    },
+    "presentation": {"fx": {}, "sfx": {"max_concurrency": 0}, "anim": {}, "trail": {"carrier": "independent"}, "camera": {}, "damage_number": {}, "status_icon": {}},
+    "runtime_hints": {}
+  },
+  "cases": [
+    {
+      "id": "ED-17-01", "status": "ok", "verification": "not_run",
+      "input": {"parts": [{"part_index": 0, "type": "physical", "amount": 10, "evadable": true}, {"part_index": 1, "type": "fire", "amount": 10, "evadable": true}, {"part_index": 2, "type": "ice", "amount": 10, "evadable": true}], "targets": [{"id": "victim", "x": 0, "evade": {"fire": 1}}], "derive": {"event": "hit", "reasons": [], "count": 1}, "ticks": 2},
+      "expected": {"hit": 1, "parts": 3, "evaded": [false, true, false], "children": 1, "hp": 80}
+    },
+    {
+      "id": "ED-17-02", "status": "ok", "verification": "not_run",
+      "input": {"parts": [{"part_index": 0, "type": "physical", "amount": 10, "evadable": true}, {"part_index": 1, "type": "fire", "amount": 10, "evadable": true}, {"part_index": 2, "type": "ice", "amount": 10, "evadable": true}], "root": {"geometry": {"shape": "circle", "radius": 1}, "hit_policy": {"per_target_limit": 1, "max_hits": 1}}, "targets": [{"id": "evader", "x": 0, "evade": {"physical": 1, "fire": 1, "ice": 1}}, {"id": "other", "x": 3}], "ticks": 4},
+      "expected": {"hit": 1, "evaded_all": 1, "parts": 3, "later_target": "other", "hp": 70}
+    },
+    {
+      "id": "ED-17-03", "status": "ok", "verification": "not_run",
+      "input": {"parts": [{"part_index": 0, "type": "physical", "amount": 10, "evadable": true}, {"part_index": 1, "type": "heal", "amount": 10, "evadable": false}, {"part_index": 2, "type": "control", "amount": 1, "evadable": true, "control_type": "stun", "duration_ticks": 4}], "targets": [{"id": "victim", "x": 0, "hp": 50, "invulnerable": true, "immune": {"stun": true}}], "ticks": 1},
+      "expected": {"hit": 1, "hp": 60, "damage_evaded": true, "heal": 10, "control_immune": true}
+    },
+    {
+      "id": "ED-17-04", "status": "ok", "verification": "not_run",
+      "input": {"parts": [{"part_index": 0, "type": "ice", "amount": 10, "evadable": true}], "targets": [{"id": "victim", "x": 0, "immune": {"ice": true}}], "ticks": 1},
+      "expected": {"hit": 1, "evaded_all": 0, "value": 0, "immune": true, "zero": true}
+    },
+    {
+      "id": "ED-17-05", "status": "blocked", "verification": "not_run",
+      "input": {"reject_patch": {"carrier": "none", "lifetime_ticks": 0}, "reject_path": "params.templates[0].motion", "reject_error": "This sandbox requires independent motion"},
+      "blocked_reason": "runner 拒绝 none，无法走出手瞬时/派生瞬时的完整入口：skill_core/runtime/preview_runner.gd:154-155。低层 Body/Derive 支持不等于 runner 支持。",
+      "blocked_probe": "有效 independent 基线真跑；同 CFG 模板换 none/0，start 必须显式拒绝，path=params.templates[0].motion；两次快照及拒绝一致。"
+    },
+    {
+      "id": "ED-17-06", "status": "ok", "verification": "not_run",
+      "input": {"root_count": 2, "distinct_shots": true, "targets": [{"id": "victim", "x": 0, "hp": 10}], "ticks": 1},
+      "expected": {"hit": 1, "evaded_all": 0, "kills": 1, "hp": 0}
+    },
+    {
+      "id": "ED-17-07", "status": "blocked", "verification": "not_run",
+      "input": {"reject_patch": {"timing": {"active_ticks": 2}}, "reject_path": "params.templates[0].timing", "reject_error": "Host adapter not implemented in T-050"},
+      "blocked_reason": "缺持续火区脉冲/到期同 tick 的 runner 调度适配，timing 非空被拒：skill_core/runtime/preview_runner.gd:150-153；仅跑直线到期不是火区脉冲验收。",
+      "blocked_probe": "真跑基线后给模板 timing.active_ticks=2，start 显式 Host adapter not implemented，核对 path。"
+    },
+    {
+      "id": "ED-17-08", "status": "ok", "verification": "not_run",
+      "input": {"root": {"lifetime_ticks": 2}, "targets": [{"id": "victim", "x": 1}], "derive": {"event": "vanish", "reasons": ["expired"], "count": 1}, "stop_now": true, "ticks": 0},
+      "expected": {"hit": 0, "vanish": 0, "children": 0, "active": 0, "control_vanish": 1, "control_children": 1}
+    },
+    {
+      "id": "ED-17-09", "status": "blocked", "verification": "not_run",
+      "input": {"reject_patch": {"cast": {"windup_ticks": 2, "shot_ticks": [2]}}, "reject_path": "params.templates[0].cast", "reject_error": "Host adapter not implemented in T-050"},
+      "blocked_reason": "缺位移中施放请求/缓存窗口/过期丢弃宿主调度，runner 连 cast 调度也拒：skill_core/runtime/preview_runner.gd:150-153,168-174。",
+      "blocked_probe": "有效基线后，cast.windup_ticks=2/shot_ticks=[2] 调 start，断言 cast 的显式未支持错误。"
+    },
+    {
+      "id": "ED-17-10", "status": "blocked", "verification": "not_run",
+      "input": {"reject_patch": {"cast": {"windup_ticks": 3, "shot_ticks": [3, 5]}}, "reject_path": "params.templates[0].cast", "reject_error": "Host adapter not implemented in T-050"},
+      "blocked_reason": "缺控制暂停前摇/恢复/打断取消出手调度，cast 被直接拒绝：skill_core/runtime/preview_runner.gd:150-153。",
+      "blocked_probe": "cast.windup_ticks=3/shot_ticks=[3,5] 的有效结构被 start 拒绝为未支持，而不是假造控制回调成功。"
+    },
+    {
+      "id": "ED-17-11", "status": "blocked", "verification": "not_run",
+      "input": {"reject_patch": {"carrier": "self"}, "reject_path": "params.templates[0].motion", "reject_error": "This sandbox requires independent motion"},
+      "blocked_reason": "缺 self 位移判定体及施法者死亡/打断同 tick 优先级入口：skill_core/runtime/preview_runner.gd:154-155,294-369。stop 全局清场不能冒充主人死亡。",
+      "blocked_probe": "self 模板的 start 显式拒绝 independent motion，且有效 independent 对照确实产生 hit。"
+    },
+    {
+      "id": "ED-17-12", "status": "blocked", "verification": "not_run",
+      "input": {"reject_patch": {"cast": {"shot_count": 2, "shot_ticks": [0, 2]}}, "reject_path": "params.templates[0].cast", "reject_error": "Host adapter not implemented in T-050"},
+      "blocked_reason": "缺动作/实际出手调度与 X 计数器；roots 只能预先注入实例，不能伪造三动作六出手：skill_core/runtime/preview_runner.gd:150-153,168-205,402-420。",
+      "blocked_probe": "cast.shot_count=2/shot_ticks=[0,2] 的 start 显式拒绝；不拿 roots/shot_id 去重数冒称 X=6。"
+    },
+    {
+      "id": "ED-17-13", "status": "blocked", "verification": "not_run",
+      "input": {"root_count": 2, "targets": [{"id": "victim", "x": 0, "evade": {"physical": 1}}], "ticks": 1},
+      "blocked_reason": "能力语义缺口：不同根有各自 family，shotgun 只在成功 hit 后登记，全闪避首接触不会封住同批第二根：skill_core/runtime/family_ledger.gd:223-254；runner 调用在 preview_runner.gd:311-338。",
+      "blocked_probe": "同 shot 两根全闪避：实际 records 中预期观察到两条 evaded_all（缺口特征），不同 shot 对照同样两条；不闪避时同 shot 仅一 hit、不同 shot 两 hit。观察缺口不算 ED 通过。"
+    },
+    {
+      "id": "ED-17-14", "status": "ok", "verification": "not_run",
+      "input": {"targets": [{"id": "split_source", "x": 1}, {"id": "evader", "x": 2, "evade": {"physical": 1}}], "derive": {"event": "hit", "reasons": [], "count": 2}, "ticks": 4},
+      "expected": {"hit": 1, "children": 2, "evaded_all": 1, "evader_hp": 100},
+      "legal_split_entry": "tick1 root 在 split_source 成立真实 hit -> Derive.drain 创建两个 child，spawn_tick=2；tick2 child1 全闪避 evader，child2 被家族候选台账拒绝。不是全闪避生成子体。"
+    },
+    {
+      "id": "ED-17-15", "status": "blocked", "verification": "not_run",
+      "input": {"probe_methods": ["resolve_collision", "apply_collision_priority"]},
+      "blocked_reason": "缺分裂/穿透/连锁碰撞优先级与 split 母体 hit_end；runner hit 只入派生队列，终止仅寿命/运动完成：skill_core/runtime/preview_runner.gd:337-347。通用 derivations 不能冒充能力组合。",
+      "blocked_probe": "非空真跑基线 + 枚举 runner 全部公开脚本方法，确认仅冻结沙盒 API（无碰撞适配）；has_method 探测两个候选入口为 false。候选名称不是发明的已冻结 API。"
+    },
+    {
+      "id": "ED-17-16", "status": "blocked", "verification": "not_run",
+      "input": {"probe_methods": ["update_caster", "update_target"]},
+      "blocked_reason": "目标与 handler 在 start 深拷贝且无运行中宿主状态更新接口，无法同一旧实例上改目标减免/施法者属性：skill_core/runtime/preview_runner.gd:124-127,165,273-291,402-420。",
+      "blocked_probe": "有效运行产生 hit；公开 API 集合/has_method 证明 runner 没有宿主状态更新入口；不通过私有 _targets 篡改实现。"
+    },
+    {
+      "id": "ED-17-17", "status": "blocked", "verification": "not_run",
+      "input": {"probe_methods": ["resolve_amount_profile", "link_nominal_heal_to_shield"]},
+      "blocked_reason": "名义治疗到护盾的跨份量值链接尚无宿主契约；Settle 仅 amount，amount_profile 明确未解析拒绝：skill_core/runtime/settle.gd:239-241,339-352；runner 只接受 handlers 无 profile 表：preview_runner.gd:118-127,229。",
+      "blocked_probe": "先真跑基线；再给 heal 份 amount_profile=nominal_heal 调 start，断言 runtime preflight 显式 Unresolved settlement profile adapter，而非在测试 handler 私算整条技能规则。"
+    },
+    {
+      "id": "ED-17-18", "status": "blocked", "verification": "not_run",
+      "input": {"reject_patch": {"carrier": "attached", "attached": {"anchor_source": "hit_target"}}, "reject_path": "params.templates[0].attached", "reject_error": "Host adapter not implemented in T-050"},
+      "blocked_reason": "缺挂载护盾额度/seq 承伤/末尾 hit_end 的 runner 生命周期适配：skill_core/runtime/preview_runner.gd:150-155,341-347。Settle 允许 shield handler 不代表已有护盾系统。",
+      "blocked_probe": "attached 护盾模板 start 显式拒绝 attached host adapter；不把测试侧扣 shield 数字冒称末尾 hit_end 验收。"
+    },
+    {
+      "id": "ED-17-19", "status": "blocked", "verification": "not_run",
+      "input": {"reject_patch": {"cast": {"shot_ticks": [1], "cooldown_seconds": 1}}, "reject_path": "params.templates[0].cast", "reject_error": "Host adapter not implemented in T-050"},
+      "blocked_reason": "缺换装/出手同 tick 原子装配与公共冷却调度，cast 仍被拒：skill_core/runtime/preview_runner.gd:150-153；start 在运行中直接要求 stop：61-62。重启不是换装。",
+      "blocked_probe": "cast.shot_ticks=[1]/cooldown_seconds=1 的 start 显式未支持，保留真实可运行对照。"
+    },
+    {
+      "id": "ED-17-20", "status": "blocked", "verification": "not_run",
+      "input": {"probe_methods": ["apply_live_modifier", "mutate_live_instance"]},
+      "blocked_reason": "core 修饰器与 runner 未接线：runner 仅启动时 resolve，未提供 live 提交/历史隔离入口：skill_core/runtime/preview_runner.gd:75-81,273-291,402-420。不能用改外部 CFG 代替 live。",
+      "blocked_probe": "非空运行基线后枚举完整公开 API，并实际 has_method 探测 live 入口不存在；不是跳过。"
+    },
+    {
+      "id": "ED-17-21", "status": "blocked", "verification": "not_run",
+      "input": {"probe_methods": ["subscribe_record", "trigger_passive"]},
+      "blocked_reason": "缺被动结算记录订阅、冷却与回灌调度；现有 _records 只是追加与预算记账，不驱动被动：skill_core/runtime/preview_runner.gd:332-338,352-368。Derive proc_mask 不能代替整条被动验收。",
+      "blocked_probe": "实际基线产生 hit_settled，确认公开 API 无记录订阅/被动触发入口；不得以空订阅表恒真证明保护。"
+    },
+    {
+      "id": "ED-17-22", "status": "blocked", "verification": "not_run",
+      "input": {"reject_patch": {"summon": {"summon_cap": 2, "bind_owner": true}}, "reject_path": "params.templates[0].summon", "reject_error": "Host adapter not implemented in T-050"},
+      "blocked_reason": "Summon 模块虽存在，runner 未接召唤上限/主人死亡入口，summon 非空显式拒：skill_core/runtime/preview_runner.gd:150-153。",
+      "blocked_probe": "summon.summon_cap=2/bind_owner=true 调 start，断言 summon 未支持；不把 stop 所有实例冒充独立实例继续。"
+    },
+    {
+      "id": "ED-17-23", "status": "blocked", "verification": "not_run",
+      "input": {"probe_methods": ["set_presentation_budget", "admit_presentation"]},
+      "blocked_reason": "runner 的预算策略仅 runtime_body 一类，无纯表现预算注入/准入：skill_core/runtime/preview_runner.gd:264-270,194-198。判定体拒绝可测，纯表现紧张半例缺入口，整条 blocked。",
+      "blocked_probe": "先真跑；再以 cast_budget=1 注入两根，断言一个真实 root drop、无补偿事件；公开 API 确认无纯表现预算入口。"
+    },
+    {
+      "id": "ED-17-24", "status": "blocked", "verification": "not_run",
+      "input": {"probe_methods": ["pause", "resume", "set_time_scale"], "targets": [{"id": "victim", "x": 3, "evade": {"physical": 0.5}}, {"id": "guaranteed", "x": 4}], "ticks": 5},
+      "blocked_reason": "SimClock 支持暂停/慢速但 runner 不暴露，advance_ticks 只直接 tick；缺真实暂停/慢动作端到端入口：skill_core/runtime/preview_runner.gd:273-291；sim_clock.gd:34-60。",
+      "blocked_probe": "基线逐 tick 两次复现；presentation_random 噪声与分批 advance 对照的逻辑轨迹一致；has_method(pause/resume/set_time_scale)=false。部分通过不把整条标 ok。"
+    }
+  ]
+}
