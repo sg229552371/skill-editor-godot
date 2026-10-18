@@ -8,9 +8,10 @@
 | 项 | 数 |
 |---|---|
 | 已 PASS 并合入主干的任务卡 | 19（基线 10 + T-030/042 + T-010/011/012/032/033/043/044 + **T-034/T-045**） |
-| 在跑（CLI 后台） | 1（**T-013 线A 二轮**，素材已补齐后重派） |
+| 在跑（CLI 后台） | 3（T-013 线A 二轮 / T-046 线C / T-031 线B） |
 | 待派 | 见第四节 |
 | 全量测试 | **285/285 绿**（17 个测试文件） |
+| ⚠ 额度 | 主模型 `gpt-6-astra` 今日额度耗尽（¥502/¥500），**已切备用模型 `gpt-6-sol`**（`claude -p --model gpt-6-sol`） |
 
 ## 二、已 PASS（按完成时间）
 
@@ -35,7 +36,11 @@
 
 | 卡 | 线 | 产出 | 状态 |
 |---|---|---|---|
-| **T-013（二轮）** | A 校验 | `validate/rules/r_present.gd`（V-070…084） | 21:2x 重派。首轮 BLOCKED（素材不全）→ 审核方已补 `presentation_meta.json`（60 叶 + 启用判据/拖尾关系/合并边界/订阅禁值/回写禁区/runtime_hints）与 context 契约 V-076…084，并裁定 V-073 两段式、V-075 关系、V-080 未登记叶、V-084 入口区分 |
+| **T-013（二轮）** | A 校验 | `validate/rules/r_present.gd`（V-070…084） | 21:3x 用 `gpt-6-sol` 重派。首轮 BLOCKED（素材不全）→ 审核方已补 `presentation_meta.json`（60 叶 + 启用判据/拖尾关系/合并边界/订阅禁值/回写禁区/runtime_hints）与 context 契约 V-076…084，并裁定 D-29（V-073 两段式）、D-30（V-084 入口区分） |
+| **T-046** | C 运行时 | `runtime/shotgun_guard.gd`（防霰弹 + 家族登记） | 21:3x 派发，依赖 T-045 已 PASS |
+| **T-031** | B 解析 | `resolve/lock_guard.gd`（锁定字段与覆盖拒绝 V-014） | 21:3x 派发，依赖 T-030 已 PASS |
+
+派单原文留存：`S_docs/collab/dispatch/T-xxx-派单.md`（便于额度/模型切换后原样重派）。
 
 **验收流程（每张卡固定）**：`--check-only` 编译 → 单文件 GUT 串行 → 全量回归 → 写复核结论到 `reports/T-xxx.md` → 判 PASS 才提交（`T-xxx` 开头 commit）。
 
