@@ -1,6 +1,14 @@
 # 开发进度看板（WorkBuddy 维护，每次汇报刷新）
 
 > 引擎：Godot **4.7.1**（`Ryko.GodotHub/godot-versions/4.7.1-stable`）｜门禁归 WorkBuddy 独占，Claude CLI 只写代码
+> 更新：2026-10-19 04:50（**本轮自动化收口**：04:10 双卡派出 → 04:31 双双收口 → 门禁
+> **首轮 9 红**（`test_skill_api_sim` 0/8 + `test_ed17_repro` 1）→ 审核方机械修复 + 按既有裁定改正向探针
+> → **复跑全绿 52 文件 / 658 用例 / 657 通过 / 13598 断言 / Failing 0 / bad=0** → 两卡一卡一 commit 合入）
+>
+> ⚠ **坑 22（本轮新增）**：CLI 落盘的 GDScript 会出现**缩进被写坏**（`_hosts = ...` 前多 61 个 tab、
+> 两行多一档缩进）。症状是 `--check-only` 直接 `Expected statement, found "Indent"`。
+> **编译过 ≠ 语义对**，`git diff` 对照可确定唯一正确缩进，审核方机械修复后跑门禁即可。
+>
 > 更新：2026-10-19 04:10（**本轮自动化复核**：HEAD 仍 `12b3c89`，工作树**零新产出**——
 > T-076 第 2 轮 03:05 派出后**静默中断**，正文与回执双双未落盘，**比 T-064 中断得更早**。
 > 全量回归 **51 文件 / 650 用例 / 649 通过 / 13462 断言 / Failing 0 / Risky 1 / bad=0**，
@@ -17,10 +25,10 @@
 
 | 项 | 数 |
 |---|---|
-| 已 PASS 并合入主干的任务卡 | **52 / 54**（本轮无新增：零代码产出，无可提交卡） |
-| 在跑（CLI 后台，04:10 派出） | **2 条**：**T-076 第 3 轮**（U-29 扩 `derive.gd`，补 ED-17-19 原子换装 + 装配公共冷却）· **T-077**（U-30 扩 `api/skill_api.gd`，把 `create_sim`/`step_sim` 做成真实生产入口 + 预览双入口同夹具差分）。**文件所有权零重叠** |
-| 待派 | **T-078**（U-28 方案 a：同一张真实设计卡的八步骤流水线 + 运行凭据存档，**T-077 交付后才派**）；T-073（U-23 结构校验接 validator，**须先裁 U-23**） |
-| 本轮已提交 | **无代码卡可提交**（工作树零新产出）。文档类提交：看板 + 台账（U-28 裁决、U-30 扩权、坑 20 加固） |
+| 已 PASS 并合入主干的任务卡 | **54 / 56**（本轮新增 **T-076 第 3 轮** 增量落地、**T-077** `create_sim` 生产入口） |
+| 在跑 | **0 条**（04:31 双双收口，04:50 门禁全绿并合入） |
+| 待派 | **T-076 第 4 轮**（原子换装完整链路 + 装配公共冷却正向验收）· **T-078**（U-28 方案 a：八步骤流水线 + 运行凭据存档）· **T-079**（U-23 裁决派生：V-074 对齐落点统一为数组条目）· T-073（解锁条件改为「须先交付 T-079」） |
+| 本轮已提交 | `e956782` T-077 派单 · `40c52df` T-076 第 3 轮派单 · `582f84c` 看板+台账 · **T-076 第 3 轮**（增量落地，整卡仍 blocked）· **T-077**（PASS）· 看板+台账收口 |
 | U-28 状态 | **已由「待用户拍板」裁决为「采纳 (b)」**（自动化会话代拍板，**用户可推翻**）：先补 `create_sim` 正式入口 → 派生 T-077 已派出；(a) 留作 T-078；(c) 不采纳，**M6 口径不得因缺证据而下调** |
 | 全量测试 | **51 文件 / 650 用例 / 649 通过 / 13462 断言 / FAILED 0**；唯一 `PENDING` 为 `test_runner_host_integration` 的「打断入口不存在」（诚实标注，非失败）；**加载/解析错误 `bad=0`** |
 | **runner 能力边界** | `cast` 已接：前摇/出手 tick/冷却。`timing`/`attached`/`summon`/`emission` 仍显式拒绝。`carrier` 仍只允许 `independent` |
@@ -317,3 +325,49 @@ FILES=51 TESTS=650 PASSING=649 ASSERTS=13462 FAILING=0 RISKY=1 BAD_LOAD=0
 
 **落盘纪律**（T-077）：CFG 落盘一律走 `user://t077/`，**禁止在 `res://` 下新建 CFG**
 （会连带产生 `.import` / `.uid` 未跟踪文件，污染工作树）。
+
+### 5. 门禁收口（04:31 CLI 双双收口后，引擎归本会话串行跑）
+
+**首轮：9 条红灯**
+
+| 文件 | 首轮 | 真因 |
+|---|---|---|
+| `tests/test_skill_api_sim.gd`（新） | **0/8 红** | 夹具 CFG 里 `params.unknown_nested` 触发 **V-019 未登记附加键**（见 **U-32**） |
+| `tests/test_ed17_repro.gd` | **23/24 红 1** | `test_ed17_19_*` 末条「方法清单快照」断言因 T-076 新增四个装配窄入口而变 —— **既有裁定已预见：探针应当变红，改正向断言，不得反向改 core** |
+| `skill_api.gd` / `preview_runner.gd` / `derive.gd` | **编译红** | `Identifier not found: DiagnosticScript`＋**两处缩进被写坏**（**坑 22**） |
+
+**审核方三处机械修复**（均非设计改动，`git diff` 可对照出唯一正确形态）：
+
+1. `skill_api.gd`：函数体内 `const X = preload(...)` 在嵌套 lambda 里解析不到 →
+   **提升到脚本级**（与 `preview_runner.gd` 既有写法一致）；`DiagnosticScript.new()` → `Diagnostic.new()`。
+   **签名与返回包形状一字未动**，符合 U-30。
+2. `preview_runner.gd` `_hosts = ...` 前 **61 个多余 tab** → 还原为 1 个；
+   `derive.gd` 两行多一档缩进 → 还原。
+3. `test_skill_api_sim.gd`：`_cfg()` 去掉 `unknown_nested`（schema-clean 给 `create_sim`），
+   U-27 保留断言改挂到**独立的 codec 往返探针** `persist_cfg` 上（U-32 分层）。
+
+**复跑：全绿**
+
+```
+FILES=52 TESTS=658 PASSING=657 ASSERTS=13598 FAILING=0 RISKY=1 BAD_LOAD=0
+```
+
+较基线（51 / 650 / 649 / 13462）+1 文件、+8 用例、+8 通过、+136 断言，**Failing 仍为 0**。
+
+### 6. U-28 取得第一份实测证据（步骤 6「正式复现」）
+
+```
+T077 first difference result: { "ok": true, "equal": true, "first_diff_index": -1, "path": "", "left": <null>, "right": <null>, "error": "" }
+```
+
+正式入口（`save_cfg`→`load_cfg`→`create_sim`）与预览入口（直接 `PreviewRunner.start`）在
+**同夹具、同 seed** 下两条 6 样本 trace **完全相等**。此前该步为「无证据」，现已取得实测。
+
+**但 U-28 不因此关闭**：八步骤的**完整整步流水线**仍是 **T-078** 的活；M6 口径不下调。
+
+### 7. 本轮新登记
+
+- **U-32** `params` 的「自由 map」**只在 codec 层成立**，schema 层（V-019）仍拒未登记键 ——
+  走 schema 的入口（`PreviewRunner.start`、`SkillApi.create_sim`）**不会放行**未登记 `params` 键。
+- **坑 22** CLI 落盘的 GDScript 会出现缩进被写坏；`--check-only` 才能发现，编译过 ≠ 语义对。
+- **U-23 已裁决**（以真源数组契约为准，派生 **T-079**）；T-073 解锁条件改为「须先交付 T-079」。
