@@ -15,9 +15,9 @@
 | 2 即时校验 | 02-live-validation.md | 未生成；无实际非法/修复诊断数组 |
 | 3 整卡校验 | 03-card-validation.md | 未生成；无六入口运行摘要 |
 | 4 保存 | 04-save-reload.md | 未生成；未取得实际磁盘原文/重载比较 |
-| 5 预览 | 05-preview.md | 未生成；测试已接入正式宿主输入，待审核方运行 |
-| 6 正式复现 | 06-formal.md | 未生成；双入口代码已接线，待审核方运行 |
-| 7 重跑 | 07-rerun.md | 未生成；无两次完整 trace/比较报告 |
+| 5 预览 | [05-preview.md](05-preview.md) | ✅ **已生成**（06:3x 审核方实测）：三栏 events 1 / records 1 / debug 1，**分别非空** |
+| 6 正式复现 | [06-formal-replay.md](06-formal-replay.md) | ✅ **已生成**：正式/预览双入口 `equal=true`、`first_diff_index=-1`，指纹交叉验证一致 |
+| 7 重跑 | [07-rerun.md](07-rerun.md) | ✅ **已生成**（含**非空破坏对照**）：改 `amount` 后 `equal=false`、`first_diff_index=0` |
 
 表中未生成的文件不是空凭据；在获得实际引擎输出前不创建占位文件，也不认证任何步骤通过。
 
