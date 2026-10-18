@@ -7,10 +7,10 @@
 
 | 项 | 数 |
 |---|---|
-| 已 PASS 并合入主干的任务卡 | 19（基线 10 + T-030/042 + T-010/011/012/032/033/043/044 + **T-034/T-045**） |
-| 在跑（CLI 后台） | 3（T-013 线A 二轮 / T-046 线C / T-031 线B） |
+| 已 PASS 并合入主干的任务卡 | 20（基线 10 + T-030/042 + T-010/011/012/032/033/043/044 + **T-034/T-045/T-013**） |
+| 在跑（CLI 后台） | 1（T-046 线C；T-031 因工作树冲突暂停，待串行重派） |
 | 待派 | 见第四节 |
-| 全量测试 | **285/285 绿**（17 个测试文件） |
+| 全量测试 | **302/302 绿**（18 个测试文件，不含在写的 T-046） |
 | ⚠ 额度 | 主模型 `gpt-6-astra` 今日额度耗尽（¥502/¥500），**已切备用模型 `gpt-6-sol`**（`claude -p --model gpt-6-sol`） |
 
 ## 二、已 PASS（按完成时间）
@@ -31,14 +31,15 @@
 | **T-044** | **结算份 parts（ED-17-01…06）** | `runtime/settle.gd` + `data/settle_meta.json` | **23/23，487 asserts**（`cd1ad30`，D-28） |
 | **T-034** | **叠加运算 stack_rule（set→add→mul→clamp，从基准重算）** | `modify/stack_rule.gd` | **11/11，48 asserts**（`0089d7e`，修坑 8 后转绿） |
 | **T-045** | **派生 hit/vanish + 7 原因码 + 预算（purge 静默、三代继承）** | `runtime/derive.gd` | **28/28，602 asserts**（`9d40721`） |
+| **T-013** | **V-070…V-084 表现/保存/契约探针** | `validate/rules/r_present.gd` | **17/17，239 asserts**（二轮 PASS；审核方修坑 9 与素材键后转绿） |
 
 ## 三、在跑（CLI 后台）
 
 | 卡 | 线 | 产出 | 状态 |
 |---|---|---|---|
-| **T-013（二轮）** | A 校验 | `validate/rules/r_present.gd`（V-070…084） | 21:3x 用 `gpt-6-sol` 重派。首轮 BLOCKED（素材不全）→ 审核方已补 `presentation_meta.json`（60 叶 + 启用判据/拖尾关系/合并边界/订阅禁值/回写禁区/runtime_hints）与 context 契约 V-076…084，并裁定 D-29（V-073 两段式）、D-30（V-084 入口区分） |
-| **T-046** | C 运行时 | `runtime/shotgun_guard.gd`（防霰弹 + 家族登记） | 21:3x 派发，依赖 T-045 已 PASS |
-| **T-031** | B 解析 | `resolve/lock_guard.gd`（锁定字段与覆盖拒绝 V-014） | 21:3x 派发，依赖 T-030 已 PASS |
+| **T-046** | C 运行时 | `runtime/family_ledger.gd` + `tests/test_runtime_family.gd`（防霰弹 + 家族登记） | 21:3x 派发，依赖 T-045 已 PASS；**在写测试** |
+
+**已交付待串行重派**：T-031（线 B，锁定字段与覆盖拒绝 V-014）—— 首轮因工作树被外部恢复而停手，待 T-046 收尾后单独重派。
 
 派单原文留存：`S_docs/collab/dispatch/T-xxx-派单.md`（便于额度/模型切换后原样重派）。
 
@@ -95,6 +96,8 @@ U-09 YamlLite chomping（`>-` `|-`）· U-11 V-018 动词词表 · U-12 切句�
 - **坑 5** 函数头丢失（第一条 `Function X not found in base self` 是真定位点）
 - **坑 6** Variant 跨类型比较抛运行时错误 → GUT 记 Unexpected Errors，断言只差 1，极难看出
 - **坑 7** 点语法给 Dictionary 写新键生成 StringName 键，不是 String（`has("x")` 取不到）
+- **坑 9**（本轮 T-013 新踩）**JSON 解析出来的数字一律是 float**：`JSON.parse_string('{"a":1}')["a"] is int` 为 false。
+  素材数值禁用 `is int` 单判（会让子检查静默不触发）；作者填进 CFG 的值才用严格 `is int`
 - **坑 8**（本轮 T-034 新踩）给**显式类型变量**赋 null 抛运行时错误：`var list: Array = dict.get(k, null)`；
   它不中断脚本但让函数返回空值，下游 `result.ok` 再报一条误导性错误。**容器取值一律先声明 `Variant` 再 `is` 判定**
 - **D-29**（本轮）V-073 两段式：类型/范围走 Schema（minimum 0），「启用时正整数」走启用态（`enabled_minimum_overrides`）
