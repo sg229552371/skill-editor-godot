@@ -1,0 +1,61 @@
+{
+  "_source": "S_docs/collab/assets/schema_v0_1.yaml $defs (non-params); root/brick/presentation keys checked against CfgCodec constants",
+  "root": {
+    "schema_version": "string", "skill_id": "string", "meta": "object", "bricks": "array", "params": "object", "presentation": "object", "runtime_hints": "object"
+  },
+  "brick": {
+    "brick_id": "string", "name": "string", "tagline": "string", "carrier": "string", "summary": "string", "default_cfg": "object", "author_params": "array", "locked_params": "object", "relic_params": "object", "presentation": "array", "player_text": "array", "status": "string"
+  },
+  "brick_arrays": {"author_params": "string", "presentation": "string", "player_text": "string"},
+  "meta": {
+    "required": ["role", "category", "short_name", "name", "version", "author"],
+    "fields": {
+      "role": "string", "category": "string", "short_name": "string", "variant": "string", "name": "string", "author": "string", "version": "string", "intent": "string", "tags": "array", "pools": "array", "status": "string", "player_text": "array", "design_notes": "string", "copied_from": "ref?", "player_attributes": "array"
+    },
+    "arrays": {"tags": "ref", "pools": "ref", "player_text": "string", "player_attributes": "ref"},
+    "enums": {"category": ["active", "passive", "crystal", "relic"], "status": ["recommended", "pending", "approved", "archived"]}
+  },
+  "params": {"required": ["carrier", "lifetime_ticks", "templates"], "additional_properties": false},
+  "presentation": ["fx", "sfx", "anim", "trail", "camera", "damage_number", "status_icon"],
+  "presentation_sections": {
+    "fx": {
+      "fields": {"spawn":"array", "tick":"array", "vanish":"array", "on_hit":"array", "on_settled":"array", "resource_ref":"ref", "anchor":"string", "follow_mode":"string", "spawn_count":"integer", "loop":"boolean", "duration_ticks":"integer", "vanish_by_reason":"object", "color_mode":"string", "random_seed_stream":"string"},
+      "arrays": {"spawn":"object", "tick":"object", "vanish":"object", "on_hit":"object", "on_settled":"object"},
+      "enums": {"anchor":["caster","instance","target","world"], "follow_mode":["none","position","rotation","full"], "color_mode":["fixed","snapshot","team","status"], "random_seed_stream":["presentation"]}
+    },
+    "sfx": {
+      "required": ["max_concurrency"],
+      "fields": {"spawn":"array", "tick_loop":"object", "on_hit":"array", "on_settled":"array", "vanish":"object", "trigger_scope":"string", "priority":"integer", "max_concurrency":"integer", "concurrency_group":"string", "steal_mode":"string", "cooldown_ticks":"integer", "volume_db":"number", "pitch_range":"array", "bus":"string"},
+      "arrays": {"spawn":"object", "on_hit":"object", "on_settled":"object", "pitch_range":"number"},
+      "enums": {"trigger_scope":["per_hit","per_target","per_cast","per_tick"], "steal_mode":["oldest","quietest","lowest_priority","none"]}
+    },
+    "anim": {
+      "fields": {"cast_clip":"ref", "release_marker":"string", "logic_release_tick":"integer", "release_frame":"integer", "tick_rate":"integer", "frame_policy":"string", "pre_roll_ticks":"integer", "on_hit":"object", "on_settled":"object", "interrupt_policy":"string", "fast_forward_policy":"string", "blend_ticks":"integer", "callback_mode":"string"},
+      "enums": {"frame_policy":["marker_locked","time_locked","nearest"], "interrupt_policy":["recover_to_idle","crossfade","hold_last"], "fast_forward_policy":["seek_release","clip_end","cancel"], "callback_mode":["none","presentation_only"]}
+    },
+    "trail": {
+      "required": ["carrier"],
+      "fields": {"carrier":"string", "resource_ref":"ref", "follow_mode":"string", "sample_interval_ticks":"integer", "max_points":"integer", "lifetime_ticks":"integer", "fade_in_ticks":"integer", "fade_out_ticks":"integer", "independent_end_policy":"string", "instant_end_policy":"string", "on_hit":"object", "on_settled":"object", "opacity_curve":"string"},
+      "enums": {"follow_mode":["position","rotation","full","none"], "independent_end_policy":["fade_then_free","free_on_vanish"], "instant_end_policy":["fixed_short_fade","none"]},
+      "codec_carrier": true
+    },
+    "camera": {
+      "fields": {"enabled":"boolean", "trigger":"string", "shake_amplitude":"number", "shake_frequency":"number", "shake_duration_ticks":"integer", "zoom_delta":"number", "zoom_duration_ticks":"integer", "blend_mode":"string", "priority":"integer", "logic_effect":"string"},
+      "enums": {"trigger":["spawn","hit","hit_settled","vanish","manual_preview"], "blend_mode":["additive","max","replace"], "logic_effect":["none"]}
+    },
+    "damage_number": {
+      "fields": {"source":"string", "merge_policy":"string", "show_evaded":"boolean", "show_immune":"boolean", "show_killed":"boolean", "pressure_policy":"string", "fallback_total":"boolean", "number_style_ref":"ref"},
+      "enums": {"source":["hit","hit_settled"], "merge_policy":["per_hit","per_target_tick","per_cast","none"], "pressure_policy":["merge_more","drop_visual_only"], "fallback_total":[true]}
+    },
+    "status_icon": {
+      "fields": {"resource_ref":"object", "source":"string", "type_filter":"array", "anchor":"string", "stack_mode":"string", "max_visible_stacks":"integer", "duration_mode":"string", "refresh_style":"ref", "dispel_style":"ref", "control_badge":"object", "interrupts_cast_text":"string", "visibility_filter":"string", "expire_fade_ticks":"integer"},
+      "arrays": {"type_filter":"string"},
+      "enums": {"source":["hit","hit_settled"], "type_filter":["buff","debuff","control"], "anchor":["target","caster","ui_list"], "stack_mode":["count","level","refresh_only","unique"], "duration_mode":["remaining_ticks","refresh_flash","fixed"], "interrupts_cast_text":["hidden","show_badge"], "visibility_filter":["owner","target","team","all","owner_and_target"]}
+    }
+  },
+  "runtime_hints": {
+    "budget_tier":"ref", "discard_priority":"ref", "bucket_profile":"ref", "deterministic":"boolean", "rng_stream":"string", "contract_notes":"array"
+  },
+  "runtime_enums": {"deterministic":[true], "rng_stream":["logic","presentation"]},
+  "version": "0.1"
+}

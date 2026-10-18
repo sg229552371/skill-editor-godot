@@ -1,0 +1,22 @@
+{
+  "schema_version": "0.1",
+  "_source": "U-16 / U-19 定稿（审核方 2026-10-18 23:40，依据项目性能基线：100 子弹/80 特效/80 角色同屏）",
+  "_note": "这是【项目配置注入值】，不是素材默认值。data/project_limits.json 里的 _provisional 标记保持不变（那些仍是真源示例值）；宿主在启动时读本文件并注入，运行时不得回落到示例值（D-21 失败语义）。",
+  "_finalized_on": "2026-10-18",
+  "_finalized_by": "WorkBuddy（审核方拍板，用户未反对）",
+  "tick_rate": 60,
+  "_tick_rate_rationale": "60 tick/s（16.67ms 逻辑步）：0.5s=30 tick 对策划可心算；80 实体规模下单帧逻辑预算充裕；与 4.7 物理默认步长同频，减少换算误差。改值只需改这里，代码禁写死。",
+  "project_limits": {
+    "hard_caps": {
+      "max_generation": 4,
+      "cast_budget": 64,
+      "max_chain_depth": 8
+    },
+    "defaults": {
+      "cast_budget": 64,
+      "split_budget": 0,
+      "chain_remaining": 0
+    }
+  },
+  "_limits_rationale": "max_generation=4 / cast_budget=64：100 发每秒基线下单次施法 64 个派生体可覆盖根+分裂+被动触发的极端叠合而不触发预算裁剪；max_chain_depth=8 ≥ generation 4，满足真源 7153 的 chain_depth >= generation 恒等关系。"
+}
