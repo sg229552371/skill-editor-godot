@@ -90,7 +90,7 @@ GODOT_DISABLE_LEAK_CHECKS=1 "$GODOT" --headless --display-driver headless \
   -s res://addons/gut/gut_cmdln.gd -gtest=res://tests/<文件名>.gd -gexit
 ```
 
-**十六个坑（已踩过，别再踩）**：
+**十七个坑（已踩过，别再踩）**：
 1. `godot` **不在 PATH**（portable 版），必须用上面的绝对路径。写 `godot` 会 command not found。
 2. **版本必须锁 4.7.1**。用 4.7.2 跑过一次 import，把 `.godot/` 缓存写成 4.7.2 格式，与用户开着的 4.7.1 编辑器抢同一份缓存，**直接把编辑器搞崩过**。`Downloads/Godot_v4.7.2-.../` 那个**禁用**。
 3. **禁止 `-gdir=res://tests -ginclude_subdirs`**。实测该模式会挂起 5 分钟无输出直到超时。必须用 `-gtest=` 单文件模式，每个文件 0.4 秒。全量门禁 = 对每个 `res://tests/test_*.gd` 串行循环。
@@ -147,6 +147,11 @@ GODOT_DISABLE_LEAK_CHECKS=1 "$GODOT" --headless --display-driver headless \
     （`_new_in_range(baseline, result, first, last).size() > 0`）。
     凡是「断言某个集合非空 / 某类东西存在」的用例，写之前先问一句：
     **它在什么情况下会恒真？基线状态是不是就已经满足了？**
+17. **`const` 常量名不得与 Godot 原生类同名**（T-026 真踩过）：`const Panel = preload(".../modifier_panel.gd")`
+    直接解析期挂 `Parse Error: The member "Panel" shadows a native class.`，
+    然后 `: Panel` 的类型标注被当成原生 `Panel` → `Cannot assign a value of type res://... to variable "panel" with specified type Panel.`
+    **现象是 GUT `tests=0 asserts=0`（假绿）**。危险名单：`Panel` / `Label` / `Timer` / `Node` / `Color` / `Camera` / `Shape` / `Body`…
+    预加载常量一律加后缀：`ModPanel` / `PanelScript` / `PanelImpl`。
 16. **`String(x)` 不是万能转换器**（T-062 真踩过）：Godot 4 **没有** `String(Color)` / `String(null)` 构造器，
     运行期抛 `Invalid call. Nonexistent 'String' constructor.`，整条用例记 Unexpected Errors（脚本能编译过，静态检查抓不到）。
     凡是「把值拼成字符串」的地方一律用 `str(x)`；`Color` 显式 `to_html()`，`Vector2` 显式取 `.x/.y`。
