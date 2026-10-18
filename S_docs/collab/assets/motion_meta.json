@@ -7,6 +7,7 @@
     "default": "continue"
   },
   "motion_fields": {
+    "mode": {"type": "string", "$ref": "#/$defs/motion_mode"},
     "speed": {"type": "number", "minimum": 0},
     "acceleration": {"type": "number"},
     "speed_cap": {"type": "number", "minimum": 0},
@@ -24,7 +25,8 @@
     "split_template": {"type": "string", "$ref": "#/$defs/ref"},
     "chain_remaining": {"type": "integer", "minimum": 0, "default": 0},
     "chain_template": {"type": "string", "$ref": "#/$defs/ref"},
-    "search_radius": {"type": "number", "exclusiveMinimum": 0}
+    "search_radius": {"type": "number", "exclusiveMinimum": 0},
+    "visited": {"type": "array", "items": {"type": "string"}}
   },
   "geometry_fields": {
     "shape": {"type": "string", "$ref": "#/$defs/geometry_shape"},

@@ -3,3 +3,8 @@ test_results/
 *.tmp
 *.log
 .DS_Store
+
+# AI 协作工作区（本地记忆，不入库）
+.workbuddy/
+# 临时诊断脚本（下划线前缀，审核方临时放置）
+tests/_diag_*.gd
