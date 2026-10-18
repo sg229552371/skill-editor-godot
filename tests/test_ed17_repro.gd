@@ -378,164 +378,141 @@ func test_ed17_08_purge_cancels_real_termination_derivation() -> void:
 	assert_eq(_of(control["events"], "hit").size(), 1, "ED-17-08 unpurged control really hits before expiry")
 
 
-func test_ed17_09_partial_cast_release_but_request_window_absent() -> void:
-	var c: Dictionary = _case(9)
-	assert_eq(c["status"], "blocked", "ED-17-09 remains partial, not acceptance PASS")
-	var cast: Dictionary = {"windup_ticks": 2, "shot_ticks": [2], "shot_count": 1, "cooldown_seconds": 1}
-	assert_eq(cast["shot_ticks"], [2], "ED-17-09 nonempty scheduled-shot control")
-	var scheduled: Dictionary = _variant(c, {"root": {"cast": cast}, "ticks": 3})
-	var first: Dictionary = _run(scheduled)
-	assert_eq(first, _run(scheduled), "ED-17-09 every scheduled snapshot reproducible")
-	var trace: Array = first["trace"]
-	assert_eq(trace.size(), 4, "ED-17-09 tick0 plus three ticks")
-	var counts: Array = []
-	var increments: Array = []
-	var previous: int = 0
-	for index in range(trace.size()):
-		assert_eq(trace[index]["clock"]["tick"], index, "ED-17-09 exact observed tick")
-		var current: int = trace[index]["entities"].size()
-		counts.append(current)
-		if index > 0:
-			increments.append(current - previous)
-		previous = current
-	assert_eq(counts, [0, 0, 1, 1], "ED-17-09 zero during windup, real root at tick2")
-	assert_eq(increments, [0, 1, 0], "ED-17-09 exactly one release, not an always-empty trace")
-	assert_eq(first["state"]["entities"].size(), 1, "ED-17-09 scheduled positive control actually creates a body")
-
-	# Native RefCounted helpers are not sandbox capabilities. Keep script overrides.
-	var runner: RefCounted = Runner.new()
-	var native_names: Array = []
-	for method in RefCounted.new().get_method_list():
-		native_names.append(str(method["name"]))
-	var script_names: Array = []
-	for method in runner.get_script().get_script_method_list():
-		script_names.append(str(method["name"]))
-	var methods: Array = []
-	for method in runner.get_method_list():
-		var name: String = str(method["name"])
-		if not name.begins_with("_") and (script_names.has(name) or not native_names.has(name)):
-			methods.append(name)
-	methods.sort()
-	assert_eq(methods, PUBLIC_API, "ED-17-09 complete public sandbox API frozen")
-	assert_eq(methods.size(), 6, "ED-17-09 exactly six public entries")
-	for index in range(mini(methods.size(), PUBLIC_API.size())):
-		assert_eq(methods[index], PUBLIC_API[index], "ED-17-09 public entry %d" % index)
-	# Source :1217 cast_gate; :4094 input_buffer; :4377 recovery/expiry words.
-	var candidates: Array = ["cast_gate", "input_buffer", "窗口内恢复", "过期丢弃"]
-	assert_eq(candidates.size(), 4, "ED-17-09 nonempty source-vocabulary probe")
-	for name in candidates:
-		assert_false(methods.has(name), "ED-17-09 absent source capability " + str(name))
-		assert_false(runner.has_method(name), "ED-17-09 no request/window entry " + str(name))
+func test_ed17_09_displacement_gate_buffer_recovery_and_expiry() -> void:
+	const InputHostScript = preload("res://skill_core/runtime/hosts/preview_input_host.gd")
+	var traces: Array = []
+	for window in [3, 1]:
+		var prepared: Dictionary = _prepare(_case(9))
+		prepared["cfg"]["params"]["templates"][0]["cast"] = {"windup_ticks": 1,
+			"shot_ticks": [1], "shot_count": 1, "cooldown_seconds": 1}
+		var buffered_template: Dictionary = prepared["cfg"]["params"]["templates"][0].duplicate(true)
+		buffered_template["template_id"] = "buffered_recipe"
+		prepared["cfg"]["params"]["templates"].append(buffered_template)
+		prepared["options"]["template_families"]["buffered_recipe"] = "split_family"
+		prepared["options"]["derivation_bindings"]["buffered_recipe"] = {}
+		var before: String = JSON.stringify(prepared["cfg"])
+		var host: RefCounted = InputHostScript.new()
+		assert_true(host.configure({"input_buffer": {"window_ticks": window}})["ok"])
+		prepared["options"]["runtime_host"] = host
+		var runner: RefCounted = Runner.new()
+		assert_true(runner.start(prepared["cfg"], prepared["options"])["ok"])
+		assert_true(host.set_locks({"cast_gate": true, "pause_cast": false, "interrupts_cast": false})["ok"])
+		var request: Dictionary = host.request_cast({"template_id": "buffered_recipe", "shot_id": "buffered"})
+		assert_false(request["ok"], "ED-17-09 gate refuses to start windup")
+		assert_true(request.get("buffered", false), "ED-17-09 input host retains the request")
+		# Source :8846-8847 expires at the deadline tick; recover strictly before it.
+		assert_true(runner.advance_ticks(1)["ok"])
+		assert_eq(runner.snapshot_state()["entities"].size(), 1, "ED-17-09 only original scheduled cast exists")
+		assert_eq(host.snapshot_state()["pending"].size(), 1 if window == 3 else 0)
+		assert_true(host.set_locks({"cast_gate": false, "pause_cast": false, "interrupts_cast": false})["ok"])
+		assert_true(runner.advance_ticks(1)["ok"])
+		assert_eq(host.snapshot_state()["actions"].size(), 2 if window == 3 else 1,
+			"ED-17-09 recovery at tick2 executes only the unexpired request")
+		assert_true(runner.advance_ticks(1)["ok"])
+		var state: Dictionary = runner.snapshot_state()
+		assert_eq(state["clock"]["tick"], 3)
+		assert_eq(state["entities"].size(), 2 if window == 3 else 1, "ED-17-09 actual buffered release at tick3 vs discard")
+		assert_eq(host.snapshot_state()["discarded"].size(), 0 if window == 3 else 1)
+		assert_eq(host.snapshot_state()["pending"].size(), 0)
+		assert_eq(JSON.stringify(prepared["cfg"]), before, "ED-17-09 CFG immutable")
+		traces.append(state)
+		runner.stop()
+	assert_eq(traces.size(), 2, "ED-17-09 both concrete window outcomes observed")
+	assert_ne(traces[0]["entities"].size(), traces[1]["entities"].size())
 
 
-func test_ed17_10_partial_exact_windup_but_cast_control_absent() -> void:
-	var c: Dictionary = _case(10)
-	assert_eq(c["status"], "blocked", "ED-17-10 remains partial, not acceptance PASS")
-	var cast: Dictionary = {"windup_ticks": 3, "shot_ticks": [3, 5], "shot_count": 2, "cooldown_seconds": 1}
-	assert_eq(cast["shot_ticks"], [3, 5], "ED-17-10 two scheduled shots, nonempty control")
-	var scheduled: Dictionary = _variant(c, {"root": {"cast": cast}, "ticks": 6})
-	var first: Dictionary = _run(scheduled)
-	assert_eq(first, _run(scheduled), "ED-17-10 every scheduled snapshot reproducible")
-	var trace: Array = first["trace"]
-	assert_eq(trace.size(), 7, "ED-17-10 tick0 plus six ticks")
-	var counts: Array = []
-	var increments: Array = []
-	var previous: int = 0
-	for index in range(trace.size()):
-		assert_eq(trace[index]["clock"]["tick"], index, "ED-17-10 exact observed tick")
-		var current: int = trace[index]["entities"].size()
-		counts.append(current)
-		if index > 0:
-			increments.append(current - previous)
-		previous = current
-	assert_eq(counts, [0, 0, 0, 1, 1, 2, 2], "ED-17-10 windup ticks0/1/2 empty, release ticks3/5")
-	assert_eq(increments, [0, 0, 1, 0, 1, 0], "ED-17-10 each release adds exactly one root")
-	assert_eq(first["state"]["entities"].size(), 2, "ED-17-10 normal scheduling produces both roots, not pause/cancel acceptance")
-
-	var runner: RefCounted = Runner.new()
-	var native_names: Array = []
-	for method in RefCounted.new().get_method_list():
-		native_names.append(str(method["name"]))
-	var script_names: Array = []
-	for method in runner.get_script().get_script_method_list():
-		script_names.append(str(method["name"]))
-	var methods: Array = []
-	for method in runner.get_method_list():
-		var name: String = str(method["name"])
-		if not name.begins_with("_") and (script_names.has(name) or not native_names.has(name)):
-			methods.append(name)
-	methods.sort()
-	assert_eq(methods, PUBLIC_API, "ED-17-10 complete public sandbox API frozen")
-	assert_eq(methods.size(), 6, "ED-17-10 exactly six public entries")
-	for index in range(mini(methods.size(), PUBLIC_API.size())):
-		assert_eq(methods[index], PUBLIC_API[index], "ED-17-10 public entry %d" % index)
-	# Source :4378 pause/resume; :2129 interrupts_cast, not an invented callback.
-	var candidates: Array = ["暂停前摇", "恢复", "interrupts_cast"]
-	assert_eq(candidates.size(), 3, "ED-17-10 nonempty source-vocabulary probe")
-	for name in candidates:
-		assert_false(methods.has(name), "ED-17-10 absent source capability " + str(name))
-		assert_false(runner.has_method(name), "ED-17-10 no pause/resume/interrupt entry " + str(name))
+func test_ed17_10_control_pause_resume_vs_cancel() -> void:
+	const InputHostScript = preload("res://skill_core/runtime/hosts/preview_input_host.gd")
+	var outcomes: Array = []
+	for interrupt in [false, true]:
+		var prepared: Dictionary = _prepare(_case(10))
+		prepared["cfg"]["params"]["templates"][0]["cast"] = {"windup_ticks": 3,
+			"shot_ticks": [3, 5], "shot_count": 2, "cooldown_seconds": 1}
+		var before: String = JSON.stringify(prepared["cfg"])
+		var host: RefCounted = InputHostScript.new()
+		assert_true(host.configure({"input_buffer": {"window_ticks": 3}})["ok"])
+		prepared["options"]["runtime_host"] = host
+		var runner: RefCounted = Runner.new()
+		assert_true(runner.start(prepared["cfg"], prepared["options"])["ok"])
+		assert_true(runner.advance_ticks(1)["ok"])
+		assert_true(host.set_locks({"cast_gate": true, "pause_cast": true, "interrupts_cast": interrupt})["ok"])
+		for tick in [2, 3]:
+			assert_true(runner.advance_ticks(1)["ok"])
+			assert_eq(runner.snapshot_state()["clock"]["tick"], tick)
+			assert_eq(runner.snapshot_state()["entities"].size(), 0, "ED-17-10 control prevents release at both concrete ticks")
+			var action: Dictionary = host.snapshot_state()["actions"][0]
+			assert_eq(action["state"]["status"], "cancelled" if interrupt else "active")
+			if not interrupt:
+				assert_eq(3 - (tick - int(action["state"]["start_tick"])), 2, "ED-17-10 remaining windup frozen")
+		assert_true(host.set_locks({"cast_gate": false, "pause_cast": false, "interrupts_cast": false})["ok"])
+		var counts: Array = []
+		for tick in [4, 5, 6, 7]:
+			assert_true(runner.advance_ticks(1)["ok"])
+			assert_eq(runner.snapshot_state()["clock"]["tick"], tick)
+			counts.append(runner.snapshot_state()["entities"].size())
+		assert_eq(counts, [0, 0, 0, 0] if interrupt else [0, 1, 1, 2], "ED-17-10 resumed shots tick5/7 vs cancelled unshot points")
+		assert_eq(host.snapshot_state()["X"], 0 if interrupt else 2)
+		outcomes.append(counts)
+		assert_true(runner.stop()["ok"])
+		assert_eq(JSON.stringify(prepared["cfg"]), before, "ED-17-10 runtime controls do not modify CFG")
+	assert_eq(outcomes.size(), 2)
+	assert_ne(outcomes[0], outcomes[1], "ED-17-10 pause is observably different from interrupt")
 
 
 func test_ed17_11_blocked_owner_death_interrupt_priority() -> void:
 	_blocked(11)
 
 
-func test_ed17_12_partial_shot_count_matches_but_action_x_ledger_absent() -> void:
-	var c: Dictionary = _case(12)
-	assert_eq(c["status"], "blocked", "ED-17-12 remains partial, not acceptance PASS")
-	var cast: Dictionary = {"windup_ticks": 0, "shot_ticks": [0, 2], "shot_count": 2, "cooldown_seconds": 1}
-	assert_eq(cast["shot_ticks"], [0, 2], "ED-17-12 nonempty two-shot schedule")
-	assert_eq(cast["shot_count"], 2, "ED-17-12 requested shot count")
-	var scheduled: Dictionary = _variant(c, {"root": {"cast": cast}, "ticks": 3})
-	var first: Dictionary = _run(scheduled)
-	assert_eq(first, _run(scheduled), "ED-17-12 every scheduled snapshot reproducible")
-	var trace: Array = first["trace"]
-	assert_eq(trace.size(), 4, "ED-17-12 tick0 plus three ticks")
-	var counts: Array = []
-	var increments: Array = []
-	var previous: int = 0
-	for index in range(trace.size()):
-		assert_eq(trace[index]["clock"]["tick"], index, "ED-17-12 exact observed tick")
-		var current: int = trace[index]["entities"].size()
-		counts.append(current)
-		increments.append(current - previous)
-		previous = current
-	assert_eq(counts, [1, 1, 2, 2], "ED-17-12 tick0 and tick2 each really create a root")
-	assert_eq(increments, [1, 0, 1, 0], "ED-17-12 exactly two scheduled releases, including start tick")
-	assert_eq(first["state"]["entities"].size(), 2, "ED-17-12 local release count, NOT the three-action X=6 ledger")
-	var invalid: Dictionary = cast.duplicate(true)
-	invalid["shot_count"] = 3
-	var rejected: Dictionary = _rejection(c, {"cast": invalid},
-		"params.templates[0].cast.shot_count", "shot_count=3 does not match shot_ticks.size=2")
-	assert_eq(rejected["error"], "shot_count=3 does not match shot_ticks.size=2", "ED-17-12 mismatch names both actual values")
-	assert_eq(rejected, _rejection(c, {"cast": invalid},
-		"params.templates[0].cast.shot_count", "shot_count=3 does not match shot_ticks.size=2"),
-		"ED-17-12 count validation reproducible; not used as an X capability refusal")
-
-	var runner: RefCounted = Runner.new()
-	var native_names: Array = []
-	for method in RefCounted.new().get_method_list():
-		native_names.append(str(method["name"]))
-	var script_names: Array = []
-	for method in runner.get_script().get_script_method_list():
-		script_names.append(str(method["name"]))
-	var methods: Array = []
-	for method in runner.get_method_list():
-		var name: String = str(method["name"])
-		if not name.begins_with("_") and (script_names.has(name) or not native_names.has(name)):
-			methods.append(name)
-	methods.sort()
-	assert_eq(methods, PUBLIC_API, "ED-17-12 complete public sandbox API frozen")
-	assert_eq(methods.size(), 6, "ED-17-12 exactly six public entries")
-	for index in range(mini(methods.size(), PUBLIC_API.size())):
-		assert_eq(methods[index], PUBLIC_API[index], "ED-17-12 public entry %d" % index)
-	# Source :4380 literally names 动作 and X; no guessed English ledger method.
-	var candidates: Array = ["动作", "X"]
-	assert_eq(candidates.size(), 2, "ED-17-12 nonempty source-vocabulary probe")
-	for name in candidates:
-		assert_false(methods.has(name), "ED-17-12 absent source capability " + str(name))
-		assert_false(runner.has_method(name), "ED-17-12 no action/X ledger entry " + str(name))
+func test_ed17_12_three_actions_six_shots_separate_ledgers() -> void:
+	const InputHostScript = preload("res://skill_core/runtime/hosts/preview_input_host.gd")
+	var c: Dictionary = _variant(_case(12), {"root_count": 3, "distinct_shots": true,
+		"targets": [{"id": "victim", "x": 1, "hp": 7}],
+		"parts": [{"part_index": 0, "type": "physical", "amount": 1, "evadable": true},
+			{"part_index": 1, "type": "fire", "amount": 1, "evadable": true},
+			{"part_index": 2, "type": "ice", "amount": 1, "evadable": true}]})
+	var results: Array = []
+	for _repeat in range(2):
+		var prepared: Dictionary = _prepare(c)
+		prepared["cfg"]["params"]["templates"][0]["cast"] = {"windup_ticks": 0,
+			"shot_ticks": [0, 2], "shot_count": 2, "cooldown_seconds": 0.01}
+		for root in prepared["options"]["roots"]:
+			root["instance_count"] = 3
+		var before: String = JSON.stringify(prepared["cfg"])
+		var host: RefCounted = InputHostScript.new()
+		assert_true(host.configure({"input_buffer": {"window_ticks": 3}})["ok"])
+		prepared["options"]["runtime_host"] = host
+		var runner: RefCounted = Runner.new()
+		assert_true(runner.start(prepared["cfg"], prepared["options"])["ok"])
+		assert_eq(runner.snapshot_state()["entities"].size(), 3, "ED-17-12 first actual shot creates three instances")
+		assert_true(runner.advance_ticks(9)["ok"])
+		var ledger: Dictionary = host.snapshot_state()
+		var state: Dictionary = runner.snapshot_state()
+		assert_eq(ledger["actions"].size(), 3, "ED-17-12 three real FIFO actions")
+		assert_eq(ledger["X"], 6, "ED-17-12 X counts actual shot emissions, not instances")
+		assert_eq(ledger["shots"].size(), 6)
+		var shot_ticks: Array = []
+		var shot_ids: Array = []
+		for shot in ledger["shots"]:
+			shot_ticks.append(shot["tick"])
+			assert_false(shot_ids.has(shot["shot_id"]), "ED-17-12 every actual shot has its own identity")
+			shot_ids.append(shot["shot_id"])
+		assert_eq(shot_ticks, [0, 2, 3, 5, 6, 8])
+		for action in ledger["actions"]:
+			assert_eq(action["state"]["next_index"], 2, "ED-17-12 two completed shot points per action")
+			assert_eq(action["state"]["status"], "done")
+		assert_eq(state["entities"].size(), 18, "ED-17-12 six shots each spawn three instances")
+		assert_eq(_of(state["events"], "hit").size(), 3, "ED-17-12 finite victim dies on third hit, X remains six")
+		assert_eq(state["records"].size(), 3)
+		var part_count: int = 0
+		for record in state["records"]:
+			part_count += record["parts"].size()
+		assert_eq(part_count, 9, "ED-17-12 nine settlement parts, not X or instance count")
+		assert_eq(state["targets"][0]["hp"], 0.0)
+		results.append({"host": ledger, "runner": state})
+		assert_true(runner.stop()["ok"])
+		assert_eq(JSON.stringify(prepared["cfg"]), before, "ED-17-12 ledgers never write into CFG")
+	assert_eq(results.size(), 2)
+	assert_eq(results[0], results[1], "ED-17-12 all runtime ledgers deterministic")
 
 
 func test_ed17_13_blocked_all_evade_shotgun_contact_registration() -> void:
@@ -705,6 +682,17 @@ func test_ed17_19_partial_skill_cooldown_but_atomic_equipment_absent() -> void:
 	for name in candidates:
 		assert_false(methods.has(name), "ED-17-19 absent source capability " + str(name))
 		assert_false(runner.has_method(name), "ED-17-19 no atomic-equipment/global-cooldown entry " + str(name))
+	# Runtime capabilities can also enter through start(options.runtime_host).
+	const InputHostScript = preload("res://skill_core/runtime/hosts/preview_input_host.gd")
+	var input_host: RefCounted = InputHostScript.new()
+	var host_methods: Array = []
+	for method in input_host.get_script().get_script_method_list():
+		var name: String = str(method["name"])
+		if not name.begins_with("_"):
+			host_methods.append(name)
+	host_methods.sort()
+	assert_eq(host_methods, ["configure", "request_cast", "set_locks", "snapshot_state"],
+		"ED-17-19 input host also has no equipment commit boundary or equipment cooldown")
 
 
 func test_ed17_20_blocked_live_permission_runner_integration() -> void:

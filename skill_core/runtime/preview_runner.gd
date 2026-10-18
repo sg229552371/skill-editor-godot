@@ -16,6 +16,7 @@ const Codec = preload("res://skill_core/schema/cfg_codec.gd")
 const Schema = preload("res://skill_core/schema/cfg_schema.gd")
 const HostRegistry = preload("res://skill_core/runtime/hosts/host_registry.gd")
 const HostCast = preload("res://skill_core/runtime/hosts/host_cast.gd")
+const InputHost = preload("res://skill_core/runtime/hosts/preview_input_host.gd")
 const CONFIG_PATH: String = "res://data/project_config.json"
 
 # Implementation dispatch, not a skill/brick whitelist. Other motion kernels
@@ -55,6 +56,7 @@ var _hosts: RefCounted
 var _host_states: Dictionary = {}
 var _host_requests: Dictionary = {}
 var _host_contexts: Dictionary = {}
+var _runtime_host: RefCounted
 
 
 ## Required options: seed:int, roots:[{template_id, shot_id, instance_id?}],
@@ -117,6 +119,11 @@ func start(cfg: Variant, options: Dictionary) -> Dictionary:
 	if not seed_value is int:
 		return _failure("seed", "Explicit integer logic seed required")
 	_clock = Clock.new(seed_value)
+	var runtime_host: Variant = options.get("runtime_host", null)
+	if runtime_host != null:
+		if not runtime_host is InputHost:
+			return _failure("runtime_host", "Expected preview input host")
+		_runtime_host = runtime_host
 	_derive_meta = _read_json(Derive.META_PATH)
 	_settle_meta = _read_json(Settle.META_PATH)
 	_shape_meta = _read_json(Shape.META_PATH)
@@ -184,6 +191,8 @@ func start(cfg: Variant, options: Dictionary) -> Dictionary:
 						return _failure("roots", "Each launch needs a registered template_id and actual shot_id")
 					var launch_template: Variant = host_launch.get("template_id", null)
 					if launch_template is String and launch_template == id:
+						if _runtime_host != null:
+							continue
 						var host_key: String = "%s:%d" % [id, launch_index]
 						var launch_ctx: Dictionary = ctx.duplicate(true)
 						launch_ctx["shot_id"] = host_launch.get("shot_id", null)
@@ -230,6 +239,10 @@ func start(cfg: Variant, options: Dictionary) -> Dictionary:
 		return _failure("family", _family.last_error)
 	_cast_id = "preview:%d" % _run_seq
 	_run_seq += 1
+	if _runtime_host != null:
+		var bound: Dictionary = _runtime_host._bind(_templates, roots, _tick_rate)
+		if not bound["ok"]:
+			return _failure(bound["path"], bound["error"])
 	for launch in roots:
 		var template: Dictionary = _templates[launch["template_id"]]
 		if template.has("cast") and not template["cast"].is_empty():
@@ -240,7 +253,7 @@ func start(cfg: Variant, options: Dictionary) -> Dictionary:
 		if not launched["admitted"]:
 			continue
 	var family_synced: bool = _family.sync_instances(_derive.snapshot_state(), _facts)
-	if _entities.is_empty() and _host_states.is_empty():
+	if _entities.is_empty() and _host_states.is_empty() and _runtime_host == null:
 		return _failure("family", _family.last_error)
 	# The ledger rejects an empty source; pending hosts have no members yet.
 	if not family_synced and not _entities.is_empty():
@@ -365,6 +378,11 @@ func _consume_emissions(emissions: Dictionary) -> Dictionary:
 
 
 func _advance_hosts(tick: int) -> Dictionary:
+	if _runtime_host != null:
+		var result: Dictionary = _runtime_host._advance(tick)
+		if not result["ok"]:
+			return _failure("runtime_host", result["error"])
+		return _consume_emissions(result["emissions"])
 	for host_key in _host_states:
 		var state: Dictionary = _host_states[host_key]
 		var ctx: Dictionary = _host_contexts[host_key]
@@ -499,6 +517,8 @@ func _contact_eligible(entity: Dictionary, target: Dictionary) -> bool:
 
 
 func stop() -> Dictionary:
+	if _runtime_host != null:
+		_runtime_host._unbind()
 	if _derive != null:
 		for id in _entities:
 			if _entities[id]["body"].is_alive():
@@ -534,6 +554,7 @@ func snapshot_state() -> Dictionary:
 
 
 func _clear():
+	_runtime_host = null
 	_cfg = {}
 	_params = {}
 	_config = {}
