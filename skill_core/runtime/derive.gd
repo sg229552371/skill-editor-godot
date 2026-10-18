@@ -160,10 +160,16 @@ func _check_meta(data: Variant) -> String:
 			if _text(data[section].get(role, null)).is_empty():
 				return "Missing derivation role: " + section + "." + role
 	var roles: Dictionary = data["event_roles"]
-	if roles["contact"] == roles["termination"] or roles.size() != _params_meta["enums"]["event"].size():
+	# 坑 11：素材里的 `_` 前缀键是注释/元信息（`_note`），不得计入业务条目数量
+	var bound: Array = []
+	for key in roles:
+		if not str(key).begins_with("_"):
+			bound.append(roles[key])
+	var events: Variant = _params_meta["enums"]["event"]
+	if bound.size() != events.size() or bound[0] == bound[1]:
 		return "Event role bindings disagree with enum"
-	for event in roles.values():
-		if not _params_meta["enums"]["event"].has(event):
+	for event in bound:
+		if not events.has(event):
 			return "Unregistered event role"
 	if not _strings(data.get("inherited_budgets", null), true) or _text(data.get("relation", null)).is_empty():
 		return "Missing inherited budget or depth relation binding"
@@ -205,6 +211,8 @@ func _resolve_limits(data: Variant, overrides: Dictionary) -> String:
 		resolved[section] = values
 	var budget_roles: Dictionary = _meta["budget_roles"]
 	for role in budget_roles:
+		if str(role).begins_with("_"):
+			continue  # 坑 11：素材里的 `_note` 等注释键不是预算角色
 		if not resolved["hard_caps"].has(budget_roles[role]):
 			return "Missing project hard cap: " + str(budget_roles[role])
 	for key in [budget_roles["generation"], budget_roles["cast"]] + _meta["inherited_budgets"]:

@@ -126,6 +126,14 @@ GODOT_DISABLE_LEAK_CHECKS=1 "$GODOT" --headless --display-driver headless \
     `_ready=false` → 全部 9 条用例拿到 `{ok:false, diagnostics:[LOCK_GUARD_INVALID]}`，
     GUT 只显示 `last_error`，完全看不出是素材口径问题。
     修法：拆成 `_valid_meta_path()`（先 `replace("[i]","")` 再分段校验）与 `_valid_path()`（拒绝 `[`/`]`）。
+11. **素材 JSON 里的 `_` 前缀键是注释/元信息，不得计入业务条目数量**（T-046 真踩过）：
+    `derive_meta.json` 的 `event_roles` / `budget_roles` 都带 `_note` 说明键。
+    凡是「遍历素材字典的键」去做数量校验或查表（`roles.size() != enums.event.size()`、
+    `for role in budget_roles: hard_caps.has(...)`），**必须先跳过 `str(key).begins_with("_")`**，
+    否则一条 `_note` 就让数量对不上 / 把注释文本当成硬上限名去查表，报出
+    `Missing project hard cap: 硬上限名 → project_limits.hard_caps 的键` 这种完全看不懂的错。
+    已 PASS 的模块没暴露是因为它们用注入覆盖（override 里没有 `_note`）——
+    **一旦改用 `res://data/*.json` 原文件配置就会炸**，所以这条对每张新卡都成立。
 
 ### ✅ 唯一例外：你被允许跑 `--check-only` 语法检查
 
