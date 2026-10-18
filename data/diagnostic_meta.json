@@ -1,0 +1,27 @@
+{
+  "schema_version": "0.1",
+  "_source": "真源 14.x 排序要求（阻止保存→警告→提示；同严重度按表单顺序与数组下标；末以规则 ID 破同分；不得按异步返回顺序乱跳）；顶层键顺序取自 schema_v0_1.yaml:609 canonical_skill_cfg.required/properties；严重度取值取自 validation_rules.csv 的 severity 列（D-27 唯一真源）",
+  "_extracted_by": "WorkBuddy",
+  "_extracted_on": "2026-10-18",
+  "_note": "诊断排序与去重的绑定素材。T-014 的排序键一律由本文件驱动，diagnostic_sorter.gd 不得硬编码严重度顺序、字段顺序或去重字段；缺失/解析失败按 D-21 显式失败。",
+  "severity_text_to_value": {
+    "阻止保存": 0,
+    "警告": 1,
+    "提示": 2
+  },
+  "severity_value_to_text": {
+    "0": "阻止保存",
+    "1": "警告",
+    "2": "提示"
+  },
+  "severity_order": [0, 1, 2],
+  "_severity_order_note": "从重到轻。与 skill_core/api/diagnostic.gd 的 SEV_BLOCK=0 / SEV_WARN=1 / SEV_HINT=2 一致；排序器只认本序列，不在序列内的严重度按 D-21 显式失败，不得塞到末尾。",
+  "field_order": ["schema_version", "skill_id", "meta", "bricks", "params", "presentation", "runtime_hints"],
+  "_field_order_note": "同严重度内的第一排序键：路径首段在本表中的位置。不在表内的首段按 D-21 显式失败（不是排到最后）。",
+  "index_sort": "ascending",
+  "_index_note": "第二排序键：从 path 解析出的 [n] 下标序列，逐段升序比较；段数不同时逐段比，短者在前（[2] 在 [2,0] 之前）。",
+  "tie_breaker": "rule_id",
+  "_tie_breaker_note": "第三排序键：前两层完全相同时按 rule_id 字符串升序；三者全同则保持输入相对顺序（稳定排序）。",
+  "dedupe_keys": ["rule_id", "code", "path", "actual", "expected"],
+  "_dedupe_note": "五元组完全相同才算重复，只保留首次出现；actual 不同即使同 path 也各保留（是不同非法值，不是重复）。去重在排序之前做，必须返回 removed 计数与 duplicates 数组作为可查证据。"
+}
