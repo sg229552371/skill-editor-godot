@@ -90,7 +90,7 @@ GODOT_DISABLE_LEAK_CHECKS=1 "$GODOT" --headless --display-driver headless \
   -s res://addons/gut/gut_cmdln.gd -gtest=res://tests/<文件名>.gd -gexit
 ```
 
-**八个坑（已踩过，别再踩）**：
+**九个坑（已踩过，别再踩）**：
 1. `godot` **不在 PATH**（portable 版），必须用上面的绝对路径。写 `godot` 会 command not found。
 2. **版本必须锁 4.7.1**。用 4.7.2 跑过一次 import，把 `.godot/` 缓存写成 4.7.2 格式，与用户开着的 4.7.1 编辑器抢同一份缓存，**直接把编辑器搞崩过**。`Downloads/Godot_v4.7.2-.../` 那个**禁用**。
 3. **禁止 `-gdir=res://tests -ginclude_subdirs`**。实测该模式会挂起 5 分钟无输出直到超时。必须用 `-gtest=` 单文件模式，每个文件 0.4 秒。全量门禁 = 对每个 `res://tests/test_*.gd` 串行循环。
@@ -115,6 +115,10 @@ GODOT_DISABLE_LEAK_CHECKS=1 "$GODOT" --headless --display-driver headless \
    它**不中断脚本**但让函数返回空值，下游 `result.ok` 再报一次 `Invalid access to property or key 'ok'`，
    两条连报且第二条具有误导性。从容器取值且可能为空时，变量一律声明为 `Variant`，再用
    `is Array` / `is Dictionary` 判定后按需创建（与坑 2「默认值写 null」是同一家族：判空在赋值之后，不在赋值之时）。
+9. **JSON 解析出来的数字一律是 float**（T-013 真踩过）：实测 `JSON.parse_string('{"a":1}')["a"] is int` → **false**（typeof=float）。
+   所以**不要对素材 JSON 里的数值用 `is int` 单判**（`minimum is int` 恒为 false → 该子检查静默不触发，测试只差 1 个断言且报 `actual=[]`，极难看出）。
+   素材数值一律按 `value is int or value is float` 判定后再 `float()` 比较；
+   反过来，**作者填进 CFG 的值**才用严格 `is int` 做 integer 字段类型校验 —— 两者不要混淆。
 
 ### ✅ 唯一例外：你被允许跑 `--check-only` 语法检查
 
@@ -164,6 +168,8 @@ timeout 60 "$GODOT" --headless --check-only --script res://<你改的文件>.gd
    - **点语法写新键变 StringName**（T-033）：新键必须 `dict["key"] = v`（见第五节坑 7）。
    - **显式类型变量被赋 null**（T-034）：`var arr: Array = dict.get(k, null)` 会抛运行时错误，
      容器取值一律先声明 `Variant`，再用 `is` 判定（见第五节坑 8）。
+   - **素材 JSON 里的数字是 float**（T-013）：`is int` 单判恒为 false，会让子检查静默不触发；
+     素材数值用 `is int or is float` 判定，只有作者填进 CFG 的值才用严格 `is int`（见第五节坑 9）。
    编译错误会让整脚本加载失败，代价很高；
 3. 回执里写「自测声明：未运行引擎，已静态复核 X 处」，并把你认为可能红的点列进「未决与风险」。
 

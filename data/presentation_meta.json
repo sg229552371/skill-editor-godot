@@ -871,9 +871,11 @@
       "none": "none"
     },
     "_merge_scope_note": "V-076：合并不得跨目标、不得跨份类型；per_cast 的合法分组边界仍是同一目标，不得把不同目标或不同 part type 的份并成一个数字。",
-    "cross_target_forbidden": true,
-    "cross_type_forbidden": true,
-    "logic_writeback_forbidden": true,
+        "cross_target_forbidden": true,
+        "cross_type_forbidden": true,
+        "writeback_forbidden": true,
+        "logic_writeback_forbidden": true,
+        "_forbidden_key_note": "三个禁止键按 <context 事实键> + _forbidden 命名（cross_target/cross_type/writeback），实现按此拼接查找；logic_writeback_forbidden 为语义总开关，保留供人类阅读与将来扩展。",
     "optional_context_key": "damage_number_semantics",
     "_optional_note": "跨目标/跨类型/回写的事实由 context.damage_number_semantics（可选）提供；缺失登记 notice 并跳过，不算通过证据（D-25 failure_policy.optional_missing）。"
   },
