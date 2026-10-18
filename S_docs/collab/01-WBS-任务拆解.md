@@ -60,7 +60,7 @@ T-000 冻结核心接口  ←── 必须先 PASS，否则四条线不能并行
 | ID | 规则组 | 产出 | 验收标准 |
 |---|---|---|---|
 | T-010 ✅ | V-001…V-018 身份、结构、引用 | `validate/rules/r_identity.gd` + `validate/identity_meta.gd` | 每条有触发反例；`bricks[i].author_params` 缺失定位到 `bricks[2].author_params` 而非「参数对象」｜**2026-10-18 PASS**：28/28（661 asserts），全量 88/88；复核方补 D-22（素材迁 `res://data/`）、D-23（U-10 落点裁决） |
-| T-011 | V-019…V-038 类型、时间、命中、事件 | `validate/rules/r_types.gd` | tick 规则不只检查前摇/冷却/寿命三个名字，而是「单位为 tick 且类型为整数的每个实际字段」都生成检查实例 |
+| T-011 ✅ | V-019…V-038 类型、时间、命中、事件 | `validate/rules/r_types.gd` | tick 规则不只检查前摇/冷却/寿命三个名字，而是「单位为 tick 且类型为整数的每个实际字段」都生成检查实例｜**2026-10-18 PASS**：23/23（94 asserts），全量 158/158；复核方修一处函数头丢失（坑 5）|
 | T-012 | V-039…V-069 修饰器、派生安全、被动触发 | `validate/rules/r_modifier.gd` | V-056 是警告不是阻止保存；缺预算/负预算/越权放大代数是阻止保存（真源 14.4 末段） |
 | T-013 | V-070…V-084 表现、保存、契约探针 | `validate/rules/r_present.gd` | V-084 只阻止「把旧预览认证为当前定义」，合法 CFG 仍可保存但标「未预览」 |
 | T-014 | 诊断排序与去重 | `validate/diagnostic_sorter.gd` | 阻止保存→警告→提示；同严重度按表单顺序与数组下标；末以规则 ID 破同分；**不得按异步返回顺序乱跳** |
@@ -77,7 +77,7 @@ T-000 冻结核心接口  ←── 必须先 PASS，否则四条线不能并行
 |---|---|---|---|---|
 | T-030 | `param_resolver.gd`：登记默认 → 通用覆盖 → 指定卡覆盖，确定性展开 + 路径来源表 | T-002,T-003 | `skill_core/resolve/param_resolver.gd` | 一个逻辑叶字段只有一个最终权威来源；默认值/覆盖来源/最终值三者界面可查；错误可定位回真实输入路径 |
 | T-031 | 锁定字段与覆盖拒绝 | T-030 | 同上 | 作者覆盖 `locked_params` 命中 V-014，定位到 `params.brick_overrides[i].values.<leaf>` |
-| T-032 | 暴露字段登记 `exposed_fields` | T-030 | `skill_core/resolve/exposed_fields.gd` | 六字段 name/permission/min/max/live/inheritable/set_conflict_note；上下限缺失或倒置 → V-048 |
+| T-032 ✅ | 暴露字段登记 `exposed_fields` | T-030 | `skill_core/resolve/exposed_fields.gd` | 六字段 name/permission/min/max/live/inheritable/set_conflict_note；上下限缺失或倒置 → V-048｜**2026-10-18 PASS**：21/21（1121 asserts）；复核方部署 `data/exposed_fields_meta.json`，并去掉一处写死的上下文键 |
 | T-033 | 修饰器引擎三档权限 | T-030,T-032 | `skill_core/modify/modifier_engine.gd` | `mutate_number`/`add_behavior`/`mutate_live_instance` 互不包含；水晶只能 mutate_number（V-041）；live 需物品申请与目标 live 双向许可（V-045） |
 | T-034 | 叠加运算 `stack_rule` | T-033 | 同上 | 固定顺序 set→add→mul→clamp；**每次从基准值重算**，不反向撤销；未登记运算不得以字符串表达式执行 |
 | T-035 | 继承开关与不可改边界 | T-033 | 同上 | 禁止修饰来源链/实例身份/快照/历史结果（V-046）；禁止改 `max_generation`/`max_chain_depth`/`allow_self_chain`（V-047） |
@@ -93,7 +93,7 @@ T-000 冻结核心接口  ←── 必须先 PASS，否则四条线不能并行
 | T-040 | 固定步长时钟 + 暂停/慢动作 + 种子 RNG | T-000 | `runtime/sim_clock.gd` | 暂停不推进 tick；同输入同种子逐次一致；表现 RNG 与逻辑 RNG 分离 |
 | T-041 | 效果体四类载体生命周期 | T-040 | `runtime/effect_body.gd` | spawn/tick/vanish/purge 四类齐全；**purge 静默**（不发 vanish、不派生、不补 hit）（真源 4.9.3） |
 | T-042 | 运动模式 | T-041 | `runtime/motion.gd` | straight/lob/orbit/stationary/wavefront/returning/homing 七种先落；ricochet/expanding/follow 随对应积木后续接 |
-| T-043 | 形状与判定 + `hit_policy` | T-041 | `runtime/shape_hit.gd` | circle/sector/line/rectangle；per_target_limit / rehit_interval_ticks / max_hits 三子字段；候选接触与成立 hit 分别计数 |
+| T-043 ✅ | 形状与判定 + `hit_policy` | T-041 | `runtime/shape_hit.gd` | circle/sector/line/rectangle；per_target_limit / rehit_interval_ticks / max_hits 三子字段；候选接触与成立 hit 分别计数｜**2026-10-18 PASS**：26/26（356 asserts）；复核方部署 `data/shape_hit_meta.json`，几何三约定登记 U-14 |
 | T-044 | 结算份 `parts` | T-043 | `runtime/settle.gd` | 11 种 part_type；**一次 hit 内多份结算不复制命中派生**；全闪避/免疫/无敌份级区别（ED-17-01…04） |
 | T-045 | 派生 hit/vanish + 原因码 + 预算 | T-044 | `runtime/derive.gd` | 只有 `hit`/`vanish` 两事件；原因码 7 种冻结值；`range_end`/`interrupted` 需显式授权（V-034）；代数/因果深度/预算不可被子体重置（V-057/058） |
 | T-046 | 防霰弹与家族登记 | T-045 | 同上 | 同次出手独立根实例抑制；分裂全家族记候选接触，兄弟同 tick 竞争稳定顺序先处理者登记 |

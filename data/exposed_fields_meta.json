@@ -1,0 +1,42 @@
+{
+  "schema_version": "0.1",
+  "_source": "S_docs/collab/assets/schema_v0_1.yaml $defs.exposed_field(389-402)、$defs.permission(47-49) 机械抽取；必填四项来自 Schema required，min/max 必填性来自 V-048 而非改写 Schema",
+  "_extracted_by": "WorkBuddy",
+  "_extracted_on": "2026-10-18",
+  "input_path": "params.exposed_fields",
+  "fields": {
+    "field_path": {"type": "ref"},
+    "permissions": {"type": "permissions", "minItems": 1, "uniqueItems": true},
+    "min": {"type": "number"},
+    "max": {"type": "number"},
+    "live": {"type": "boolean", "default": false},
+    "inheritable": {"type": "boolean", "default": false},
+    "set_conflict_note": {"type": "string"}
+  },
+  "required": ["field_path", "permissions", "live", "inheritable"],
+  "permissions": ["mutate_number", "add_behavior", "mutate_live_instance"],
+  "roles": {
+    "reference": "field_path",
+    "permissions": "permissions",
+    "lower": "min",
+    "upper": "max",
+    "live": "live",
+    "inheritable": "inheritable",
+    "note": "set_conflict_note"
+  },
+  "live_permission": "mutate_live_instance",
+  "rules": {
+    "V-043": {"code": "E-0024", "severity": "block", "scope": "reference"},
+    "V-045": {"code": "E-0025", "severity": "block", "scope": "live"},
+    "V-048": {"code": "E-0026", "severity": "block", "scope": "bounds"},
+    "V-050": {"code": "E-0027", "severity": "warn", "scope": "set"}
+  },
+  "_decisions": {
+    "V-048": "暴露字段未声明上下限或上下限倒置 → 阻止保存；min == max 是合法边界，不得误判为倒置",
+    "V-050": "同字段多个 set 未说明最后挂载者覆盖 → 警告（可保存），但必须进诊断结果，不得静默丢弃",
+    "V-045": "live 权限需「物品申请」与「目标 live 暴露」双向许可，缺任一 → 阻止保存",
+    "14.6": "snapshot 与 live 权限分离：旧实例快照不变，live 不改历史、不增加行为",
+    "V-047": "禁止改 max_generation / max_chain_depth / allow_self_chain —— 本卡只做登记与边界，实际拦截在 T-035",
+    "type_strictness": "字符串数字（\"3\"）算类型错；NaN/Inf 非有限数单独定位到 min / max 槽位；null 与缺省区分"
+  }
+}
