@@ -25,13 +25,17 @@ func test_skill_api_stubs_return_failure_without_throwing() -> void:
 		api.validate({}, SkillApi.STAGE_SAVE),
 		api.resolve({}),
 		api.apply_modifiers(0, []),
-		api.create_sim({}, 0),
-		api.step_sim({}, 1),
 	]
-	assert_eq(results.size(), 12)
+	assert_eq(results.size(), 10)
 	for result in results:
 		assert_false(result.ok)
 		assert_true(result.has("diagnostics"))
+	var invalid_cfg: Dictionary = api.create_sim({}, 0)
+	assert_false(invalid_cfg.ok)
+	assert_true(invalid_cfg.has("diagnostics"))
+	var invalid_sim: Dictionary = api.step_sim({}, 1)
+	assert_false(invalid_sim.ok)
+	assert_true(invalid_sim.has("diagnostics"))
 
 func test_brick_catalog_is_valid_json_with_28_entries() -> void:
 	var file := FileAccess.open("res://data/bricks/brick_catalog.json", FileAccess.READ)
