@@ -14,6 +14,8 @@ const Budget = preload("res://skill_core/runtime/budget.gd")
 const Resolver = preload("res://skill_core/resolve/param_resolver.gd")
 const Codec = preload("res://skill_core/schema/cfg_codec.gd")
 const Schema = preload("res://skill_core/schema/cfg_schema.gd")
+const HostRegistry = preload("res://skill_core/runtime/hosts/host_registry.gd")
+const HostCast = preload("res://skill_core/runtime/hosts/host_cast.gd")
 const CONFIG_PATH: String = "res://data/project_config.json"
 
 # Implementation dispatch, not a skill/brick whitelist. Other motion kernels
@@ -49,6 +51,10 @@ var _notices: Array = []
 var _derive_meta: Dictionary = {}
 var _settle_meta: Dictionary = {}
 var _shape_meta: Dictionary = {}
+var _hosts: RefCounted
+var _host_states: Dictionary = {}
+var _host_requests: Dictionary = {}
+var _host_contexts: Dictionary = {}
 
 
 ## Required options: seed:int, roots:[{template_id, shot_id, instance_id?}],
@@ -116,6 +122,13 @@ func start(cfg: Variant, options: Dictionary) -> Dictionary:
 	_shape_meta = _read_json(Shape.META_PATH)
 	if _derive_meta.is_empty() or _settle_meta.is_empty() or _shape_meta.is_empty():
 		return _failure("metadata", "Missing derivation, shape or settlement metadata")
+	_hosts = HostRegistry.new()
+	_host_states.clear()
+	_host_requests.clear()
+	_host_contexts.clear()
+	var registered: Dictionary = _hosts.register("cast", HostCast.new())
+	if not registered["ok"]:
+		return _failure("hosts.cast", registered["error"])
 	for key in ["handlers", "template_families", "motion_inputs", "derivation_bindings"]:
 		var value: Variant = options.get(key, null)
 		if key == "motion_inputs" and value == null:
@@ -148,10 +161,41 @@ func start(cfg: Variant, options: Dictionary) -> Dictionary:
 			return _failure("params.templates[%d].template_id" % index, "Missing or duplicate template identity")
 		if not _families.get(id, null) is String or _families[id].is_empty():
 			return _failure("template_families." + id, "Explicit resolved family identity required")
-		# No guessed cast scheduling, attached anchors, summons or pulse adapters.
+		# Only registered hosts may schedule roots; unused templates are preflighted.
 		for section in ["cast", "timing", "attached", "summon", "emission"]:
 			if template.has(section) and not template[section].is_empty():
-				return _failure("params.templates[%d].%s" % [index, section], "Host adapter not implemented in T-050")
+				var host_path: String = "params.templates[%d].%s" % [index, section]
+				if not _hosts.has_adapter(section):
+					return _failure(host_path, "Host adapter not implemented: " + section)
+				var request: Dictionary = template[section].duplicate(true)
+				var ctx: Dictionary = {"template_id": id, "tick": 0, "tick_rate": _tick_rate}
+				var validated: Dictionary = _hosts.validate(section, request, ctx)
+				if not validated["ok"]:
+					stop()
+					last_error = validated["error"]
+					validated["path"] = host_path + "." + validated["path"]
+					return validated
+				var launches: Variant = options.get("roots", null)
+				if not launches is Array or launches.is_empty():
+					return _failure("roots", "Explicit nonempty root launch list required")
+				for launch_index in range(launches.size()):
+					var host_launch: Variant = launches[launch_index]
+					if not host_launch is Dictionary:
+						return _failure("roots", "Each launch needs a registered template_id and actual shot_id")
+					var launch_template: Variant = host_launch.get("template_id", null)
+					if launch_template is String and launch_template == id:
+						var host_key: String = "%s:%d" % [id, launch_index]
+						var launch_ctx: Dictionary = ctx.duplicate(true)
+						launch_ctx["shot_id"] = host_launch.get("shot_id", null)
+						var begun: Dictionary = _hosts.begin(section, request, launch_ctx)
+						if not begun["ok"]:
+							stop()
+							last_error = begun["error"]
+							begun["path"] = host_path + "." + begun["path"]
+							return begun
+						_host_states[host_key] = begun["state"]
+						_host_requests[host_key] = request.duplicate(true)
+						_host_contexts[host_key] = launch_ctx
 		if template["carrier"] != Body.CARRIER_INDEPENDENT or not template.get("motion", null) is Dictionary:
 			return _failure("params.templates[%d].motion" % index, "This sandbox requires independent motion")
 		if not FINISH_REASONS.has(template["motion"].get("mode", null)):
@@ -187,35 +231,55 @@ func start(cfg: Variant, options: Dictionary) -> Dictionary:
 	_cast_id = "preview:%d" % _run_seq
 	_run_seq += 1
 	for launch in roots:
-		var id: String = "%s:root:%d" % [_cast_id, _root_seq]
-		_root_seq += 1
-		if launch.has("instance_id"):
-			_notices.append({"path": "roots.instance_id", "suggested": launch["instance_id"], "assigned": id,
-				"valid_suggestion": launch["instance_id"] is String and not launch["instance_id"].is_empty()})
-		var admission: Dictionary = _budget.admit_root(id, [])
-		if not admission["ok"]:
-			return _failure("budget", admission["error"])
-		if not admission["admitted"]:
+		var template: Dictionary = _templates[launch["template_id"]]
+		if template.has("cast") and not template["cast"].is_empty():
 			continue
-		var template_id: String = launch["template_id"]
-		var body_cfg: Dictionary = _templates[template_id].duplicate(true)
-		body_cfg["body_id"] = id
-		var body: RefCounted = Body.create(body_cfg["carrier"], body_cfg, 0)
-		if not _derive.register_root(body, template_id, {"origin_skill": _cfg["skill_id"], "origin_cast_id": _cast_id}):
-			return _failure("roots", _derive.last_error)
-		var entity: Dictionary = _build_entity(body, template_id, null)
-		if entity.is_empty():
-			_derive.purge(id)
-			return _failure("roots", "Runtime adapter initialization failed: " + last_error)
-		_entities[id] = entity
-		_facts[id] = {"family_id": id + ":" + _families[template_id], "shot_id": launch["shot_id"], "independent": true}
-	if _entities.is_empty() or not _family.sync_instances(_derive.snapshot_state(), _facts):
+		var launched: Dictionary = _launch_root(launch)
+		if not launched["ok"]:
+			return _failure(launched["path"], launched["error"])
+		if not launched["admitted"]:
+			continue
+	var family_synced: bool = _family.sync_instances(_derive.snapshot_state(), _facts)
+	if _entities.is_empty() and _host_states.is_empty():
+		return _failure("family", _family.last_error)
+	# The ledger rejects an empty source; pending hosts have no members yet.
+	if not family_synced and not _entities.is_empty():
 		return _failure("family", _family.last_error)
 	_running = true
 	if not _process_tick(false):
 		return _failure("runtime", last_error)
+	var advanced_hosts: Dictionary = _advance_hosts(0)
+	if not advanced_hosts["ok"]:
+		return advanced_hosts
 	last_error = ""
 	return {"ok": true, "fingerprint": _fingerprint, "tick_rate": _tick_rate, "diagnostics": [], "error": ""}
+
+
+func _launch_root(launch: Dictionary) -> Dictionary:
+	var id: String = "%s:root:%d" % [_cast_id, _root_seq]
+	_root_seq += 1
+	if launch.has("instance_id"):
+		_notices.append({"path": "roots.instance_id", "suggested": launch["instance_id"], "assigned": id,
+			"valid_suggestion": launch["instance_id"] is String and not launch["instance_id"].is_empty()})
+	var admission: Dictionary = _budget.admit_root(id, [])
+	if not admission["ok"]:
+		return {"ok": false, "admitted": false, "id": id, "error": admission["error"], "path": "budget"}
+	if not admission["admitted"]:
+		return {"ok": true, "admitted": false, "id": id, "error": "", "path": ""}
+	var template_id: String = launch["template_id"]
+	var body_cfg: Dictionary = _templates[template_id].duplicate(true)
+	body_cfg["body_id"] = id
+	var body: RefCounted = Body.create(body_cfg["carrier"], body_cfg, 0)
+	if not _derive.register_root(body, template_id, {"origin_skill": _cfg["skill_id"], "origin_cast_id": _cast_id}):
+		return {"ok": false, "admitted": false, "id": id, "error": _derive.last_error, "path": "roots"}
+	var entity: Dictionary = _build_entity(body, template_id, null)
+	if entity.is_empty():
+		_derive.purge(id)
+		return {"ok": false, "admitted": false, "id": id,
+			"error": "Runtime adapter initialization failed: " + last_error, "path": "roots"}
+	_entities[id] = entity
+	_facts[id] = {"family_id": id + ":" + _families[template_id], "shot_id": launch["shot_id"], "independent": true}
+	return {"ok": true, "admitted": true, "id": id, "error": "", "path": ""}
 
 
 func _build_entity(body: RefCounted, template_id: String, parent: Variant) -> Dictionary:
@@ -275,6 +339,47 @@ func _budget_policy(capacity: int) -> Dictionary:
 			"occupied": "occupied", "capacity": "capacity"}}
 
 
+func _consume_emissions(emissions: Dictionary) -> Dictionary:
+	for key in emissions:
+		if not ["spawn", "attach", "events", "records"].has(key):
+			return _failure("emissions." + str(key), "Unknown host emissions key: " + str(key))
+	for key in ["spawn", "attach", "events", "records"]:
+		if not emissions.get(key, null) is Array:
+			return _failure("emissions." + key, "Expected host emissions array: " + key)
+	if not emissions["attach"].is_empty():
+		return _failure("emissions.attach", "Host adapter not implemented: attach")
+	for launch in emissions["spawn"]:
+		if not launch is Dictionary or not _templates.has(launch.get("template_id", null)) or not launch.get("shot_id", null) is String or launch["shot_id"].is_empty():
+			return _failure("emissions.spawn", "Each launch needs a registered template_id and actual shot_id")
+	for launch in emissions["spawn"]:
+		var launched: Dictionary = _launch_root(launch)
+		if not launched["ok"]:
+			return _failure(launched["path"], launched["error"])
+		if not launched["admitted"]:
+			continue
+	if not _entities.is_empty() and not _family.sync_instances(_derive.snapshot_state(), _facts):
+		return _failure("family", _family.last_error)
+	_events.append_array(emissions["events"].duplicate(true))
+	_records.append_array(emissions["records"].duplicate(true))
+	return {"ok": true, "error": ""}
+
+
+func _advance_hosts(tick: int) -> Dictionary:
+	for host_key in _host_states:
+		var state: Dictionary = _host_states[host_key]
+		var ctx: Dictionary = _host_contexts[host_key]
+		var advanced: Dictionary = _hosts.advance("cast", state, tick, ctx)
+		if not advanced["ok"]:
+			stop()
+			last_error = advanced["error"]
+			return advanced
+		_host_states[host_key] = advanced["state"]
+		var consumed: Dictionary = _consume_emissions(advanced["emissions"])
+		if not consumed["ok"]:
+			return consumed
+	return {"ok": true, "error": ""}
+
+
 func advance_ticks(count: int = 1) -> Dictionary:
 	if not _running or count < 0:
 		return _failure("advance_ticks", "Requires running preview and nonnegative tick count")
@@ -282,6 +387,9 @@ func advance_ticks(count: int = 1) -> Dictionary:
 		_clock.tick()
 		if not _process_tick(true):
 			return _failure("runtime", last_error)
+		var advanced_hosts: Dictionary = _advance_hosts(_clock.snapshot_state()["tick"])
+		if not advanced_hosts["ok"]:
+			return advanced_hosts
 	return {"ok": true, "tick": _clock.snapshot_state()["tick"], "error": ""}
 
 
