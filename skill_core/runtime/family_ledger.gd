@@ -1,8 +1,9 @@
 class_name RuntimeFamilyLedger extends RefCounted
 
 ## A runtime admission ledger. The host calls admit before spending ShapeHit's
-## candidate quota, then may_hit before committing a successful settlement and
-## record_hit after that commit. Neither contact nor part records are events.
+## candidate quota, then may_hit before attempting settlement, record_hit after a
+## successful hit, and record_judgment after every part has settled (even evaded_all).
+## Neither contact nor part records are events.
 const PARAMS_PATH: String = "res://data/params_meta.json"
 
 static var _cache: Dictionary = {}
@@ -15,6 +16,7 @@ var _permission_default: bool = false
 var _members: Dictionary = {}
 var _families: Dictionary = {}
 var _shot_hits: Dictionary = {}
+var _shot_judgments: Dictionary = {}
 var _last_tick: int = -1
 
 
@@ -221,29 +223,49 @@ func admit(candidate: Dictionary) -> Dictionary:
 	return result
 
 
-## Call only for a contact already admitted by this ledger whose settlement
-## would succeed. The shotgun gate checks *successful hits*, not contacts.
+## Read-only preflight for an admitted contact. Only record_hit and
+## record_judgment commit the separate successful-hit and all-parts ledgers.
 ## The host must not commit damage/parts or consume max_hits after a denial.
 func may_hit(candidate: Dictionary) -> Dictionary:
 	var result: Dictionary = {"ok": false, "allowed": false, "reason": "", "error": ""}
 	var error: String = _candidate_error(candidate)
 	if not error.is_empty():
-		return _error(result, error)
+		result["error"] = error
+		return result
 	var id: String = candidate["body_id"]
 	var member: Dictionary = _members[id]
 	var family: String = JSON.stringify([member["origin"]["origin_cast_id"], member["family"]])
 	var targets: Variant = _families.get(family, null)
 	if not candidate["alive"] or not targets is Dictionary or not targets.has(candidate["target_id"]) or targets[candidate["target_id"]] != id:
-		return _error(result, "Hit requires a live, admitted candidate")
+		result["error"] = "Hit requires a live, admitted candidate"
+		return result
 	result["ok"] = true
 	if member["independent"] and not member["allowed"]:
-		var key: String = _shot_key(member, candidate["target_id"])
-		if _shot_hits.has(key) and _shot_hits[key] != id:
+		var hit_key: String = _shot_key(member, candidate["target_id"])
+		var judgment_key: String = _shot_judgment_key(member, candidate["target_id"])
+		var hit_blocked: bool = _shot_hits.has(hit_key) and _shot_hits[hit_key] != id
+		var judgment_blocked: bool = _shot_judgments.has(judgment_key) and _shot_judgments[judgment_key] != id
+		if hit_blocked or judgment_blocked:
 			result["reason"] = "shotgun"
 			return result
 	result["allowed"] = true
-	last_error = ""
 	return result
+
+
+## The host calls this only after every part of this target contact has settled,
+## including all-evaded contacts. Registration is idempotent for the same body;
+## another body cannot replace the owner of the exact cast/family/shot/target key.
+func record_judgment(candidate: Dictionary) -> bool:
+	var error: String = _candidate_error(candidate)
+	if not error.is_empty():
+		return _fail(error)
+	var id: String = candidate["body_id"]
+	var key: String = _shot_judgment_key(_members[id], candidate["target_id"])
+	if _shot_judgments.has(key) and _shot_judgments[key] != id:
+		return _fail("Shotgun judgment already recorded by another body")
+	_shot_judgments[key] = id
+	last_error = ""
+	return true
 
 
 func record_hit(candidate: Dictionary) -> bool:
@@ -255,6 +277,10 @@ func record_hit(candidate: Dictionary) -> bool:
 		_shot_hits[_shot_key(member, candidate["target_id"])] = candidate["body_id"]
 	last_error = ""
 	return true
+
+
+func _shot_judgment_key(member: Dictionary, target: String) -> String:
+	return JSON.stringify([member["origin"]["origin_cast_id"], member["family"], member["shot"], target])
 
 
 func _shot_key(member: Dictionary, target: String) -> String:
@@ -319,6 +345,7 @@ func purge(body_id: Variant) -> bool:
 			break
 	if not any_alive:
 		_shot_hits.clear()
+		_shot_judgments.clear()
 		_members.clear()
 	last_error = ""
 	return true
@@ -326,7 +353,8 @@ func purge(body_id: Variant) -> bool:
 
 func snapshot_state() -> Dictionary:
 	return {"members": _members.duplicate(true), "families": _families.duplicate(true),
-		"shot_hits": _shot_hits.duplicate(true), "last_tick": _last_tick}
+		"shot_hits": _shot_hits.duplicate(true), "shot_judgments": _shot_judgments.duplicate(true),
+		"last_tick": _last_tick}
 
 
 func _error(result: Dictionary, message: String) -> Dictionary:
