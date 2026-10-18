@@ -1,16 +1,16 @@
 # 开发进度看板（WorkBuddy 维护，每次汇报刷新）
 
 > 引擎：Godot **4.7.1**（`Ryko.GodotHub/godot-versions/4.7.1-stable`）｜门禁归 WorkBuddy 独占，Claude CLI 只写代码
-> 更新：2026-10-19 00:05
+> 更新：2026-10-19 00:30（自动化会话：T-027/051/052/053/061 五卡门禁复核 + 合入主干）
 
 ## 一、总览
 
 | 项 | 数 |
 |---|---|
-| 已 PASS 并合入主干的任务卡 | **39 / 47**（基线 8 + T-040…048 十张 + T-010…016 七张 + 解析 T-030/031/032/035 + **T-004 + T-023 + T-024**） |
-| 在跑（CLI 后台） | **6 条泳道并行**（T-050 预览入口、T-027 试放入口、T-051 预览三栏、T-052 ED-17×24、T-053 差分重跑、T-061 表现只读消费） |
-| 待派 | 2 张（T-063 验收清单、T-064 证据打包；T-053 已派出） |
-| 全量测试 | 上一波 413/413 绿；本轮已单独门禁通过：T-004 92 / T-023 84 / T-024 99 / T-025 37 / T-060 239 / T-U22 212 / T-054 36 / T-062 32 asserts |
+| 已 PASS 并合入主干的任务卡 | **45 / 50**（本轮新增 PASS：T-027 试放入口、T-051 预览三栏、T-052 ED-17×24、T-053 差分重跑、T-061 表现只读） |
+| 在跑（CLI 后台） | **4 条泳道并行**（T-070 宿主接线、T-071 适配器注册表+cast、T-072 霰弹去重修复、T-063 验收清单） |
+| 待派 | 1 张（T-064 证据打包，依赖 T-070 落地） |
+| 全量测试 | **本轮权威基线：44 文件 / 574 用例 / 11699 断言，0 红**（00:2x 自动化会话串行复跑，逐文件 `Tests/Passing/Asserts/Failing` 全量核对，无 `SCRIPT ERROR`/`Parse Error`/`Nothing was run`）。上一波 567/11659 的 2 条红为并行写盘假红灯，本轮未复现 |
 | 里程碑 | **M0 地基清零**（T-004 收口）、**M1 校验清零**、**M4 沙盒收口**；**M5/M6 已解锁**（U-16/U-19 定稿） |
 | ✅ 模型 | 用户 23:32 更新本地 CLI 模型配置：`ANTHROPIC_MODEL=gpt-6.1-sol`（已实测连通，额度不再打满）。**后续派单一律不带 `--model`**，用 CLI 默认模型；在跑的 T-004/T-024 仍用旧的 `gpt-6-sol`，保持不变 |
 
@@ -48,8 +48,17 @@
 
 | 卡 | 线 | 产出 | 状态 |
 |---|---|---|---|
-| **T-004** | M0 地基 | `skill_core/schema/cfg_schema.gd` + `tests/test_schema_structure.gd` | 23:3x 派发；七键/十二字段/七表现段正反例、附加键、类型枚举必填，复用 `cfg_codec.gd` 冻结常数 |
-| **T-024** | D 编辑器 UI | `ui/diagnostic_panel.gd` + `tests/test_ui_diagnostic_panel.gd` | 23:3x 派发；策划/程序双视图同源、点击定位、**「错误来自默认卡」只提示不复制到覆盖区**、不自己重排诊断 |
+| **T-004** | M0 地基 | `skill_core/schema/cfg_schema.gd` + `tests/test_schema_structure.gd` | 10/10，92 asserts ✅ |
+| **T-024** | D 编辑器 UI | `ui/diagnostic_panel.gd` + `tests/test_ui_diagnostic_panel.gd` | 8/8，99 asserts；策划/程序双视图同源、点击定位、「错误来自默认卡」只提示不复制到覆盖区 ✅ |
+| **T-027** | D 编辑器 UI | `ui/preview_launcher.gd` + `tests/test_ui_preview_launcher.gd` | **7/7，39 asserts**（首跑被 00:01 写盘假红灯，重验绿）✅ |
+| **T-051** | D 编辑器 UI | `ui/preview_panel.gd` + `tests/test_ui_preview_panel.gd` | **9/9，268 asserts**（审核方修**坑 17 复现**：`const Panel` 遮蔽原生类 → 改名 `PreviewPanel`）✅ |
+| **T-052** | C 线 | `tests/test_ed17_repro.gd`（ED-17×24 夹具） | **24/24，947 asserts**；结论：7 条可跑 / **17 条 blocked（缺 runner 宿主适配器）**，直接催生 T-071/072 ✅ |
+| **T-053** | C 线 | `runtime/run_diff.gd` + `tests/test_determinism.gd` | **13/13，342 asserts** ✅ |
+| **T-061** | D+C | `runtime/presentation_bind.gd` + `tests/test_presentation_bind.gd` | **12/12，242 asserts** ✅ |
+| **T-070** | 集成 | `plugin.gd` + `ui/editor_panel.gd/.tscn` + `tests/test_plugin_wiring.gd` | 在跑｜**修复「10 个 UI 模块全是孤儿脚本」** |
+| **T-071** | C 线 | `runtime/hosts/host_registry.gd` + `hosts/host_cast.gd` + runner 三处改动 | 在跑｜解锁 ED-17-09/10/12/19 |
+| **T-072** | C 线 | `runtime/family_ledger.gd`（改） + `tests/test_family_evade_dedup.gd` | 在跑｜修 ED-17-13：同 shot 全闪避应只 1 条 `evaded_all` |
+| **T-063** | M6 | `reports/acceptance_m6.md` | 在跑｜第 20 章逐条勾选，✅ 必须能展开到 `文件::函数名` |
 
 （T-015/016 已判 PASS；**T-023 二轮 23:30 判 PASS**，见第二节）
 
@@ -78,13 +87,18 @@ T-031 会话报告：`param_resolver.gd` 出现 T-030 的未提交实现、随�
 | M1 校验（线 A） | —— 0（**线 A 收口**：T-010…T-016 全绿） |
 | M3 解析（线 B） | —— 0（**线 B 收口**） |
 | M4 运行时（线 C） | —— 0（**线 C 收口**：T-048 已 PASS，沙盒成型） |
-| M2 编辑器 UI（线 D） | **T-024（在跑）**、T-025、T-026、T-027 —— 4（**T-023 已 PASS**） |
-| M5 预览复现（线 C） | T-050…T-054 —— 5 |
-| M6 表现与验收（D+C） | T-060、T-061、T-062、T-063、T-064 —— 5 |
+| M2 编辑器 UI（线 D） | —— 0（T-023…T-027 全绿） |
+| M5 预览复现（线 C） | —— 0（T-050…T-054 全绿） |
+| M6 表现与验收（D+C） | **T-063（在跑）**、T-064（待派，依赖 T-070） —— 2 |
+| M7 沙盒能力扩展（新增） | **T-071 / T-072（在跑）** —— 2 |
 
-**下一批可派**（依赖已满足，维持**最多两条并行**，等本轮两张收口后派）：
-线 D **T-025**（保存/加载/版本，依赖 T-002/T-015/T-020 已 PASS）+ **T-026**（修饰器与暴露字段面板，依赖 T-032/T-033 已 PASS）。
-再往后 M5（T-050…054 预览复现）与 M6（T-060…064）需要 **U-16/U-19** 先定稿（见第六节）。
+**当前批次（4 条并行，00:12 派出）**：T-070 宿主接线 · T-071 适配器注册表+cast · T-072 霰弹去重 · T-063 验收清单。
+文件所有权互斥：`plugin.gd`+`editor_panel.*` / `preview_runner.gd`+`hosts/*` / `family_ledger.gd` / 纯文档，零重叠。
+
+**T-052 揭示的真实边界（决定后续排期）**：ED-17 的 24 条里 **17 条 blocked**，全部因为 runner 不接受
+`cast / timing / attached / summon / emission` 五个 section，且 `carrier` 只允许 `independent`。
+这不是 bug 而是**沙盒能力边界**。T-071 打开注册表通路并实现 cast；后续按「解锁条数 / 成本」排序为：
+carrier 载体（self/attached，3 条）→ live 修饰与被动订阅（3 条）→ 余额度/暂停/碰撞优先级（3 条）。
 
 ## 五、素材（`res://data/`，D-22：运行期只从这里读）
 
@@ -144,3 +158,36 @@ U-09 YamlLite chomping（`>-` `|-`）· U-11 V-018 动词词表 · U-12 切句�
   它不中断脚本但让函数返回空值，下游 `result.ok` 再报一条误导性错误。**容器取值一律先声明 `Variant` 再 `is` 判定**
 - **D-29**（本轮）V-073 两段式：类型/范围走 Schema（minimum 0），「启用时正整数」走启用态（`enabled_minimum_overrides`）
 - **D-30**（本轮）V-084 入口区分：certify 指纹不同 → 阻止保存；save 指纹不同 → 可保存 + 「未预览」notice（真源 133，不动 CSV 严重度）
+- **D-33**（本轮，T-051）**UI 三栏事件栏/结算栏分界**：事件栏只收 `enums.event`（hit/vanish），结算栏只收 `enums.record`（四值），**hit 任何情况下不得落结算栏**。派单 T-051 验收②原文作废
+- **坑 18**（本轮，T-053 偏离裁决）**CLI 侧禁止使用会写 git 元数据的隔离型工具**：`isolation: "worktree"` 一类会自建 worktree/分支的参数，与 `git add/commit/checkout/stash/clean` 同列禁令。需隔离复核时改用只读检索或 `_diag_*.gd` 临时断面
+
+---
+
+## 八、本轮自动化验收明细（2026-10-19 00:0x，引擎执行权归本会话）
+
+### 门禁结果（Godot 4.7.1，逐文件串行，禁 `-gdir`）
+
+| 卡 | 编译 `--check-only` | 单文件 GUT | 判定 |
+|---|---|---|---|
+| T-027 试放入口 | 通过 | **7/7，39 asserts** | PASS |
+| T-051 预览三栏 | 通过 | **9/9，268 asserts** | PASS |
+| T-052 ED-17×24 夹具 | 通过 | **24/24，947 asserts** | PASS（夹具交付） |
+| T-053 差分重跑 | 通过 | **13/13，342 asserts** | PASS |
+| T-061 表现只读消费 | 通过 | **12/12，242 asserts** | PASS |
+
+合计 **65 用例 / 1838 断言，0 红**；全量回归 **44 文件 / 574 用例 / 11699 断言，0 红**。
+
+### 已合入（`git log`，一卡一 commit）
+
+`9cbeaae` T-027 · `01c3b20` T-051 · `c89f676` T-052 · `0d034cc` T-053 · `7172b19` T-061
+
+### 三项裁定要点
+
+1. **T-051 的 U-T051-hit** → 采纳执笔方从严分离，派单原文有误，登记 **D-33**。
+2. **T-052 的 `status` 口径冲突** → 收口：7 条 `ok` 由实测正式认证；**17 条 `blocked` 实测通过只证明缺口探针如实编码了当前行为，不认证对应 ED 验收通过**。ED-17-13 探针在能力补齐后**应当变红**，届时改正向验收，**不得反向改 core 恢复旧行为**。
+3. **T-053 的 worktree 偏离** → `git worktree list` 仅主树、无残留，不判红，登记 **坑 18** 并固化进派单硬条款。
+
+### 新增未决
+
+- **U-23**（T-061）V-074 对齐落点冲突：`presentation_meta.json` 是标量别名，真源要求数组条目。**接线 T-060 表现面板前必须先清**，否则非空 anim 会被误判为数据错误。
+- **U-24**（T-052）ED-17 复现缺口 17 条 → 已派生 T-071（宿主适配器注册表 + cast）、T-072（ED-17-13 霰弹去重）在跑。
