@@ -1,16 +1,70 @@
-[gd_scene load_steps=3 format=3]
+[gd_scene load_steps=13 format=3]
 
-[ext_resource type="PackedScene" path="res://addons/skill_editor/ui/skill_list_panel.tscn" id="1"]
-[ext_resource type="PackedScene" path="res://addons/skill_editor/ui/brick_picker.tscn" id="2"]
+[ext_resource type="Script" path="res://addons/skill_editor/ui/editor_panel.gd" id="1_root"]
+[ext_resource type="PackedScene" path="res://addons/skill_editor/ui/skill_list_panel.tscn" id="2_skill"]
+[ext_resource type="PackedScene" path="res://addons/skill_editor/ui/brick_picker.tscn" id="3_brick"]
+[ext_resource type="PackedScene" path="res://addons/skill_editor/ui/param_form.tscn" id="4_param"]
+[ext_resource type="PackedScene" path="res://addons/skill_editor/ui/diagnostic_panel.tscn" id="5_diag"]
+[ext_resource type="Script" path="res://addons/skill_editor/ui/modifier_panel.gd" id="6_modifier"]
+[ext_resource type="Script" path="res://addons/skill_editor/ui/presentation_panel.gd" id="7_presentation"]
+[ext_resource type="Script" path="res://addons/skill_editor/ui/preview_viewport.gd" id="8_viewport"]
+[ext_resource type="Script" path="res://addons/skill_editor/ui/preview_panel.gd" id="9_preview"]
 
-[node name="SkillEditor" type="HBoxContainer"]
-custom_minimum_size = Vector2(860, 280)
+[node name="SkillEditor" type="VBoxContainer"]
+custom_minimum_size = Vector2(1280, 720)
 size_flags_horizontal = 3
+size_flags_vertical = 3
+script = ExtResource("1_root")
 
-[node name="SkillListPanel" parent="." instance=ExtResource("1")]
+[node name="Status" type="Label" parent="."]
+layout_mode = 2
+text = "正在初始化技能编辑器…"
+autowrap_mode = 2
+
+[node name="Body" type="HBoxContainer" parent="."]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="SkillListPanel" parent="Body" instance=ExtResource("2_skill")]
+layout_mode = 2
+size_flags_horizontal = 1
+size_flags_vertical = 3
+
+[node name="BrickPicker" parent="Body" instance=ExtResource("3_brick")]
+layout_mode = 2
+size_flags_horizontal = 1
+size_flags_vertical = 3
+
+[node name="Workspace" type="VBoxContainer" parent="Body"]
 layout_mode = 2
 size_flags_horizontal = 3
+size_flags_vertical = 3
 
-[node name="BrickPicker" parent="." instance=ExtResource("2")]
+[node name="ParamForm" parent="Body/Workspace" instance=ExtResource("4_param")]
 layout_mode = 2
-size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="ModifierPanel" type="VBoxContainer" parent="Body/Workspace"]
+layout_mode = 2
+size_flags_vertical = 3
+script = ExtResource("6_modifier")
+
+[node name="PresentationPanel" type="VBoxContainer" parent="Body/Workspace"]
+layout_mode = 2
+size_flags_vertical = 3
+script = ExtResource("7_presentation")
+
+[node name="DiagnosticPanel" parent="Body/Workspace" instance=ExtResource("5_diag")]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="PreviewPanel" type="VBoxContainer" parent="Body/Workspace"]
+layout_mode = 2
+size_flags_vertical = 3
+script = ExtResource("9_preview")
+
+[node name="PreviewViewport" type="Control" parent="Body/Workspace"]
+custom_minimum_size = Vector2(0, 160)
+layout_mode = 2
+size_flags_vertical = 3
+script = ExtResource("8_viewport")

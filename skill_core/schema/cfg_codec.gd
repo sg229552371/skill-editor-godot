@@ -9,6 +9,36 @@ const PRESENTATION_KEYS: Array[String] = ["fx", "sfx", "anim", "trail", "camera"
 const CARRIERS: Array[String] = ["none", "self", "independent", "attached"]
 const STATUSES: Array[String] = ["已登记", "候选", "预留"]
 
+## 实例文本编解码层（供 UI 层 save_flow 等消费；不含文件 I/O）。
+## U-25：save_flow.configure() 只认文本编解码方法名，而本类此前只有文件入口
+## load_cfg/save_cfg，导致任何接线都无法通过其探测。这里补上纯文本路径。
+var last_error: String = ""
+
+func parse_text(text: String) -> Dictionary:
+	last_error = ""
+	var parsed: Dictionary = YamlLiteParser.parse(text)
+	if not bool(parsed.get("ok", false)):
+		var parse_error: String = String(parsed.get("error", "YAML 解析失败"))
+		last_error = parse_error
+		return {"ok": false, "cfg": null, "error": parse_error, "reason": parse_error, "diagnostics": []}
+	var cfg: Variant = parsed.get("data")
+	if not (cfg is Dictionary):
+		var shape_error: String = "顶层路径必须是 map"
+		last_error = shape_error
+		return {"ok": false, "cfg": null, "error": shape_error, "reason": shape_error,
+			"diagnostics": _diagnostics_for("", cfg, "map")}
+	var diagnostics: Array = validate_structure(cfg)
+	var first: String = _first_error(diagnostics)
+	return {"ok": true, "cfg": cfg, "error": first, "reason": "", "diagnostics": diagnostics}
+
+func encode(cfg: Dictionary) -> String:
+	last_error = ""
+	var diagnostics: Array = validate_structure(cfg)
+	if not diagnostics.is_empty():
+		last_error = _first_error(diagnostics)
+		return ""
+	return YamlLiteParser.dump(cfg)
+
 static func load_cfg(path: String) -> Dictionary:
 	var file := FileAccess.open(path, FileAccess.READ)
 	if file == null:
