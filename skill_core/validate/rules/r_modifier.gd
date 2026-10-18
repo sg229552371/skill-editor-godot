@@ -567,10 +567,19 @@ func _limit(context: Dictionary, section: String, field: String, rule: Dictionar
 	elif source.get("_provisional", false) == true:
 		_context_error(issues, rule, path, "project_limits." + section + "." + field, "未填写", "临时示例值必须由项目注入")
 		return null
-	if not value is int or value < 0 or (field == "cast_budget" and value == 0):
+	# 坑 9：素材 JSON 解析出来的数字一律是 float，`value is int` 恒为 false。
+	# 限值只要求是「整数值的有限数字」，不要对素材/注入侧做严格 is int 判定。
+	if not (value is int or value is float):
 		_context_error(issues, rule, path, "project_limits." + section + "." + field, value, "合法整数限值，预算必须为正")
 		return null
-	return value
+	var number: float = float(value)
+	if not is_finite(number) or floor(number) != number:
+		_context_error(issues, rule, path, "project_limits." + section + "." + field, value, "合法整数限值，预算必须为正")
+		return null
+	if number < 0.0 or (field == "cast_budget" and number == 0.0):
+		_context_error(issues, rule, path, "project_limits." + section + "." + field, value, "合法整数限值，预算必须为正")
+		return null
+	return int(number)
 
 func _generation_limit(cfg: Dictionary, context: Dictionary, rule: Dictionary) -> Array:
 	var issues: Array = []

@@ -90,7 +90,7 @@ GODOT_DISABLE_LEAK_CHECKS=1 "$GODOT" --headless --display-driver headless \
   -s res://addons/gut/gut_cmdln.gd -gtest=res://tests/<文件名>.gd -gexit
 ```
 
-**十三个坑（已踩过，别再踩）**：
+**十四个坑（已踩过，别再踩）**：
 1. `godot` **不在 PATH**（portable 版），必须用上面的绝对路径。写 `godot` 会 command not found。
 2. **版本必须锁 4.7.1**。用 4.7.2 跑过一次 import，把 `.godot/` 缓存写成 4.7.2 格式，与用户开着的 4.7.1 编辑器抢同一份缓存，**直接把编辑器搞崩过**。`Downloads/Godot_v4.7.2-.../` 那个**禁用**。
 3. **禁止 `-gdir=res://tests -ginclude_subdirs`**。实测该模式会挂起 5 分钟无输出直到超时。必须用 `-gtest=` 单文件模式，每个文件 0.4 秒。全量门禁 = 对每个 `res://tests/test_*.gd` 串行循环。
@@ -147,6 +147,15 @@ GODOT_DISABLE_LEAK_CHECKS=1 "$GODOT" --headless --display-driver headless \
     （`_new_in_range(baseline, result, first, last).size() > 0`）。
     凡是「断言某个集合非空 / 某类东西存在」的用例，写之前先问一句：
     **它在什么情况下会恒真？基线状态是不是就已经满足了？**
+14. **坑 9 的隐藏变体：严格 `is int` 会把「素材默认值」判成非法**（T-016 真踩过，审核方在 core 里修的）：
+    `r_modifier.gd` 的 `_limit()` 读 `res://data/project_limits.json` 的 `defaults.max_generation`，
+    素材 JSON 解析出来是 **float 1.0**，`not value is int` 恒成立 → 报「项目限值不可用」→
+    **每个积木 2 条 V-053**，基线永远不干净，连累 T-016 全部 84 条边界断言红掉。
+    它自己 T-012 的 41/41 全绿，是因为测试用**注入整数**，绕开了真实素材（与坑 11 完全同家族：
+    **已 PASS 的模块一旦改用 `res://data/*.json` 原文件配置就可能炸**）。
+    修法：**凡是从素材/注入上下文取到的数值**，一律 `value is int or value is float` → `float()` →
+    校验「有限且 `floor(n)==n`」→ `int(n)`；**只有作者手填进 CFG 的值**才用严格 `is int`。
+    写新卡时凡涉及 `project_limits` / `hard_caps` / 素材默认值，先按这条写。
 
 ### ✅ 唯一例外：你被允许跑 `--check-only` 语法检查
 
