@@ -134,6 +134,12 @@ GODOT_DISABLE_LEAK_CHECKS=1 "$GODOT" --headless --display-driver headless \
     `Missing project hard cap: 硬上限名 → project_limits.hard_caps 的键` 这种完全看不懂的错。
     已 PASS 的模块没暴露是因为它们用注入覆盖（override 里没有 `_note`）——
     **一旦改用 `res://data/*.json` 原文件配置就会炸**，所以这条对每张新卡都成立。
+12. **测试脚本里不要调 GUT 不存在的方法**（T-006 真踩过）：`fail("...")` **不是** `GutTest` 的 API。
+    后果比红灯更危险：它在**解析期**就抛 `Function "fail()" not found in base self` → 整个测试脚本
+    **加载不了** → GUT 输出 `Nothing was run`、**0 条用例执行**，看板上会被误读成「通过」（假绿）。
+    要制造「必然失败」用 `assert_true(false, "...")` 或 `assert_false(true, "...")`。
+    同理：写完测试后若 GUT 报 `Ignoring script ... because it does not extend GutTest` 或
+    `Nothing was run`，**先查是不是脚本根本没解析过**，不要当成环境问题。
 
 ### ✅ 唯一例外：你被允许跑 `--check-only` 语法检查
 
