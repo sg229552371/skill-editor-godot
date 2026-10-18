@@ -90,11 +90,16 @@ GODOT_DISABLE_LEAK_CHECKS=1 "$GODOT" --headless --display-driver headless \
   -s res://addons/gut/gut_cmdln.gd -gtest=res://tests/<文件名>.gd -gexit
 ```
 
-**四个坑（已踩过，别再踩）**：
+**五个坑（已踩过，别再踩）**：
 1. `godot` **不在 PATH**（portable 版），必须用上面的绝对路径。写 `godot` 会 command not found。
 2. **版本必须锁 4.7.1**。用 4.7.2 跑过一次 import，把 `.godot/` 缓存写成 4.7.2 格式，与用户开着的 4.7.1 编辑器抢同一份缓存，**直接把编辑器搞崩过**。`Downloads/Godot_v4.7.2-.../` 那个**禁用**。
 3. **禁止 `-gdir=res://tests -ginclude_subdirs`**。实测该模式会挂起 5 分钟无输出直到超时。必须用 `-gtest=` 单文件模式，每个文件 0.4 秒。全量门禁 = 对每个 `res://tests/test_*.gd` 串行循环。
 4. `GODOT_DISABLE_LEAK_CHECKS=1` 不能省，否则引擎退出噪声会让退出码不等于测试结果（绿跑变红）。
+5. **别把函数头写丢**（T-011 真踩过）：`r_types.gd` 里 `_type_or_range_error(value, entry) -> String` 的**签名行在编辑中丢失**，
+   函数体变成游离代码，`--check-only` 一次抛 7 条 Parse Error（`Function "_type_or_range_error()" not found in base self` +
+   一串 `Identifier "entry"/"value" not declared` + `Cannot return a value of type "String" as "Array[String]"`）。
+   **只有第一条（not found in base self）是真定位点**，后面的都是连锁噪声。写完函数体回头确认签名行还在；
+   看到 `Function X() not found in base self` 先查是不是函数头没了。
 
 ### ✅ 唯一例外：你被允许跑 `--check-only` 语法检查
 
@@ -132,7 +137,14 @@ timeout 60 "$GODOT" --headless --check-only --script res://<你改的文件>.gd
 
 因此你的交付标准是：
 1. 代码与测试写完，目录不越权；
-2. 自己**静态复核**一遍 GDScript 语法（尤其 `:=` 类型推断、Variant 上调方法、`static` 与实例调用混用）——编译错误会让整脚本加载失败，代价很高；
+2. 自己**静态复核**一遍 GDScript 语法，重点四条（都是本项目真踩过的坑）：
+   - `:=` 对 Variant 推断失败（从 Array/Dictionary 取元素、`.duplicate()` 返回值），一律写显式类型；
+   - `static` 与实例调用混用（如 `SomeClass.is_tool()` 调非静态方法）；
+   - **`.get(key, {})` 用可变容器作默认值会掩盖「键不存在」**——取子节点并按需创建时，
+     默认值必须写 `null`，新建的中间层容器必须显式写回父节点（见决策 D-20，曾让 `resolved` 恒为空）；
+   - **函数头丢失**（T-011）：函数体游离 → 一串 `Identifier not declared` / 返回类型冲突，
+     真定位点是 `Function X() not found in base self` 那一条（见第五节坑 5）。
+   编译错误会让整脚本加载失败，代价很高；
 3. 回执里写「自测声明：未运行引擎，已静态复核 X 处」，并把你认为可能红的点列进「未决与风险」。
 
 不要因为没跑过就写"已通过"——写"未验证"即可，**绝不伪造门禁结果**（协议硬门禁第 3 条）。
