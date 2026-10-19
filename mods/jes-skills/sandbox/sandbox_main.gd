@@ -14,14 +14,18 @@ const RESPAWN_WAIT := 2.0
 const MANA_MAX := 200.0
 const MANA_REGEN_PER_SEC := 20.0
 const AUTO_CAST_INTERVAL := 1.0   # 自动施法周期（实验台勾选框控制）
-const ACTIVE_SLOT_COUNT := 7
-# 演示槽位编排：1~7 键分别对应的技能。只影响"哪个键放哪个技能"，不影响任何结算逻辑。
+const ACTIVE_SLOT_COUNT := 8
+# 演示槽位编排：1~8 键分别对应的技能。只影响"哪个键放哪个技能"，不影响任何结算逻辑。
+# 这是演示层**唯一**允许出现具体宝石 id 的地方（内容编排表），运行时代码一律经
+# GemRegistry 按 id 取内容，不得在分支里判 id（规格 §13.1 第 1 条）。
 const DEMO_SLOT_ORDER: Array[StringName] = [
 	&"frost_shard", &"fire_burst", &"lightning_slash", &"chaos_beam",
-	&"shadow_dash", &"berserk", &"spirit_summon",
+	&"shadow_dash", &"berserk", &"spirit_summon", &"frost_nova",
 ]
+# 槽 0 预挂的双辅助（演示 G5/G6 装配链路）：霜矛为 projectile+cold，两颗均兼容；
+# cost = 10 × 1.4 × 1.2 = 16.8。同属内容编排，集中在此处便于查阅。
+const DEMO_SLOT0_SUPPORTS: Array[StringName] = [&"support_multi", &"support_cold_focus"]
 const SOCKET_COUNT := 6        # 孔位上限（规格首版 4~6，实验台统一 6）
-const TRIGGER_SLOT := 7   # 触发器目标槽（雷光斩的复制实例，含 on_crit 触发）
 const PROJECTILE_CAP := 512    # 投射物硬上限（规格 §9.3）
 const PROJECTILE_TINT := Color(0.62, 0.86, 1.0)
 const MELEE_FX_TINT := Color(1.0, 0.82, 0.42)
@@ -158,20 +162,17 @@ func _build_skills() -> void:
 	mana.set_max(&"mana", MANA_MAX)
 	mana.set_current(&"mana", MANA_MAX)
 
-	# 槽位编排只属于沙盒：决定 1~7 键各放哪个技能。
+	# 槽位编排只属于沙盒：决定 1~8 键各放哪个技能。
 	# 这是"内容编排列表"，不是运行时分支 —— 装配、消耗、施法都与具体 id 无关。
 	# 不能依赖 GemRegistry.skills() 的返回顺序：那是按 id 排序的，改个文件名就会
 	# 把冰系辅助装到火技能上，触发 G7 整组拒绝（本文件 R5 就踩过这一下）。
 	for i in mini(ACTIVE_SLOT_COUNT, DEMO_SLOT_ORDER.size()):
 		_bind_skill_slot(i, GemRegistry.skill(DEMO_SLOT_ORDER[i]))
-	# 槽 7：触发器目标（独立 SkillSlot 实例，防止与槽 2 共用装配状态）
-	_bind_skill_slot(TRIGGER_SLOT, GemRegistry.skill(&"lightning_slash"))
 
-	# 槽 0 挂多重投射 + 寒冰聚焦双辅助（演示 G5/G6 装配链路 + stat_modifiers 注入链路：
-	# 霜矛为 projectile+cold，两个辅助均兼容；cost = 10 × 1.4 × 1.2 = 16.8）
+	# 槽 0 挂多重投射 + 寒冰聚焦双辅助（演示 G5/G6 装配链路 + stat_modifiers 注入链路）
 	var slot0 := slot_bar.get_slot(0)
-	slot0.supports.append(GemRegistry.support(&"support_multi"))
-	slot0.supports.append(GemRegistry.support(&"support_cold_focus"))
+	for sid in DEMO_SLOT0_SUPPORTS:
+		slot0.supports.append(GemRegistry.support(sid))
 
 	# 演示触发器：暴击 → 施放槽 7
 	trigger_mgr.add_trigger(GemRegistry.trigger(&"on_crit"))
@@ -221,8 +222,8 @@ func apply_lab_loadout(gem: SkillData, supports: Array) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		var key: InputEventKey = event
-		# 1~7 施放槽 0~6；Q 触发演示组合；R 全体木桩回满血
-		if key.physical_keycode >= KEY_1 and key.physical_keycode <= KEY_7:
+		# 1~8 施放槽 0~7；Q 触发演示组合；R 全体木桩回满血
+		if key.physical_keycode >= KEY_1 and key.physical_keycode <= KEY_8:
 			try_cast(int(key.physical_keycode) - KEY_1)
 		elif key.physical_keycode == KEY_Q:
 			_demo_combo()

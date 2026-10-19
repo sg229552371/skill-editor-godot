@@ -24,16 +24,18 @@
 
 ## 0.1 施工进度（2026-10-19 R7 校准）
 
-**M0–M8 的代码、headless 测试、桌面渲染压测均已完成**，全量 **242 用例 / 1433 断言 100% 绿**，
+**M0–M8 的代码、headless 测试、桌面渲染压测均已完成**，全量 **243 用例 / 1446 断言 100% 绿**，
 headless 无孤儿节点、无 ObjectDB 泄漏；300 弹 × 80 敌的桌面渲染实测 **1.65 ms/帧（605 fps）**。
 
-> **注意口径**：这句话**不等于"项目开发完成"**。§0.2 仍有 2 项收尾：Android 真机未实测（无设备/SDK）、
-> M6 门禁 `W1` 口径待人类定义。R2 那次就是因为本文档自称"全完"才被人类抓出与代码不符，同一坑不踩第二次。
+> **注意口径**：这句话**不等于"项目开发完成"**。§0.2 仍有 2 项收尾，且**都不是代码能解决的**：
+> ① Android 真机未实测（本机无设备/SDK）；② macOS / Linux 未实机跑（只有 Windows 实机）。
+> Web(WASM) 已在 R8 判定为**非必需**（见 §14）。R2 那次就是因为本文档自称"全完"才被人类抓出与代码不符，同一坑不踩第二次。
 
 > **口径修正（R2）**：本表原先把「DoT / 异常 / 投射物池」记作 M8，与 §11 的 M8（性能架构）**重名冲突**。
 > 现按 §11 口径拆分：功能层归 **M6.5**，M8 只指 §9 的性能架构。
 > **R4**：M8 逻辑层全落地。**R5**：RNG 契约统一 + G8 统计用例。**R6**：内容全量 .tres 化。
 > **R7**：注册表 / 条件系统 / SkillInstance / 装配缓存 / 脏标记 / 召唤物三规则 / CI / 导出预设 / 渲染压测。
+> **R8**：`W1` 定性为"首批内容集"→ 补第 8 个主动 + 开放 `8` 键（槽 7 此前是死槽）；Web(WASM) 判定为非必需并关闭。
 
 | 里程碑 | 状态 | 测试 |
 |---|---|---|
@@ -42,8 +44,8 @@ headless 无孤儿节点、无 ObjectDB 泄漏；300 弹 × 80 敌的桌面渲�
 | M2 DamageConversion/SkillData（.tres 驱动） | ✅ R6 全量内容真源化 | 9 + 8（`test_content_registry.gd`） |
 | M3 SupportGem/SocketGraph 装配（G5–G7 + G7b） | ✅ **R7 补 G7b 到 M3 主测试 + 装配缓存** | 11 + 10（`test_m3_assembly_cache.gd`）+ 沙盒 14 |
 | M4 DamagePacket/Calculator/命中与击杀 | ✅ R5 闭合 G8 | 16 + 7（`test_m4_g8_statistics.gd`） |
-| M5 ResourcePool/冷却充能/技能栏（8 槽） | ✅ **R7 加 SkillInstance** | 14 + 11（`test_m5_skill_instance.gd`） |
-| M6 行为组件（7 项）+ 召唤物管理 | ✅ **R7 补 §8.2 三规则** | 13 + 10（`test_minion_registry.gd`） |
+| M5 ResourcePool/冷却充能/技能栏（8 槽） | ✅ **R7 加 SkillInstance / R8 补 `8` 键** | 14 + 11（`test_m5_skill_instance.gd`） + 沙盒 14 |
+| M6 行为组件（7 项）+ 召唤物管理 | ✅ **R7 补 §8.2 三规则 / R8 补第 8 个主动** | 13 + 10（`test_minion_registry.gd`） |
 | **M6.5** DoT 全局 ticker / AILMENT 通道隔离 / ProjectilePool 硬上限 | ✅ | 7 |
 | M7 TriggerManager/CombatEventBus（G10 限流、链深保护） | ✅ | 10 |
 | **M8** 性能架构（SoA / 空间哈希 / effect_pool / RngService / MultiMesh） | ✅ **R7 补渲染压测与分配尖刺** | 46 + 渲染 bench |
@@ -62,7 +64,8 @@ headless 无孤儿节点、无 ObjectDB 泄漏；300 弹 × 80 敌的桌面渲�
 | 7 | ~~内容 .tres 化~~ | §10、附录 C 第 1 条 | ✅ R6 闭合（17 个 .tres，答案 = 0） |
 | 8 | **Android 真机 60fps 未实测** | §14 | 预设与 `Mobile` feature 已就位（R7）；本机无 Android SDK/设备，**真机帧率仍未验**。桌面侧见 §9.7 |
 | 9 | ~~M8 渲染层未验~~ | §11 M8 | ✅ **R7 桌面侧闭合**：300 弹 × 80 敌端到端 **1.65 ms/帧（605 fps）**，见 §9.7。Android 侧并入 #8 |
-| 10 | **M6 门禁口径不明** | §11 M6「W1 内容集 8 主动全部上线」 | `W1` 全文仅此一处出现、无定义。实际内容为 7 个主动技能 + 槽 7 触发器复制实例。**待人类定义 W1 指什么** |
+| 10 | ~~M6 门禁口径不明（W1）~~ | §11 M6「W1 内容集 8 主动全部上线」 | ✅ **R8 闭合**：`W1` 在本文档与全盘设计文档（`技能系统书-v1.md` 等）中**无任何定义**，唯一同名词出现在同盘姊妹项目的波次表里（W0 冻结 → W1~Wn 各建独立文件，是**并行波次编号**）。据此按「第 1 批内容集 = 8 个主动」理解，R8 补第 8 个主动 `frost_nova`（霜爆新星，`bhv_aoe_burst`/cold），并开放 `8` 键，**8 槽 = 8 个不同主动全部可施放** |
+| 11 | **macOS / Linux 未实机运行** | §14「Windows / macOS / Linux 主验收」 | 代码与 `.tres` 全平台共用，`export_presets.cfg` 已有 Linux 预设；但本机只有 Windows 实机跑过，macOS / Linux **未实机验收** |
 
 **M3 结束门禁复核（R1 后）**：G5/G6/G7/G7b 全部有断言且通过；`assemble()` 无 `if gem_id ==` 分支。
 
@@ -650,8 +653,8 @@ res://
 | **M2** 技能与行为 | `SkillData` + `SkillExecutor` + projectile/melee 两个行为 | 单发冰矛能打出数字；改 `.tres` 数值即改伤害，不改代码 |
 | **M3** 装配 | `SocketGraph` + `Assembly` | G5–G7 + G7b 通过；卸下辅助后数值**完全还原**（逐位相等，不是近似） |
 | **M4** 伤害闭环 | Hitbox/Hurtbox、暴击、抗性、击杀 | G8–G9 通过；端到端 DPS 与手算差 ≤ 0.5% |
-| **M5** 资源 | 冷却/充能/消耗/多技能栏 | 资源不足无法施法；8 个技能位全可用 |
-| **M6** 其余行为 | aoe/channel/summon/dash/buff | W1 内容集 8 主动全部上线 |
+| **M5** 资源 | 冷却/充能/消耗/多技能栏 | 资源不足无法施法；8 个技能位全可用（R8 补 `8` 键，槽 7 从"死槽"变为可独立施放） |
+| **M6** 其余行为 | aoe/channel/summon/dash/buff | 8 主动全部上线（R8 补第 8 个 `frost_nova`。原文的 `W1` 无定义，按"第 1 批内容集"理解，见 §0.2 #10） |
 | **M7** 触发 | `CombatEventBus` + `TriggerManager` | G10 通过（触发频率落在 ±10%）；链深保护生效 |
 | **M8** 性能 | SoA 投射物 + 空间哈希 + 池 | 100 弹并发同屏 ≥ 60fps（目标机型）；GC 峰值无尖刺 |
 
@@ -725,10 +728,20 @@ res://
 
 | 平台 | 要求 | 注意 |
 |---|---|---|
-| Windows / macOS / Linux | 主验收 | — |
-| Android | 必测 60fps | 虚拟摇杆另做；`config/features` 需含 `"Mobile"` |
-| Web (WASM) | **待人类确认是否必需** | 若必需：关闭多线程物理、音频改用 `AudioStreamGenerator` 兼容路径、纹理需压缩 |
+| Windows / macOS / Linux | 主验收 | 同一套 `.tres` + 同一套逻辑；本机实机只验了 Windows（§0.2 #11） |
+| Android | 必测 60fps | 虚拟摇杆另做；`config/features` 已含 `"Mobile"`；预设已就位，真机未跑（§0.2 #8） |
+| Web (WASM) | **❌ 非必需（R8 判定，已关闭）** | 判定依据见下表；若将来回头做，按下表代价重估 |
 | iOS | 可选 | 需签名，性能预期同 Android |
+
+**Web(WASM) 判定为「非必需」的依据（R8，人类授权由 AI 判断）**：
+
+1. **不在验收路径上**：§14 的主验收是 Windows/macOS/Linux，Android 是"必测 60fps"，Web 原文只写"待确认"。项目最终的发布出口是 **Godot 原生导出**（桌面 + Android），Web 不是发行必需的载体。
+2. **渲染后端直接冲突**：Godot 4 的 Web 导出**只支持 Compatibility（WebGL 2.0）**，Forward+ 与 Mobile 渲染器**不能**跑 Web。而本项目 `project.godot` 的 `config/features` 已声明 `"Mobile"`——要做 Web 就得整体降级到 Compatibility，画质与后处理要重做一遍。
+3. **性能基线撑不住**：单线程 WASM（4.3 起的默认与推荐模式）性能约为原生的一半或更低，多线程导出需要 COOP/COEP 跨源隔离头、站点不能有第三方整合，且 4.6-dev 仍有多线程 + `ResourceLoader` 进度失效的公开 issue。本项目的红线是 **100 弹 / 80 特效 / 80 角色同屏**，在 Web 上属于高风险。
+4. **改动面被低估**：Web 音频默认 Sample 模式（**不支持 AudioEffects / 混响 / 程序化音效**）、后台标签页会被浏览器暂停、全屏必须由用户手势触发、GDExtension 需专门编译。
+5. **可逆，不需要现在付代价**：只要守住本文档已有的那条约束——**禁止 `if OS.has_feature("mobile")` 分叉游戏规则**（只允许分叉输入与画质）——将来真要 Web，就是纯导出层的活，不需要重写逻辑。
+
+> **结论**：不把 Web 列为交付目标。唯一保留的纪律：**不引入 GDExtension、不依赖 Web 上不存在的 API**（如任意线程、低层网络），以保证将来想开就能开。
 
 **必须**：所有平台共用同一套 `.tres` 与同一套逻辑；**禁止**用 `if OS.has_feature("mobile")` 分叉游戏规则（只允许分叉输入与画质）。
 
@@ -841,6 +854,11 @@ res://
 | 2026-10-19 / R7 | §14 | 新增 `export_presets.cfg`（Windows / Linux / Android arm64-v8a）；`project.godot` 的 `config/features` 补 `"Mobile"` | 缺口 #8 / #9 的前置条件 |
 | 2026-10-19 / R7 | §11 M0 | 新增 `.github/workflows/gut.yml`：Ubuntu + Godot 4.7.1 headless，`--import` 两次后跑 GUT，上传日志 | 缺口 B 类：M0 门禁要求 CI 但仓库里没有 |
 | 2026-10-19 / R7 | §10 / §13.2 / 附录 C | 目录树补 `summon/`、补记 3 类磁盘偏差；§13.2 第 9/10 条补「已实现」落地说明；附录 C 追加第 11–20 条 R7 自检项 | 本轮收尾的文档同步 |
+| 2026-10-19 / R8 | §0.2 #10 / §11 M5·M6 | **`W1` 定性**：本文档与全盘设计文档（含 `技能编辑器/S_docs/技能系统书-v1.md` 12245 行）均无定义；唯一同名词来自同盘姊妹项目的波次表（W0 冻结 → W1~Wn 并行）= **并行波次编号**。据此按「第 1 批内容集 = 8 个主动」解释，缺口 #10 划除 | 人类要求「去查源文案」后核对，确认无源可查 |
+| 2026-10-19 / R8 | `content/gems/active/frost_nova.tres` | 新增第 8 个主动「霜爆新星」（`bhv_aoe_burst` / cold 140 / 半径 130 / 延迟 0.35 / 耗魔 12 / CD 2.5），**零 `.gd` 改动**（附录 C 第 1 条仍成立） | M6 门禁「8 主动」字面缺口 |
+| 2026-10-19 / R8 | `sandbox_main.gd` | ① `ACTIVE_SLOT_COUNT` 7→8，`DEMO_SLOT_ORDER` 加第 8 项；② **槽 7 从"雷光斩复制实例"（实际 `on_crit.linked_slot_index=2`，该槽从未被触发、玩家也按不到 → 死槽）改为第 8 个主动**；③ 按键 `KEY_1~KEY_7` → `KEY_1~KEY_8`，M5「8 个技能位全可用」才真正成立；④ 槽 0 辅助 id 收进 `DEMO_SLOT0_SUPPORTS`，让演示层"具体宝石 id"只剩一张内容编排表 | 审计发现槽 7 是死内容（触发目标其实是槽 2） |
+| 2026-10-19 / R8 | §14 | **Web(WASM) 判定为非必需并关闭**，写明 5 条依据（不在验收路径 / Web 只支持 Compatibility 与已声明的 Mobile feature 冲突 / 单线程 WASM 撑不住 100 弹 80 特效 / 音频与 GDExtension 改动面 / 可逆且不需现在付代价）；保留"不引 GDExtension、不依赖 Web 缺失 API"的纪律 | 人类授权「你来判断」 |
+| 2026-10-19 / R8 | §0.2 #11 / §11 M5·M6 / §0.1 | 新增缺口 #11（macOS/Linux 未实机）；M5/M6 行补 R8 注记；全量更新为 **243 用例 / 1446 断言** | 本轮收尾 |
 
 > 已确认的既有决策（G1–G10、M0–M8 门禁、七步管线顺序）**不受本轮影响**，一条未改。
 

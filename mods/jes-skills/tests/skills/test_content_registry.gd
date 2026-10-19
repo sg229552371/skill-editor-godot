@@ -20,7 +20,8 @@ func test_c1_registry_loads_without_errors() -> void:
 
 
 func test_c2_expected_counts() -> void:
-	assert_eq(GemRegistry.skills().size(), 7, "7 个演示主动技能")
+	# 8 个主动 = 规格 §11 M6 门禁「W1 内容集 8 主动全部上线」的字面要求
+	assert_eq(GemRegistry.skills().size(), 8, "8 个演示主动技能")
 	assert_eq(GemRegistry.supports().size(), 9, "9 个演示辅助石")
 	assert_eq(GemRegistry.triggers().size(), 1, "1 个演示触发器")
 

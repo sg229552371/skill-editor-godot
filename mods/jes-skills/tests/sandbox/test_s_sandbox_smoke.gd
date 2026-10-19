@@ -34,7 +34,7 @@ func test_s2_slot1_no_support_cost_unchanged() -> void:
 	assert_true(res.ok, "槽 1 无辅助装配应成功")
 	assert_almost_eq(res.cost_multiplier, 1.0, 0.0001, "无辅助时 cost 倍率应为 1")
 
-## 7 个演示技能全部产出合法行为计划
+## 8 个演示技能全部产出合法行为计划（规格 §11 M5「8 个技能位全可用」/ M6「8 主动」）
 func test_s3_all_seven_skills_yield_plans() -> void:
 	main._build_entities()
 	main._build_skills()
@@ -44,7 +44,8 @@ func test_s3_all_seven_skills_yield_plans() -> void:
 		&"bhv_projectile", &"bhv_aoe_burst", &"bhv_melee_swing",
 		&"bhv_channel", &"bhv_dash", &"bhv_buff_self", &"bhv_summon",
 	]
-	for i in 7:
+	assert_eq(main.DEMO_SLOT_ORDER.size(), 8, "演示内容集应为 8 个主动")
+	for i in main.ACTIVE_SLOT_COUNT:
 		var plans := SkillExecutor.cast(main.slot_bar.get_slot(i).active_gem, 1, main.player.stats)
 		assert_gt(plans.size(), 0, "槽 %d 应产出计划" % i)
 		assert_has(behaviors, plans[0][&"behavior_id"], "槽 %d 行为应注册" % i)
@@ -61,6 +62,18 @@ func test_s4_cast_slot0_spends_mana_and_spawns_projectiles() -> void:
 	assert_almost_eq(mana_before - main.mana.get_current(&"mana"), 16.8, 0.0001,
 		"应扣魔 10 × 1.4 × 1.2 = 16.8")
 	assert_eq(main.projectile_field.active_count(), 3, "1 基础 + 多重投射 +2 应共 3 发")
+
+## 第 8 槽（键 8）可独立施放：M5「8 个技能位全可用」+ M6「8 主动」的字面闭合
+func test_s4b_eighth_slot_is_castable() -> void:
+	main._build_entities()
+	main._build_skills()
+	var slot := main.slot_bar.get_slot(7)
+	assert_not_null(slot, "槽 7 应存在")
+	assert_not_null(slot.active_gem, "槽 7 应绑定主动技能")
+	assert_eq(slot.active_gem.gem_id, main.DEMO_SLOT_ORDER[7], "槽 7 应为演示编排的第 8 个技能")
+	var before := main.mana.get_current(&"mana")
+	assert_true(main.try_cast(7), "槽 7 应可施放（8 键）")
+	assert_almost_eq(before - main.mana.get_current(&"mana"), 12.0, 0.0001, "霜爆新星耗魔 12")
 
 ## 冷却未就绪时禁止施放（§8.3：资源/冷却不满足不进入 cast）
 func test_s5_cooldown_blocks_recash() -> void:
@@ -122,7 +135,7 @@ func test_s9_aoe_burst_hits_stump_after_delay() -> void:
 	main.tick(0.4)
 	assert_lt(stump.health.current_health, hp_before, "0.5s 延迟后应结算伤害")
 
-## 暴击触发器链路：必暴触发器 → 施放槽 7（雷光斩）
+## 暴击触发器链路：on_crit（linked_slot_index=2）→ 施放槽 2（雷光斩二连）
 func test_s10_crit_trigger_fires_linked_slot() -> void:
 	main._build_entities()
 	main._build_skills()
@@ -145,12 +158,12 @@ func test_s10_crit_trigger_fires_linked_slot() -> void:
 
 # ---------- 全元素覆盖 ----------
 
-## 7 技能各元素（cold/fire/lightning/chaos/physical）全部出现在计划中
+## 8 技能各元素（cold/fire/lightning/chaos/physical）全部出现在计划中
 func test_s11_all_five_elements_covered() -> void:
 	main._build_entities()
 	main._build_skills()
 	var seen := {}
-	for i in 7:
+	for i in main.ACTIVE_SLOT_COUNT:
 		var plans := SkillExecutor.cast(main.slot_bar.get_slot(i).active_gem, 1, main.player.stats)
 		for plan in plans:
 			for el in plan.get(&"elements", {}):
