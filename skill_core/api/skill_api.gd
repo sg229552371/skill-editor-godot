@@ -38,12 +38,14 @@ static func _is_version_part(text: String) -> bool:
 	return true
 
 # 职责：加载技能 CFG；参数：path 为 UTF-8 配置路径；返回：统一结果包；对应真源：第 16.1 节。
-# T-082（U-37 填桩授权）。ok 语义（第 4 轮修订）：
-#   ok = 零「有效」诊断（所有版本同一口径）；openable 表示「内容读得出来」：
-#     early-failure 包（路径/读盘/解析失败）openable=false；可解析的包即使 ok=false 也 openable=true。
+# T-082（U-37 填桩授权）。ok 语义（第 5 轮定稿）：
+#   ok = 零「有效」诊断（所有版本同一口径）。
+#   openable = 内容是否**已解析出来并交给调用方**：early-failure（路径/读盘/解析失败）与
+#     「元数据不可判定」为 false；其余可解析的包即使 ok=false 也为 true。
 #   版本不受支持时只剔除「版本枚举不匹配」一条诊断，其余结构/类型诊断照常拦截。
-#   schema_version 缺失/空值/null → SCHEMA_VERSION_MISSING；
-#   非字符串（未加引号的 9.9 被解析成 float）或非「纯数字.纯数字」→ SCHEMA_VERSION_INVALID。
+#   schema_version 键不存在 / 显式 null / 空字符串 "" → SCHEMA_VERSION_MISSING；
+#   非字符串（未加引号的 9.9 被解析成 float）、带引号 "null"、空映射 {}、三段式、带符号、前导零
+#   → SCHEMA_VERSION_INVALID。两者都拦截，只是原因码不同。
 # V-083 只读不降级：不受支持的版本原样返回并标 read_only，绝不改写/迁移。
 func load_cfg(path: String) -> Dictionary:
 	var failure: Callable = func(field: String, message: String, diagnostics: Array) -> Dictionary:
@@ -119,8 +121,8 @@ func load_cfg(path: String) -> Dictionary:
 		diagnostics.append(version_diagnostic)
 	var blocking: bool = not diagnostics.is_empty()
 	# data 为既有 UI 消费的增量键（U-37 第 3 条只增键），给深拷贝副本：调用方改 data 不得污染 cfg。
-	var alias: Dictionary = cfg.duplicate(true)
-	return {"ok": not blocking, "openable": true, "cfg": cfg, "data": alias, "path": path,
+	var data_copy: Dictionary = cfg.duplicate(true)
+	return {"ok": not blocking, "openable": true, "cfg": cfg, "data": data_copy, "path": path,
 		"diagnostics": diagnostics,
 		"error": "" if not blocking else "CFG 存在结构或类型问题，详见 diagnostics",
 		"fingerprint": text.sha256_text(), "bytes": text.to_utf8_buffer().size(),

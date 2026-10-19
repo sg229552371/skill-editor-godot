@@ -256,7 +256,7 @@ func test_load_structural_problem_reports_not_ok_but_returns_content() -> void:
 # 验收 14：data 是**深拷贝副本**，调用方改写（含嵌套字段）不得污染 cfg。
 func test_data_is_isolated_deep_copy() -> void:
 	var api: RefCounted = ApiScript.new()
-	var path: String = TMP_DIR + "/alias.yaml"
+	var path: String = TMP_DIR + "/deep_copy.yaml"
 	assert_true(api.save_cfg(path, _cfg())["ok"])
 	var loaded: Dictionary = api.load_cfg(path)
 	assert_eq(loaded["data"]["params"]["templates"][0]["parts"][0]["amount"], 2.5)
