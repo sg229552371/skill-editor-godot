@@ -19,15 +19,20 @@ const ModifierRulesScript = preload("res://skill_core/validate/rules/r_modifier.
 const PresentationRulesScript = preload("res://skill_core/validate/rules/r_present.gd")
 const IdentityMetaScript = preload("res://skill_core/validate/identity_meta.gd")
 
+## 只读注入点（T-082 P1-8）：留空表示用 IdentityMeta 默认路径；
+## 测试可指向 user:// 下的元数据夹具，用于覆盖「supported_schema_versions 缺失/为空」分支。
+var identity_meta_path: String = ""
+
 # 职责：加载技能 CFG；参数：path 为 UTF-8 配置路径；返回：统一结果包；对应真源：第 16.1 节。
-# T-082（U-37 填桩授权）。ok 语义（审核后修订，对齐 CfgCodec.load_cfg）：
-#   ok = 文件可解析 **且**（当前版本下零诊断 **或** 版本不受支持 = 只读放行）。
-#   已知版本一旦带诊断 → ok:false，但 cfg/data 仍原样带回，供编辑器打开修复（不制造「打不开的坏文件」）。
-# V-083 只读不降级：schema_version 不在 supported_schema_versions 内时只读放行，绝不改写/迁移。
+# T-082（U-37 填桩授权）。ok 语义（第 4 轮修订）：
+#   ok = 零「有效」诊断（所有版本同一口径）；openable 单独表示「内容读得出来」，失败包为 false。
+#   版本不受支持时只剔除「版本枚举不匹配」一条诊断，其余结构/类型诊断照常拦截。
+#   schema_version 非字符串（如未加引号的 9.9 被解析成 float）/空值/null → SCHEMA_VERSION_INVALID。
+# V-083 只读不降级：不受支持的版本原样返回并标 read_only，绝不改写/迁移。
 func load_cfg(path: String) -> Dictionary:
 	var failure: Callable = func(field: String, message: String, diagnostics: Array) -> Dictionary:
 		if not diagnostics.is_empty():
-			return {"ok": false, "path": field, "error": message, "cfg": null, "data": null, "diagnostics": diagnostics}
+			return {"ok": false, "openable": false, "path": field, "error": message, "cfg": null, "data": null, "diagnostics": diagnostics}
 		var diagnostic: RefCounted = Diagnostic.new()
 		diagnostic.rule_id = "API"
 		diagnostic.code = "LOAD_FAILED"
@@ -35,7 +40,7 @@ func load_cfg(path: String) -> Dictionary:
 		diagnostic.actual = path
 		diagnostic.expected = message
 		diagnostic.hint = message
-		return {"ok": false, "path": field, "error": message, "cfg": null, "data": null, "diagnostics": [diagnostic]}
+		return {"ok": false, "openable": false, "path": field, "error": message, "cfg": null, "data": null, "diagnostics": [diagnostic]}
 	if path.strip_edges().is_empty():
 		return failure.call("path", "加载路径不能为空", [])
 	if not FileAccess.file_exists(path):
@@ -58,31 +63,43 @@ func load_cfg(path: String) -> Dictionary:
 		return failure.call("schema", schema.last_error, [])
 	var checked: Dictionary = schema.validate(cfg)
 	diagnostics.append_array(checked.get("diagnostics", []))
-	var metadata: Dictionary = IdentityMetaScript.load_metadata()
+	var metadata: Dictionary = IdentityMetaScript.load_metadata() if identity_meta_path.is_empty() else IdentityMetaScript.load_metadata(identity_meta_path)
 	var supported: Variant = metadata.get("supported_schema_versions", null)
 	if not supported is Array or supported.is_empty():
 		return failure.call("metadata", "身份元数据缺失或未登记 supported_schema_versions", [])
-	var declared: String = str(cfg.get("schema_version", ""))
-	var version_supported: bool = (not declared.is_empty()) and supported.has(declared)
-	var declared_missing: bool = declared.is_empty()
-	if not version_supported:
-		# 只剔除「因版本不受支持而产生的 schema_version 枚举诊断」，
-		# 其余结构/类型诊断一律保留 —— 不允许「写个 9.9 就什么都放行」。
+	# 版本判定只认「字符串且形如 X.Y」。非字符串（未加引号的 9.9 会被解析成 float）、
+	# 空值、null、"null" 一律判非法 —— 否则它们的类型诊断会被下面的枚举剔除一起洗白。
+	var raw: Variant = cfg.get("schema_version", null)
+	var declared: String = raw if raw is String else ""
+	var missing: bool = not cfg.has("schema_version") or (raw is String and declared.strip_edges().is_empty())
+	var version_parts: PackedStringArray = declared.split(".")
+	var well_formed: bool = version_parts.size() == 2 \
+		and version_parts[0].is_valid_int() and version_parts[1].is_valid_int()
+	var invalid_text: bool = (not missing) and ((not raw is String) or not well_formed)
+	var version_supported: bool = false
+	if not missing and not invalid_text:
+		version_supported = supported.has(declared)
+	if not missing and not invalid_text and not version_supported:
+		# 版本不受支持：**只**剔除「版本枚举不匹配」这一条（expected 以「枚举」开头且 actual 等于声明值），
+		# 其余结构/类型诊断一律保留。
 		var kept: Array = []
 		for entry in diagnostics:
-			if not declared_missing and str(entry.get("path")) == "schema_version":
+			var is_enum_mismatch: bool = str(entry.get("path")) == "schema_version" \
+				and str(entry.get("expected")).begins_with("枚举") \
+				and str(entry.get("actual")) == declared
+			if is_enum_mismatch:
 				continue
 			kept.append(entry)
 		diagnostics = kept
-	if declared_missing:
-		var missing: RefCounted = Diagnostic.new()
-		missing.rule_id = "API"
-		missing.code = "SCHEMA_VERSION_MISSING"
-		missing.path = "schema_version"
-		missing.actual = ""
-		missing.expected = "必须显式声明 schema_version"
-		missing.hint = "缺少版本号无法判定兼容性，按阻止保存处理"
-		diagnostics.append(missing)
+	if missing or invalid_text:
+		var version_diagnostic: RefCounted = Diagnostic.new()
+		version_diagnostic.rule_id = "API"
+		version_diagnostic.code = "SCHEMA_VERSION_MISSING" if missing else "SCHEMA_VERSION_INVALID"
+		version_diagnostic.path = "schema_version"
+		version_diagnostic.actual = str(raw)
+		version_diagnostic.expected = "必须显式声明形如 X.Y 的 schema_version 字符串"
+		version_diagnostic.hint = "版本缺失或形态非法时无法判定兼容性，按阻止保存处理"
+		diagnostics.append(version_diagnostic)
 	var blocking: bool = not diagnostics.is_empty()
 	# data 为既有 UI 消费的增量别名（U-37 第 3 条只增键），给副本：调用方改 data 不得污染 cfg。
 	var alias: Dictionary = cfg.duplicate(true)

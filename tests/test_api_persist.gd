@@ -336,3 +336,44 @@ func _canonical(value: Variant) -> String:
 	if value is float:
 		return "float:" + String.num(float(value), 10)
 	return "other:" + str(value)
+
+
+# 验收 18：schema_version 形态非法（未加引号的 9.9 → float）不得被当作「不支持版本」洗白。
+func test_non_string_schema_version_is_invalid() -> void:
+	for raw_line in ["schema_version: 9.9", "schema_version:", "schema_version: null"]:
+		var path: String = TMP_DIR + "/invalid_version.yaml"
+		var codec: RefCounted = CodecScript.new()
+		var text: String = codec.encode(_cfg()).replace("schema_version: \"0.1\"", raw_line)
+		assert_ne(text, codec.encode(_cfg()), "夹具必须真的替换了版本行: " + raw_line)
+		var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
+		file.store_string(text)
+		file.close()
+		var loaded: Dictionary = ApiScript.new().load_cfg(path)
+		assert_false(loaded["ok"], "形态非法必须阻止: " + raw_line)
+		assert_gt(loaded["diagnostics"].size(), 0, "必须留诊断: " + raw_line)
+		assert_ne(int(loaded.get("bytes", 0)), 0)
+
+
+# 验收 19：身份元数据缺失/为空 → 显式失败（不静默把一切判成只读）。
+func test_missing_supported_versions_fails_explicitly() -> void:
+	var good: String = TMP_DIR + "/meta_ok.yaml"
+	assert_true(ApiScript.new().save_cfg(good, _cfg())["ok"])
+	for payload in [{"supported_schema_versions": []}, {"something_else": true}]:
+		var meta_path: String = TMP_DIR + "/meta_fixture.json"
+		var handle: FileAccess = FileAccess.open(meta_path, FileAccess.WRITE)
+		handle.store_string(JSON.stringify(payload))
+		handle.close()
+		var api: RefCounted = ApiScript.new()
+		api.identity_meta_path = meta_path
+		var loaded: Dictionary = api.load_cfg(good)
+		assert_false(loaded["ok"], "元数据缺 supported_schema_versions 必须显式失败: " + str(payload))
+		assert_gt(loaded["diagnostics"].size(), 0)
+
+
+# 验收 20：_canonical 的三类碰撞必须被类型标签/转义拆开（防止将来删标签回归）。
+func test_canonical_distinguishes_collision_prone_values() -> void:
+	assert_ne(_canonical(1), _canonical(1.0), "int 与 float 不得同串")
+	assert_ne(_canonical(1), _canonical("1"), "int 与字符串不得同串")
+	assert_ne(_canonical({"a": "x,y=z"}), _canonical({"a": "x", "y": "z"}), "分隔符不得碰撞")
+	assert_ne(_canonical({"a": ["b", "c"]}), _canonical({"a": "[b,c]"}), "数组与字符串不得碰撞")
+	assert_ne(_canonical(true), _canonical("true"), "bool 与字符串不得同串")
