@@ -118,7 +118,7 @@ func load_cfg(path: String) -> Dictionary:
 		version_diagnostic.hint = "版本缺失或形态非法时无法判定兼容性，按阻止保存处理"
 		diagnostics.append(version_diagnostic)
 	var blocking: bool = not diagnostics.is_empty()
-	# data 为既有 UI 消费的增量别名（U-37 第 3 条只增键），给副本：调用方改 data 不得污染 cfg。
+	# data 为既有 UI 消费的增量键（U-37 第 3 条只增键），给深拷贝副本：调用方改 data 不得污染 cfg。
 	var alias: Dictionary = cfg.duplicate(true)
 	return {"ok": not blocking, "openable": true, "cfg": cfg, "data": alias, "path": path,
 		"diagnostics": diagnostics,

@@ -249,12 +249,12 @@ func test_load_structural_problem_reports_not_ok_but_returns_content() -> void:
 	assert_false(String(loaded["error"]).is_empty())
 	assert_true(loaded["cfg"] is Dictionary, "失败仍须带回内容，否则编辑器无法打开修复")
 	assert_true(bool(loaded["openable"]), "可解析即 openable=true，与 ok 分离")
-	assert_true(loaded["data"] is Dictionary, "data 别名在失败路径同样必须带内容")
+	assert_true(loaded["data"] is Dictionary, "data 在失败路径同样必须带内容")
 	assert_eq(loaded["data"]["bricks"].size(), 1, "data 必须携带真实内容")
 
 
-# 验收 14：data 是**副本**，调用方改写不得污染 cfg（别名语义显式化）。
-func test_data_alias_is_isolated_copy() -> void:
+# 验收 14：data 是**深拷贝副本**，调用方改写（含嵌套字段）不得污染 cfg。
+func test_data_is_isolated_deep_copy() -> void:
 	var api: RefCounted = ApiScript.new()
 	var path: String = TMP_DIR + "/alias.yaml"
 	assert_true(api.save_cfg(path, _cfg())["ok"])
