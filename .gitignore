@@ -15,3 +15,6 @@ m6_red.txt
 # OS
 Thumbs.db
 .DS_Store
+
+# Local agent memory / workspace data
+.workbuddy/
