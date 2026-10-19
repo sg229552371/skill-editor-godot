@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# 批量门禁：编译检查 + GUT，一次输出所有指定测试文件的结论（审核方专用）
+# 批量门禁：编译检查 + GUT，一次输出所有指定测试文件的结论（主会话执行，输出原样交审核）
 # 用法：bash S_docs/collab/tools/gate.sh tests/test_a.gd tests/test_b.gd ...
 #       bash S_docs/collab/tools/gate.sh --all            # 全量回归
 set -u
-GD471="${GD471:-/c/Users/Administrator/AppData/Roaming/Ryko.GodotHub/godot-versions/4.7.1-stable/Godot_v4.7.1-stable_win64.exe}"
+# 2026-10-19：本机引擎路径校准（原 Administrator 路径在本机不存在）；仍可用 GD471 环境变量覆盖
+GD471="${GD471:-/c/Users/jinyishun/AppData/Roaming/Ryko.GodotHub/godot-versions/4.7.1-stable/Godot_v4.7.1-stable_win64.exe}"
 cd "$(dirname "$0")/../../.." || exit 1
 
 FILES=("$@")

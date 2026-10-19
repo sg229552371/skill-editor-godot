@@ -15,7 +15,7 @@ class WiringApi extends RefCounted:
 		resolve_calls += 1
 		return result.duplicate(true)
 
-class PreviewRunner extends RefCounted:
+class WiringPreviewRunner extends RefCounted:
 	var starts: int = 0
 	var advances: int = 0
 	var snapshots: int = 0
@@ -132,7 +132,7 @@ func test_save_load_round_trip_preserves_unknown_fields() -> void:
 
 func test_preview_pipeline_completes_all_stages_with_injected_runner() -> void:
 	var root: Node = _root()
-	var preview_runner: RefCounted = PreviewRunner.new()
+	var preview_runner: RefCounted = WiringPreviewRunner.new()
 	root.configure_host({"runner": preview_runner})
 	var options: Dictionary = {"seed": 1, "roots": [], "targets": [], "handlers": {}, "template_families": {}, "derivation_bindings": {}}
 	var result: Dictionary = root.launch_preview(options)

@@ -20,12 +20,87 @@ const PresentationRulesScript = preload("res://skill_core/validate/rules/r_prese
 const IdentityMetaScript = preload("res://skill_core/validate/identity_meta.gd")
 
 # 职责：加载技能 CFG；参数：path 为 UTF-8 配置路径；返回：统一结果包；对应真源：第 16.1 节。
+# T-082（U-37 填桩授权）：ok 只表示「文件可打开」，不表示「内容合法」——合法性看 diagnostics 是否为空。
+# V-083 只读不降级：schema_version 不在 supported_schema_versions 内时原样返回内容并标 read_only，绝不改写/迁移。
 func load_cfg(path: String) -> Dictionary:
-	return _not_implemented("load_cfg", path)
+	var failure: Callable = func(field: String, message: String, diagnostics: Array) -> Dictionary:
+		if not diagnostics.is_empty():
+			return {"ok": false, "path": field, "error": message, "cfg": null, "diagnostics": diagnostics}
+		var diagnostic: RefCounted = Diagnostic.new()
+		diagnostic.rule_id = "API"
+		diagnostic.code = "LOAD_FAILED"
+		diagnostic.path = field
+		diagnostic.actual = path
+		diagnostic.expected = message
+		diagnostic.hint = message
+		return {"ok": false, "path": field, "error": message, "cfg": null, "diagnostics": [diagnostic]}
+	if path.strip_edges().is_empty():
+		return failure.call("path", "加载路径不能为空", [])
+	if not FileAccess.file_exists(path):
+		return failure.call("path", "CFG 不存在: %s" % path, [])
+	var text: String = FileAccess.get_file_as_string(path)
+	if text.is_empty():
+		return failure.call("path", "CFG 为空文件: %s" % path, [])
+	var codec: RefCounted = CodecScript.new()
+	var parsed: Dictionary = codec.parse_text(text)
+	if not bool(parsed.get("ok", false)):
+		return failure.call("cfg", String(parsed.get("error", "YAML 解析失败")), parsed.get("diagnostics", []))
+	var cfg: Dictionary = parsed["cfg"]
+	var diagnostics: Array = parsed.get("diagnostics", []).duplicate()
+	var schema: RefCounted = SchemaScript.new()
+	if schema.configure():
+		var checked: Dictionary = schema.validate(cfg)
+		diagnostics.append_array(checked.get("diagnostics", []))
+	else:
+		return failure.call("schema", schema.last_error, [])
+	var metadata: Dictionary = IdentityMetaScript.load_metadata()
+	var supported: Array = metadata.get("supported_schema_versions", [])
+	var declared: String = str(cfg.get("schema_version", ""))
+	var version_supported: bool = supported.has(declared)
+	return {"ok": true, "cfg": cfg, "path": path, "diagnostics": diagnostics,
+		"error": "" if diagnostics.is_empty() else "CFG 存在结构或类型问题，详见 diagnostics",
+		"fingerprint": text.sha256_text(), "bytes": text.to_utf8_buffer().size(),
+		"schema_version": declared, "version_supported": version_supported,
+		"read_only": not version_supported}
 
 # 职责：校验并保存技能 CFG；参数：path 为目标路径、cfg 为定义；返回：统一结果包；对应真源：第 16.1、14 章。
+# T-081（U-37 填桩授权）：结构 + Schema 双重前置校验通过后才落盘，禁止「先保存再补校验」。
+# 语义校验（V-001…V-084）依赖调用方 context，仍走 validate_with_context；本入口只保证「落盘前不可能写出结构/类型非法的 CFG」。
 func save_cfg(path: String, cfg: Dictionary) -> Dictionary:
-	return _not_implemented("save_cfg", path)
+	var failure: Callable = func(field: String, message: String, diagnostics: Array) -> Dictionary:
+		if not diagnostics.is_empty():
+			return {"ok": false, "path": field, "error": message, "diagnostics": diagnostics}
+		var diagnostic: RefCounted = Diagnostic.new()
+		diagnostic.rule_id = "API"
+		diagnostic.code = "SAVE_REJECTED"
+		diagnostic.path = field
+		diagnostic.actual = path
+		diagnostic.expected = message
+		diagnostic.hint = message
+		return {"ok": false, "path": field, "error": message, "diagnostics": [diagnostic]}
+	if path.strip_edges().is_empty():
+		return failure.call("path", "保存路径不能为空", [])
+	var structural: Array = CodecScript.validate_structure(cfg)
+	if not structural.is_empty():
+		return failure.call("cfg", "CFG 结构不合法，拒绝保存", structural)
+	var schema: RefCounted = SchemaScript.new()
+	if not schema.configure():
+		return failure.call("schema", schema.last_error, [])
+	var checked: Dictionary = schema.validate(cfg)
+	if not checked["ok"]:
+		return failure.call("cfg", "CFG 不符合 Schema，拒绝保存", checked["diagnostics"])
+	var codec: RefCounted = CodecScript.new()
+	var text: String = codec.encode(cfg)
+	if text.is_empty():
+		return failure.call("cfg", "CFG 序列化失败: %s" % codec.last_error, [])
+	var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
+	if file == null:
+		return failure.call("path", "无法写入 CFG: %s" % path, [])
+	file.store_string(text)
+	file.close()
+	return {"ok": true, "path": path, "error": "", "diagnostics": [],
+		"fingerprint": text.sha256_text(), "bytes": text.to_utf8_buffer().size(),
+		"validation_scope": "structure+schema", "requires_semantic_validation": true}
 
 # 职责：解析 YAML 子集；参数：text 为 UTF-8 文本；返回：统一结果包；对应真源：第 16.1 节。
 func parse_yaml(text: String) -> Dictionary:

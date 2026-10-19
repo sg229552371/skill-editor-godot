@@ -1,11 +1,13 @@
-# 技能编辑器 · 本地 Claude CLI 工作规则
+# 技能编辑器 · WorkBuddy 单工作流工作规则
 
-> 本文件由 WorkBuddy（审核方）维护，Claude CLI（执笔方）每次开工前必读。
-> 最后更新：2026-10-18　第 1 轮
+> 本文件由 WorkBuddy 主会话维护，**主会话（执笔）与独立审核子 Agent（审核）每次开工前必读**。
+> 最后更新：2026-10-19　第 1 轮（角色合并 + 环境校准，见 `02-决策台账.md` D-00-4）
 
 ## 零、开工必读前置（工作区级）
 
 工作区手册：`D:/AI-game-All/G_docs/开发标准手册_v1.md`（方法层，178 行，开工必读）。
+> **本机缺失（2026-10-19 核实）**：该路径在本机不存在。方法层已内化到本文 §零 TDD 铁则与
+> `S_docs/collab/03-并行开发规范.md`、`00-协作协议.md`；若换到装有手册的机器，仍以手册优先。
 本项目定级 **P3 新系统**，最低流程：口径/规格 → 接口冻结 → 实现计划 → 分任务卡 → TDD → 并行集成 → 验证报告。
 
 与本项目的对应（已就位，不必重做）：
@@ -32,10 +34,18 @@
 
 ## 一、你的角色
 
-你是**执笔方**：按任务卡写代码 + 写 GUT 测试 + 跑绿 + 交回执。
-WorkBuddy 是**审核方**：拆任务、给素材、审回执、判 PASS/REJECT。
+本项目自 2026-10-19 起**全部在 WorkBuddy 内完成**（用户拍板 D-00-4），角色拆为三方：
 
-**你不做**：改规格真源、改协作文档、扩任务范围、跳过门禁、替用户做方向性决策。
+| 角色 | 承担者 | 做什么 |
+|---|---|---|
+| 执笔 | WorkBuddy **主会话** | 按任务卡写代码 + 写 GUT 测试 + 跑绿 + 写回执 + 维护协作文档与素材 |
+| 审核 | **独立审核子 Agent**（无上下文，只读） | 按 00-协作协议判据复核 `git diff` 与门禁原始输出，判 PASS/REJECT |
+| 拍板 | 用户 | 方向性决策、最终验收 |
+
+**主会话不做**：对自己的回执判 PASS；未经用户拍板改规格真源（`S_docs/技能系统书-v1.md`）、扩任务范围、跳过门禁。
+**审核子 Agent 不做**：改写任何文件；只看主会话给的四类输入（任务卡 / diff / 门禁输出 / 判据），不看实现思路与自评。
+
+**只有主会话能写代码**；审核子 Agent 的权限是**只读**，它给出的修正意见一律回主会话执行。
 
 ## 二、开工前必读（按顺序）
 
@@ -66,6 +76,8 @@ WorkBuddy 是**审核方**：拆任务、给素材、审回执、判 PASS/REJECT
 6. **禁止对空集合跑「全部成立」**来冒充验收通过。
 7. **只写你有权限的目录**（见协议第三节）。越权写入直接 REJECT。
 8. **不修改** `S_docs/技能系统书-v1.md` 与 `S_docs/collab/00*.md`、`01*.md`、`02*.md`。
+   *例外（2026-10-19 D-00-4）*：协作文档的**维护权归主会话**，但每次改动必须在回执「偏离记录」逐条登记
+   文件与行号，并由审核子 Agent 复核；规格真源 `技能系统书-v1.md` 仍**只有用户能改**。
 
 ## 五、交付流程
 
@@ -79,7 +91,8 @@ WorkBuddy 是**审核方**：拆任务、给素材、审回执、判 PASS/REJECT
 
 ```bash
 # 唯一正确的引擎（4.7.1-stable，由 Ryko.GodotHub 管理）
-GODOT="C:/Users/Administrator/AppData/Roaming/Ryko.GodotHub/godot-versions/4.7.1-stable/Godot_v4.7.1-stable_win64.exe"
+# 2026-10-19 校准：本机为 jinyishun 账户；原写的 Administrator 路径在本机不存在。
+GODOT="C:/Users/jinyishun/AppData/Roaming/Ryko.GodotHub/godot-versions/4.7.1-stable/Godot_v4.7.1-stable_win64.exe"
 
 # 步骤 1：预热导入（只在新增/删除 .gd 文件后需要一次）
 "$GODOT" --headless --path . --import --quit
@@ -182,17 +195,18 @@ GODOT_DISABLE_LEAK_CHECKS=1 "$GODOT" --headless --display-driver headless \
     校验「有限且 `floor(n)==n`」→ `int(n)`；**只有作者手填进 CFG 的值**才用严格 `is int`。
     写新卡时凡涉及 `project_limits` / `hard_caps` / 素材默认值，先按这条写。
 
-### ✅ 唯一例外：你被允许跑 `--check-only` 语法检查
+### ✅ 编译自检：`--check-only`（写完每个 `.gd` 必跑）
 
 ```bash
-GODOT="C:/Users/Administrator/AppData/Roaming/Ryko.GodotHub/godot-versions/4.7.1-stable/Godot_v4.7.1-stable_win64.exe"
+GODOT="C:/Users/jinyishun/AppData/Roaming/Ryko.GodotHub/godot-versions/4.7.1-stable/Godot_v4.7.1-stable_win64.exe"
 timeout 60 "$GODOT" --headless --check-only --script res://<你改的文件>.gd
 ```
 
 - 坏文件 → 退出码 **1**，打印 `Parse Error: ... at: ... (文件:行号)`；好文件 → 退出码 **0**，无输出。
 - **不导入项目、不写 `.godot/`、不跑测试**，所以可以放心跑（这是它区别于 import/GUT 的关键）。
-- 你写完**每个** `.gd` 文件都要跑一次，退出码必须 0 才能进回执。
-- **仍然禁止**：`--import`、`--path`、`-s ...gut_cmdln.gd`、任何 GUT 命令。这些归 WorkBuddy 独占。
+- 写完**每个** `.gd` 文件都要跑一次，退出码必须 0 才能进回执。
+- **引擎执行权（2026-10-19 起）归主会话独占**：`--import` 与 GUT 门禁由主会话串行执行，
+  跑出的**原始输出**原样进回执，供审核子 Agent 独立复核。原「归 WorkBuddy 独占」条随 D-00-4 失效。
 
 **为什么必须自查**：前两轮连续出现编译期错误（`var x := dict.duplicate()` 推断 Variant 失败、`SomeClass.static_only()` 调用非静态方法），两者都是**整脚本加载失败**，连带把依赖它的全部测试打成红，且报错信息（如 `Nonexistent function 'new'`）具有误导性。人眼静态复核拦不住这类错误，`--check-only` 能。
 

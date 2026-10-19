@@ -1,6 +1,18 @@
 # 开发进度看板（WorkBuddy 维护，每次汇报刷新）
 
 > 引擎：Godot **4.7.1**（`Ryko.GodotHub/godot-versions/4.7.1-stable`）｜门禁归 WorkBuddy 独占，Claude CLI 只写代码
+> 更新：2026-10-19 09:5x（**WorkBuddy 单工作流首批**：用户拍板 D-00-4，执笔与门禁合并到主会话，
+> 审核改由**独立子 Agent** 承担；同批交付 **T-081 `save_cfg` / T-082 `load_cfg`** 两张填桩卡，
+> 补上 M6 20.1.4「保存→重载」凭据。全量回归
+> **55 文件 / 694 用例 / 14353 断言 / Failing 0 / Risky 1(pending) / bad=0**，较上轮 **+1 文件 +19 用例 +86 断言**。
+> ⚠ **坑 27（本轮新增，环境级）**：`tests/test_plugin_wiring.gd` 内的 `class PreviewRunner`
+> 与 `skill_core/runtime/preview_runner.gd` 的全局 `class_name PreviewRunner` 撞名 ——
+> 在**干净环境**（新克隆 + 首次 import）直接 `Parse Error: Class "PreviewRunner" hides a global script class`，
+> 该文件 7 用例整体不执行。旧环境因 `.godot` 类缓存先于该文件建立而未暴露。已改名 `WiringPreviewRunner`。
+> **固化：测试内自定义类不得与任何 `class_name` 同名；换环境复跑是唯一可靠的暴露手段。**
+>
+> ⚠ 隔离门禁说明：本轮用户 Godot 4.7.1 编辑器占用主工程 `.godot`（PID 37172），
+> 门禁在 `E:/tmp/skill_editor_gate` 镜像副本执行，与主工程同源同版本，不共享缓存。
 > 更新：2026-10-19 07:4x（**本轮自动化**：开场 HEAD `96e15e2`，上一批已完整收口 ——
 > **无 CLI 进程、无未提交代码、无漂流产出**。全量回归实测
 > **54 / 675 / 674 / 14219 / Failing 0 / Risky 1 / bad=0**，与上一轮权威基线**逐项一致** → 基线完好。
@@ -50,12 +62,12 @@
 
 | 项 | 数 |
 |---|---|
-| 已 PASS 并合入主干的任务卡 | **57 / 57**（本轮新增三张：**T-079 第 2 轮** V-074 数组契约 + U-33 迁移 · **T-078 第 2 轮** U-34 宿主通道 · **T-076 第 6 轮** 装配冷却 CFG 消费） |
-| 在跑 | **2 条**（07:5x 派出，最多两条，文件所有权零重叠） |
-| 待派 | **T-081**（`save_cfg` / `load_cfg` 桩接通 → 20.1.4 保存重载凭据，U-37 **已预先授权**，可在 T-078 第 3 轮落地后开派）· **T-073**（已解锁，**定义仍待补**） |
-| 本轮已提交 | `df18f4c` U-33 · `d67b96a` T-078 派单 · `a8fd1bc` 看板 · **`6ce743b` T-079 第2轮 PASS** · `d3c3c19` T-078 blocked · `35d059e` U-34/U-35 · `5dbcc3c` T-076 第5轮派单 · `7464390` 看板 · **`d3fa67e` T-078 第2轮 PASS** · `ea2c0ec` U-36 · **`9741290` M6 凭据** · `f1be6bd` 看板 · **`3c5c225` T-076 第6轮 PASS** · **`b25e0b2` U-37 裁决 + T-078 第3轮/T-080 派单** |
+| 已 PASS 并合入主干的任务卡 | **57 / 59**（本轮新增 **T-081** `save_cfg` / **T-082** `load_cfg` 填桩，**待独立审核**；审核通过后转 PASS） |
+| 在跑 | **0 条** |
+| 待派 | **T-073**（已解锁，**定义仍待补**）· M6 剩余：**20.1.7 / 20.1.8 端到端证据**待补 |
+| 本轮已提交 | 见 `git log`：D-00-4 流程合并 + T-081/T-082 填桩 + 坑 27 修复 |
 | U-28 状态 | **已由「待用户拍板」裁决为「采纳 (b)」**（自动化会话代拍板，**用户可推翻**）：先补 `create_sim` 正式入口 → 派生 T-077 已派出；(a) 留作 T-078；(c) 不采纳，**M6 口径不得因缺证据而下调** |
-| 全量测试 | **54 文件 / 675 用例 / 674 通过 / 14219 断言 / FAILED 0**（T-076 第 6 轮后**最新基线**）；唯一 `PENDING` 为 `test_runner_host_integration` 的「打断入口不存在」（诚实标注，非失败）；**加载/解析错误 `bad=0`** |
+| 全量测试 | **55 文件 / 694 用例 / 693 通过 / 14353 断言 / FAILED 0**（T-082 后**最新基线**）；唯一 `PENDING` 为 `test_runner_host_integration` 的「打断入口不存在」（诚实标注，非失败）；**加载/解析错误 `bad=0`** |
 | **runner 能力边界** | `cast` 已接：前摇/出手 tick/冷却。`timing`/`attached`/`summon`/`emission` 仍显式拒绝。`carrier` 仍只允许 `independent` |
 | 门禁工具 | `gate.sh` 新增 **YELLOW/PENDING** 通道：pending≠失败，但也不计入绿，必须单独可见 |
 | 里程碑 | **M0/M1 清零**、**M4 沙盒成型**；**M5 预览链路全绿**（T-050…T-054）；**M6：T-064 交付包结论 —— 20.1 八步骤完整整步证据 0/8**（1–5/7 有局部证据，3/6/8 无证据）→ **M6 尚未端到端可交付**，登记 **U-28** 待拍板 |
@@ -657,3 +669,25 @@ test_schema_units: [Failed] [16] expected to equal [15]:
 | **U-35** | 未决：`frame` 是否取整数（建议与运行时对齐） | 低 |
 
 另有 **T-076 拆细**（完整链路拆为 T-080）为排期决策，可调回。
+
+---
+
+### 坑 27（2026-10-19 09:4x，环境级）测试内自定义类与全局 `class_name` 撞名 → 干净环境整文件不执行
+
+**症状**：新克隆 + 首次 `--import` 后，`test_plugin_wiring.gd` 报
+`SCRIPT ERROR: Parse Error: Class "PreviewRunner" hides a global script class.`，
+GUT 侧只说 `Ignoring script ... because it does not extend GutTest` + `Nothing was run`，
+**7 个用例整体消失**，而 gate 汇总只体现为 `FAILED: test_plugin_wiring.gd` 一行。
+
+**真因**：该文件第 18 行 `class PreviewRunner extends RefCounted:` 与
+`skill_core/runtime/preview_runner.gd` 的 `class_name PreviewRunner` 同名。
+GDScript 规则：内部类不得遮蔽全局脚本类。旧环境未暴露，是因为 `.godot/global_script_class_cache.cfg`
+的建立顺序先于该文件被解析 —— **缓存掩盖了非法写法**。
+
+**处置**：改名 `WiringPreviewRunner`（仅测试夹具，零生产行为变更）。
+
+**固化**：
+1. 测试里的假对象命名统一带 `Wiring` / `Fake` 前缀，禁止与 `skill_core/**` 的 `class_name` 同名。
+2. **换环境（新克隆、清 `.godot`、换机器）必须整套复跑** —— 同一份代码在旧缓存下绿、在干净环境下红，
+   是本项目已知的高频假绿来源（坑 11 / 坑 23 同族）。
+3. 看到 `does not extend GutTest` 先查 Parse Error，别当成「测试基类写错」。
