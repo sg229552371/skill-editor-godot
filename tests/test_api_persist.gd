@@ -259,9 +259,11 @@ func test_data_alias_is_isolated_copy() -> void:
 	var path: String = TMP_DIR + "/alias.yaml"
 	assert_true(api.save_cfg(path, _cfg())["ok"])
 	var loaded: Dictionary = api.load_cfg(path)
-	assert_eq(loaded["data"]["skill_id"], "mage_active_t081")
-	loaded["data"]["skill_id"] = "mutated_by_caller"
-	assert_eq(loaded["cfg"]["skill_id"], "mage_active_t081", "改 data 不得污染 cfg")
+	assert_eq(loaded["data"]["params"]["templates"][0]["parts"][0]["amount"], 2.5)
+	# 改**嵌套**字段：浅拷贝下 cfg 会同步变化，只有深拷贝才保持 2.5
+	loaded["data"]["params"]["templates"][0]["parts"][0]["amount"] = 99.0
+	assert_eq(loaded["cfg"]["params"]["templates"][0]["parts"][0]["amount"], 2.5,
+		"改 data 的嵌套字段不得污染 cfg（证明深拷贝而非浅拷贝）")
 
 
 # 验收 15：缺 schema_version 不得被当成「版本不受支持」而放行。
@@ -338,9 +340,19 @@ func _canonical(value: Variant) -> String:
 	return "other:" + str(value)
 
 
-# 验收 18：schema_version 形态非法（未加引号的 9.9 → float）不得被当作「不支持版本」洗白。
-func test_non_string_schema_version_is_invalid() -> void:
-	for raw_line in ["schema_version: 9.9", "schema_version:", "schema_version: null"]:
+# 验收 18：schema_version 形态非法不得被当作「不支持版本」洗白。
+# 覆盖：未加引号的 9.9（float）、带引号 "null"、三段式 "0.1.2"、带符号 "-1.0"、前导零 "00.1"、空值、null。
+# 口径：键不存在 / 显式 YAML null → MISSING；写出来但形态不可用（float、带引号 "null"、三段式、带符号、前导零）→ INVALID。
+func test_illegal_schema_version_shapes_are_blocked() -> void:
+	for pair in [["schema_version: 9.9", "SCHEMA_VERSION_INVALID"],
+			["schema_version: \"null\"", "SCHEMA_VERSION_INVALID"],
+			["schema_version: \"0.1.2\"", "SCHEMA_VERSION_INVALID"],
+			["schema_version: \"-1.0\"", "SCHEMA_VERSION_INVALID"],
+			["schema_version: \"00.1\"", "SCHEMA_VERSION_INVALID"],
+			["schema_version:", "SCHEMA_VERSION_INVALID"],
+			["schema_version: null", "SCHEMA_VERSION_MISSING"]]:
+		var raw_line: String = pair[0]
+		var expected_code: String = pair[1]
 		var path: String = TMP_DIR + "/invalid_version.yaml"
 		var codec: RefCounted = CodecScript.new()
 		var text: String = codec.encode(_cfg()).replace("schema_version: \"0.1\"", raw_line)
@@ -350,8 +362,12 @@ func test_non_string_schema_version_is_invalid() -> void:
 		file.close()
 		var loaded: Dictionary = ApiScript.new().load_cfg(path)
 		assert_false(loaded["ok"], "形态非法必须阻止: " + raw_line)
-		assert_gt(loaded["diagnostics"].size(), 0, "必须留诊断: " + raw_line)
-		assert_ne(int(loaded.get("bytes", 0)), 0)
+		var codes: PackedStringArray = []
+		for entry in loaded["diagnostics"]:
+			codes.append(str(entry.get("code")))
+		assert_true(codes.has(expected_code), "必须给出 %s，实际: %s（%s）" % [expected_code, str(codes), raw_line])
+		assert_true(loaded["data"] is Dictionary, "内容仍须带回（可修复）")
+		assert_eq(loaded["data"]["skill_id"], "mage_active_t081")
 
 
 # 验收 19：身份元数据缺失/为空 → 显式失败（不静默把一切判成只读）。
@@ -367,7 +383,9 @@ func test_missing_supported_versions_fails_explicitly() -> void:
 		api.identity_meta_path = meta_path
 		var loaded: Dictionary = api.load_cfg(good)
 		assert_false(loaded["ok"], "元数据缺 supported_schema_versions 必须显式失败: " + str(payload))
-		assert_gt(loaded["diagnostics"].size(), 0)
+		assert_false(bool(loaded["openable"]), "元数据缺失属不可判定，openable 必须为 false")
+		assert_true(loaded["cfg"] == null, "不可判定时不得交出半成品内容")
+		assert_eq(String(loaded.get("path", "")), "metadata")
 
 
 # 验收 20：_canonical 的三类碰撞必须被类型标签/转义拆开（防止将来删标签回归）。

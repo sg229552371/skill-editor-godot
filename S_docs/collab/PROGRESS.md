@@ -4,7 +4,7 @@
 > 更新：2026-10-19 09:5x（**WorkBuddy 单工作流首批**：用户拍板 D-00-4，执笔与门禁合并到主会话，
 > 审核改由**独立子 Agent** 承担；同批交付 **T-081 `save_cfg` / T-082 `load_cfg`** 两张填桩卡，
 > 补上 M6 20.1.4「保存→重载」凭据。全量回归
-> **55 文件 / 701 用例 / 14402 断言 / Failing 0 / Risky 1(pending) / bad=0**，较上轮 **+1 文件 +26 用例 +135 断言**。
+> **55 文件 / 701 用例 / 14429 断言 / Failing 0 / Risky 1(pending) / bad=0**，较上轮 **+1 文件 +26 用例 +210 断言（对 T-076 基线 675/14219）**。
 > ⚠ **坑 27（本轮新增，环境级）**：`tests/test_plugin_wiring.gd` 内的 `class PreviewRunner`
 > 与 `skill_core/runtime/preview_runner.gd` 的全局 `class_name PreviewRunner` 撞名 ——
 > 在**干净环境**（新克隆 + 首次 import）直接 `Parse Error: Class "PreviewRunner" hides a global script class`，
@@ -67,7 +67,7 @@
 | 待派 | **T-073**（已解锁，**定义仍待补**）· M6 剩余：**20.1.7 / 20.1.8 端到端证据**待补 |
 | 本轮已提交 | 见 `git log`：D-00-4 流程合并 + T-081/T-082 填桩 + 坑 27 修复 |
 | U-28 状态 | **已由「待用户拍板」裁决为「采纳 (b)」**（自动化会话代拍板，**用户可推翻**）：先补 `create_sim` 正式入口 → 派生 T-077 已派出；(a) 留作 T-078；(c) 不采纳，**M6 口径不得因缺证据而下调** |
-| 全量测试 | **55 文件 / 701 用例 / 700 通过 / 14402 断言 / FAILED 0**（T-082 后**最新基线**）；唯一 `PENDING` 为 `test_runner_host_integration` 的「打断入口不存在」（诚实标注，非失败）；**加载/解析错误 `bad=0`** |
+| 全量测试 | **55 文件 / 701 用例 / 700 通过 / 14429 断言 / FAILED 0**（T-082 后**最新基线**）；唯一 `PENDING` 为 `test_runner_host_integration` 的「打断入口不存在」（诚实标注，非失败）；**加载/解析错误 `bad=0`** |
 | **runner 能力边界** | `cast` 已接：前摇/出手 tick/冷却。`timing`/`attached`/`summon`/`emission` 仍显式拒绝。`carrier` 仍只允许 `independent` |
 | 门禁工具 | `gate.sh` 新增 **YELLOW/PENDING** 通道：pending≠失败，但也不计入绿，必须单独可见 |
 | 里程碑 | **M0/M1 清零**、**M4 沙盒成型**；**M5 预览链路全绿**（T-050…T-054）；**M6：T-064 交付包结论 —— 20.1 八步骤完整整步证据 0/8**（1–5/7 有局部证据，3/6/8 无证据）→ **M6 尚未端到端可交付**，登记 **U-28** 待拍板 |

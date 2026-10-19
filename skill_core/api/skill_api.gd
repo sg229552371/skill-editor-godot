@@ -23,11 +23,27 @@ const IdentityMetaScript = preload("res://skill_core/validate/identity_meta.gd")
 ## 测试可指向 user:// 下的元数据夹具，用于覆盖「supported_schema_versions 缺失/为空」分支。
 var identity_meta_path: String = ""
 
+
+## 严格版本段判定：纯数字且无前导零（"0" 本身合法）。
+## 不用 is_valid_int —— 它会接受 -1 / +1，把非法形态放行成「未知版本」。
+static func _is_version_part(text: String) -> bool:
+	if text.is_empty():
+		return false
+	if text.length() > 1 and text.begins_with("0"):
+		return false
+	for index in range(text.length()):
+		var code: int = text.unicode_at(index)
+		if code < 48 or code > 57:
+			return false
+	return true
+
 # 职责：加载技能 CFG；参数：path 为 UTF-8 配置路径；返回：统一结果包；对应真源：第 16.1 节。
 # T-082（U-37 填桩授权）。ok 语义（第 4 轮修订）：
-#   ok = 零「有效」诊断（所有版本同一口径）；openable 单独表示「内容读得出来」，失败包为 false。
+#   ok = 零「有效」诊断（所有版本同一口径）；openable 表示「内容读得出来」：
+#     early-failure 包（路径/读盘/解析失败）openable=false；可解析的包即使 ok=false 也 openable=true。
 #   版本不受支持时只剔除「版本枚举不匹配」一条诊断，其余结构/类型诊断照常拦截。
-#   schema_version 非字符串（如未加引号的 9.9 被解析成 float）/空值/null → SCHEMA_VERSION_INVALID。
+#   schema_version 缺失/空值/null → SCHEMA_VERSION_MISSING；
+#   非字符串（未加引号的 9.9 被解析成 float）或非「纯数字.纯数字」→ SCHEMA_VERSION_INVALID。
 # V-083 只读不降级：不受支持的版本原样返回并标 read_only，绝不改写/迁移。
 func load_cfg(path: String) -> Dictionary:
 	var failure: Callable = func(field: String, message: String, diagnostics: Array) -> Dictionary:
@@ -71,10 +87,11 @@ func load_cfg(path: String) -> Dictionary:
 	# 空值、null、"null" 一律判非法 —— 否则它们的类型诊断会被下面的枚举剔除一起洗白。
 	var raw: Variant = cfg.get("schema_version", null)
 	var declared: String = raw if raw is String else ""
-	var missing: bool = not cfg.has("schema_version") or (raw is String and declared.strip_edges().is_empty())
+	var missing: bool = not cfg.has("schema_version") or raw == null \
+		or (raw is String and declared.strip_edges().is_empty())
 	var version_parts: PackedStringArray = declared.split(".")
 	var well_formed: bool = version_parts.size() == 2 \
-		and version_parts[0].is_valid_int() and version_parts[1].is_valid_int()
+		and _is_version_part(version_parts[0]) and _is_version_part(version_parts[1])
 	var invalid_text: bool = (not missing) and ((not raw is String) or not well_formed)
 	var version_supported: bool = false
 	if not missing and not invalid_text:
