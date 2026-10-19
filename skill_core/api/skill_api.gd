@@ -20,12 +20,14 @@ const PresentationRulesScript = preload("res://skill_core/validate/rules/r_prese
 const IdentityMetaScript = preload("res://skill_core/validate/identity_meta.gd")
 
 # 职责：加载技能 CFG；参数：path 为 UTF-8 配置路径；返回：统一结果包；对应真源：第 16.1 节。
-# T-082（U-37 填桩授权）：ok 只表示「文件可打开」，不表示「内容合法」——合法性看 diagnostics 是否为空。
-# V-083 只读不降级：schema_version 不在 supported_schema_versions 内时原样返回内容并标 read_only，绝不改写/迁移。
+# T-082（U-37 填桩授权）。ok 语义（审核后修订，对齐 CfgCodec.load_cfg）：
+#   ok = 文件可解析 **且**（当前版本下零诊断 **或** 版本不受支持 = 只读放行）。
+#   已知版本一旦带诊断 → ok:false，但 cfg/data 仍原样带回，供编辑器打开修复（不制造「打不开的坏文件」）。
+# V-083 只读不降级：schema_version 不在 supported_schema_versions 内时只读放行，绝不改写/迁移。
 func load_cfg(path: String) -> Dictionary:
 	var failure: Callable = func(field: String, message: String, diagnostics: Array) -> Dictionary:
 		if not diagnostics.is_empty():
-			return {"ok": false, "path": field, "error": message, "cfg": null, "diagnostics": diagnostics}
+			return {"ok": false, "path": field, "error": message, "cfg": null, "data": null, "diagnostics": diagnostics}
 		var diagnostic: RefCounted = Diagnostic.new()
 		diagnostic.rule_id = "API"
 		diagnostic.code = "LOAD_FAILED"
@@ -33,12 +35,16 @@ func load_cfg(path: String) -> Dictionary:
 		diagnostic.actual = path
 		diagnostic.expected = message
 		diagnostic.hint = message
-		return {"ok": false, "path": field, "error": message, "cfg": null, "diagnostics": [diagnostic]}
+		return {"ok": false, "path": field, "error": message, "cfg": null, "data": null, "diagnostics": [diagnostic]}
 	if path.strip_edges().is_empty():
 		return failure.call("path", "加载路径不能为空", [])
 	if not FileAccess.file_exists(path):
 		return failure.call("path", "CFG 不存在: %s" % path, [])
-	var text: String = FileAccess.get_file_as_string(path)
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+	if file == null:
+		return failure.call("path", "CFG 读取失败（%s）: %s" % [error_string(FileAccess.get_open_error()), path], [])
+	var text: String = file.get_as_text()
+	file.close()
 	if text.is_empty():
 		return failure.call("path", "CFG 为空文件: %s" % path, [])
 	var codec: RefCounted = CodecScript.new()
@@ -48,17 +54,20 @@ func load_cfg(path: String) -> Dictionary:
 	var cfg: Dictionary = parsed["cfg"]
 	var diagnostics: Array = parsed.get("diagnostics", []).duplicate()
 	var schema: RefCounted = SchemaScript.new()
-	if schema.configure():
-		var checked: Dictionary = schema.validate(cfg)
-		diagnostics.append_array(checked.get("diagnostics", []))
-	else:
+	if not schema.configure():
 		return failure.call("schema", schema.last_error, [])
+	var checked: Dictionary = schema.validate(cfg)
+	diagnostics.append_array(checked.get("diagnostics", []))
 	var metadata: Dictionary = IdentityMetaScript.load_metadata()
-	var supported: Array = metadata.get("supported_schema_versions", [])
+	var supported: Variant = metadata.get("supported_schema_versions", null)
+	if not supported is Array or supported.is_empty():
+		return failure.call("metadata", "身份元数据缺失或未登记 supported_schema_versions", [])
 	var declared: String = str(cfg.get("schema_version", ""))
 	var version_supported: bool = supported.has(declared)
-	return {"ok": true, "cfg": cfg, "path": path, "diagnostics": diagnostics,
-		"error": "" if diagnostics.is_empty() else "CFG 存在结构或类型问题，详见 diagnostics",
+	var blocking: bool = not diagnostics.is_empty()
+	return {"ok": (not blocking) or (not version_supported), "cfg": cfg, "data": cfg, "path": path,
+		"diagnostics": diagnostics,
+		"error": "" if not blocking else "CFG 存在结构或类型问题，详见 diagnostics",
 		"fingerprint": text.sha256_text(), "bytes": text.to_utf8_buffer().size(),
 		"schema_version": declared, "version_supported": version_supported,
 		"read_only": not version_supported}
@@ -95,9 +104,12 @@ func save_cfg(path: String, cfg: Dictionary) -> Dictionary:
 		return failure.call("cfg", "CFG 序列化失败: %s" % codec.last_error, [])
 	var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
 	if file == null:
-		return failure.call("path", "无法写入 CFG: %s" % path, [])
+		return failure.call("path", "无法写入 CFG（%s）: %s" % [error_string(FileAccess.get_open_error()), path], [])
 	file.store_string(text)
+	var write_error: int = file.get_error()
 	file.close()
+	if write_error != OK:
+		return failure.call("path", "CFG 写入失败（%s）: %s" % [error_string(write_error), path], [])
 	return {"ok": true, "path": path, "error": "", "diagnostics": [],
 		"fingerprint": text.sha256_text(), "bytes": text.to_utf8_buffer().size(),
 		"validation_scope": "structure+schema", "requires_semantic_validation": true}

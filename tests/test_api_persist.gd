@@ -71,7 +71,7 @@ func test_save_valid_cfg_returns_fingerprint_and_writes_file() -> void:
 	assert_eq(String(result.get("path", "")), path)
 
 
-# 验收 2：落盘文本可被 codec 重新读回，顶层键与 skill_id 一致（20.1.4 保存重载前提）。
+# 验收 2：落盘文本可被 codec 重新读回，**七个顶层键名逐个对齐**（20.1.4 七键结构一致）。
 func test_saved_text_reloads_with_same_identity() -> void:
 	var api: RefCounted = ApiScript.new()
 	var path: String = TMP_DIR + "/reload.yaml"
@@ -81,7 +81,11 @@ func test_saved_text_reloads_with_same_identity() -> void:
 	assert_true(reloaded["ok"], str(reloaded))
 	var data: Dictionary = reloaded["data"]
 	assert_eq(data["skill_id"], cfg["skill_id"])
-	assert_eq(data.keys().size(), cfg.keys().size(), "顶层键不得在往返中丢失")
+	var expected_keys: Array = cfg.keys()
+	var actual_keys: Array = data.keys()
+	expected_keys.sort()
+	actual_keys.sort()
+	assert_eq(actual_keys, expected_keys, "顶层七键必须逐个一致，不允许「丢一个换一个」")
 	assert_eq(data["bricks"].size(), 1)
 
 
@@ -156,20 +160,27 @@ func test_load_valid_cfg_returns_identity_and_version_state() -> void:
 	assert_true(bool(loaded["version_supported"]), "0.1 必须是已支持版本")
 	assert_false(bool(loaded["read_only"]))
 	assert_eq(String(loaded["path"]), path)
+	assert_eq(loaded["data"], loaded["cfg"], "data 是 cfg 的增量别名（既有 UI 读 data）")
 
 
-# 验收 9（20.1.4 保存重载凭据）：save 写入的指纹与 load 读回的指纹逐字一致。
-func test_save_then_load_round_trip_matches_fingerprint() -> void:
+# 验收 9（20.1.4 保存重载凭据）：值无损 —— 深比较 + 指纹对内容敏感。
+func test_save_then_load_round_trip_preserves_values() -> void:
 	var api: RefCounted = ApiScript.new()
 	var path: String = TMP_DIR + "/roundtrip.yaml"
-	var saved: Dictionary = api.save_cfg(path, _cfg())
-	assert_true(saved["ok"])
+	var cfg: Dictionary = _cfg()
+	var saved: Dictionary = api.save_cfg(path, cfg)
+	assert_true(saved["ok"], str(saved))
 	var loaded: Dictionary = api.load_cfg(path)
 	assert_true(loaded["ok"])
-	assert_eq(String(loaded["fingerprint"]), String(saved["fingerprint"]), "保存/重载必须是同一份内容")
+	assert_eq(_canonical(loaded["cfg"]), _canonical(cfg), "往返后逐字段值必须无损")
+	assert_eq(String(loaded["fingerprint"]), String(saved["fingerprint"]), "落盘与读回必须是同一份字节")
 	assert_eq(int(loaded["bytes"]), int(saved["bytes"]))
-	assert_eq(loaded["cfg"]["params"]["lifetime_ticks"], 4)
-	assert_eq(loaded["cfg"]["bricks"][0]["brick_id"], _cfg()["bricks"][0]["brick_id"])
+	# 反向对照：改一个叶子值，指纹必须变 —— 证伪「指纹恒等」的可能。
+	var mutated: Dictionary = cfg.duplicate(true)
+	mutated["params"]["lifetime_ticks"] = 5
+	var other: Dictionary = api.save_cfg(TMP_DIR + "/roundtrip_mut.yaml", mutated)
+	assert_true(other["ok"], str(other))
+	assert_ne(String(other["fingerprint"]), String(saved["fingerprint"]), "叶子值变化必须反映到指纹")
 
 
 # 验收 10：不存在的路径 → 显式失败。
@@ -204,15 +215,21 @@ func test_unknown_schema_version_is_read_only_without_downgrade() -> void:
 	var seeded: Dictionary = CodecScript.save_cfg(path, future)
 	assert_true(bool(seeded.get("ok", false)), "夹具必须真的落盘: " + str(seeded))
 	var loaded: Dictionary = api.load_cfg(path)
-	assert_true(loaded["ok"], "未知版本仍必须可打开")
+	assert_true(loaded["ok"], "未知版本仍必须可打开（只读）")
 	assert_eq(String(loaded["schema_version"]), "9.9", "不得把版本改写成当前版本")
 	assert_false(bool(loaded["version_supported"]))
 	assert_true(bool(loaded["read_only"]), "未知版本必须标只读")
 	assert_eq(String(loaded["cfg"]["schema_version"]), "9.9", "返回内容必须与文件一致")
+	# 保存侧同样受 V-083 约束：不得把未知版本「降级保存」成当前版本。
+	var target: String = TMP_DIR + "/future_save.yaml"
+	var rejected: Dictionary = api.save_cfg(target, future)
+	assert_false(rejected["ok"], "保存侧必须拒绝未知 schema_version")
+	assert_gt(rejected["diagnostics"].size(), 0)
+	assert_false(FileAccess.file_exists(target), "拒绝保存时不得落盘")
 
 
-# 验收 13：结构有问题但可解析 → 可打开以修复，诊断非空且 error 有说明。
-func test_load_structural_problem_is_openable_with_diagnostics() -> void:
+# 验收 13：结构有问题但可解析 → ok:false（已知版本带 block 诊断），但仍带回内容供修复。
+func test_load_structural_problem_reports_not_ok_but_returns_content() -> void:
 	var api: RefCounted = ApiScript.new()
 	var path: String = TMP_DIR + "/broken.yaml"
 	var codec: RefCounted = CodecScript.new()
@@ -224,7 +241,28 @@ func test_load_structural_problem_is_openable_with_diagnostics() -> void:
 	file.store_string(without_id)
 	file.close()
 	var loaded: Dictionary = api.load_cfg(path)
-	assert_true(loaded["ok"], "可解析的残缺文件必须能打开以便修复")
+	assert_false(loaded["ok"], "已知版本带 block 诊断时 ok 必须为 false（与 CfgCodec 同口径）")
 	assert_gt(loaded["diagnostics"].size(), 0, "残缺文件必须带诊断")
 	assert_false(String(loaded["error"]).is_empty())
+	assert_true(loaded["cfg"] is Dictionary, "失败仍须带回内容，否则编辑器无法打开修复")
+	assert_eq(loaded["data"], loaded["cfg"], "data 为 cfg 的增量别名，供既有 UI 消费")
 
+
+
+## 值比较用规范化串：字典按 key 排序、整值浮点收敛为整数（YAML 解析可能给出 float）。
+func _canonical(value: Variant) -> String:
+	if value is Dictionary:
+		var keys: Array = value.keys()
+		keys.sort()
+		var parts: PackedStringArray = []
+		for key in keys:
+			parts.append("%s=%s" % [str(key), _canonical(value[key])])
+		return "{" + ",".join(parts) + "}"
+	if value is Array:
+		var items: PackedStringArray = []
+		for item in value:
+			items.append(_canonical(item))
+		return "[" + ",".join(items) + "]"
+	if value is float and float(value) == floor(float(value)):
+		return str(int(value))
+	return str(value)
