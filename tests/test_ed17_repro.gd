@@ -592,7 +592,8 @@ func test_ed17_18_blocked_shield_seq_and_single_hit_end() -> void:
 
 func test_ed17_19_partial_skill_cooldown_but_atomic_equipment_absent() -> void:
 	var c: Dictionary = _case(19)
-	assert_eq(c["status"], "blocked", "ED-17-19 remains partial, not acceptance PASS")
+	# 原为缺口探针；T-080 转正：装配已由新实例消费，正向验收仍保留历史函数名。
+	assert_eq(c["status"], "ok", "ED-17-19 is now a positive acceptance case")
 	var cast: Dictionary = {"windup_ticks": 0, "shot_ticks": [1], "shot_count": 1, "cooldown_seconds": 1}
 	assert_eq(cast["shot_ticks"], [1], "ED-17-19 nonempty scheduled-shot control")
 	var scheduled: Dictionary = _variant(c, {"root": {"cast": cast}, "ticks": 2})

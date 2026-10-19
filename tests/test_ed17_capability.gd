@@ -229,3 +229,103 @@ func test_19_two_slots_share_cfg_cooldown_and_same_operation_recovers() -> void:
 	assert_eq(outcomes, [false, true, false, true, false, true, false, true])
 
 
+func _equipment_preview(initial: Dictionary) -> Dictionary:
+	var input: Dictionary = _inputs([1, 3])
+	input["cfg"]["params"]["assembly_shared_cooldown_ticks"] = 0
+	var host: RefCounted = input["host"]
+	assert_true(host.configure_equipment({"slots": initial})["ok"])
+	return input
+
+
+func _entity_id_other_than(entities: Dictionary, existing_id: String) -> String:
+	for key in entities:
+		if str(key) != existing_id:
+			return str(key)
+	return ""
+
+
+func test_20_new_instances_consume_slot_a_b_and_batch_equipment() -> void:
+	var scenarios: Array = [
+		{"changes": {"slot_a": "crystal_new"}, "expected": {"slot_a": "crystal_new", "slot_b": "relic_old"}},
+		{"changes": {"slot_b": "relic_new"}, "expected": {"slot_a": "crystal_old", "slot_b": "relic_new"}},
+		{"changes": {"slot_a": "crystal_batch", "slot_b": "relic_batch"},
+			"expected": {"slot_a": "crystal_batch", "slot_b": "relic_batch"}},
+	]
+	for scenario in scenarios:
+		var initial: Dictionary = {"slot_a": "crystal_old", "slot_b": "relic_old"}
+		var input: Dictionary = _equipment_preview(initial)
+		var host: RefCounted = input["host"]
+		var runner: RefCounted = input["runner"]
+		assert_true(runner.start(input["cfg"], input["options"])["ok"])
+		assert_true(runner.advance_ticks(1)["ok"])
+		var before: Dictionary = runner.snapshot_state()
+		assert_eq(before["entities"].size(), 1, "Initial shot creates the old-equipped instance")
+		var old_id: String = str(before["entities"].keys()[0])
+		assert_eq(before["entities"][old_id]["equipment_snapshot"], initial)
+		var changes: Dictionary = scenario["changes"]
+		assert_true(host.request_equipment_changes(changes)["ok"])
+		assert_true(runner.advance_ticks(2)["ok"])
+		var after: Dictionary = runner.snapshot_state()
+		assert_eq(after["entities"].size(), 2, "Changed equipment is observed on a later instance")
+		var new_id: String = _entity_id_other_than(after["entities"], old_id)
+		assert_false(new_id.is_empty(), "The later instance is nonempty and addressable")
+		assert_eq(after["entities"][new_id]["equipment_snapshot"], scenario["expected"],
+			"New instance consumes the complete A/B equipment state")
+		runner.stop()
+
+
+func test_20_existing_instance_keeps_parameter_behavior_and_snapshot() -> void:
+	var initial: Dictionary = {"slot_a": "crystal_old", "slot_b": "relic_old"}
+	var input: Dictionary = _equipment_preview(initial)
+	var host: RefCounted = input["host"]
+	var runner: RefCounted = input["runner"]
+	assert_true(runner.start(input["cfg"], input["options"])["ok"])
+	assert_true(runner.advance_ticks(1)["ok"])
+	var before: Dictionary = runner.snapshot_state()
+	var old_id: String = str(before["entities"].keys()[0])
+	var old_before: Dictionary = before["entities"][old_id].duplicate(true)
+	assert_true(host.request_equipment_changes({"slot_a": "crystal_new", "slot_b": "relic_new"})["ok"])
+	assert_true(runner.advance_ticks(2)["ok"])
+	var after: Dictionary = runner.snapshot_state()
+	var old_after: Dictionary = after["entities"][old_id]
+	assert_eq(old_after["equipment_snapshot"], old_before["equipment_snapshot"],
+		"Existing instance parameter snapshot does not drift after replacement")
+	assert_eq(old_after["lifetime_ticks"], old_before["lifetime_ticks"],
+		"Existing instance lifetime parameter remains unchanged")
+	assert_ne(old_after["position"], old_before["position"],
+		"Existing instance continues its old behavior after replacement")
+	assert_eq(old_after["position"], Vector2(2, 0),
+		"Existing instance advances with its pre-change motion behavior")
+	assert_eq(old_after["equipment_snapshot"], initial,
+		"snapshot_state keeps the old instance's frozen equipment fields")
+	runner.stop()
+
+
+func test_20_equipment_read_has_nonempty_no_change_control() -> void:
+	var initial: Dictionary = {"slot_a": "crystal_old", "slot_b": "relic_old"}
+	var baseline_input: Dictionary = _equipment_preview(initial)
+	var baseline_runner: RefCounted = baseline_input["runner"]
+	assert_true(baseline_runner.start(baseline_input["cfg"], baseline_input["options"])["ok"])
+	assert_true(baseline_runner.advance_ticks(3)["ok"])
+	var baseline_entities: Dictionary = baseline_runner.snapshot_state()["entities"]
+	var baseline_id: String = str(baseline_entities.keys()[1])
+	var baseline_value: Dictionary = baseline_entities[baseline_id]["equipment_snapshot"]
+	assert_eq(baseline_value, initial, "No-change control reads the original nonempty equipment")
+	baseline_runner.stop()
+
+	var changed_input: Dictionary = _equipment_preview(initial)
+	var changed_host: RefCounted = changed_input["host"]
+	var changed_runner: RefCounted = changed_input["runner"]
+	assert_true(changed_runner.start(changed_input["cfg"], changed_input["options"])["ok"])
+	assert_true(changed_runner.advance_ticks(1)["ok"])
+	assert_true(changed_host.request_equipment_changes({"slot_a": "crystal_control_difference"})["ok"])
+	assert_true(changed_runner.advance_ticks(2)["ok"])
+	var changed_entities: Dictionary = changed_runner.snapshot_state()["entities"]
+	var changed_id: String = str(changed_entities.keys()[1])
+	var changed_value: Dictionary = changed_entities[changed_id]["equipment_snapshot"]
+	assert_eq(changed_value, {"slot_a": "crystal_control_difference", "slot_b": "relic_old"})
+	assert_ne(baseline_value, changed_value,
+		"Changed and no-change groups differ in actual instance equipment")
+	changed_runner.stop()
+
+

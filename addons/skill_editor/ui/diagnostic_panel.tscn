@@ -1,0 +1,43 @@
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://addons/skill_editor/ui/diagnostic_panel.gd" id="1_panel"]
+
+[node name="DiagnosticPanel" type="VBoxContainer"]
+custom_minimum_size = Vector2(640, 260)
+script = ExtResource("1_panel")
+
+[node name="Status" type="Label" parent="."]
+layout_mode = 2
+text = "无诊断"
+
+[node name="Notice" type="Label" parent="."]
+layout_mode = 2
+
+[node name="FieldPath" type="Label" parent="."]
+layout_mode = 2
+
+[node name="Views" type="HBoxContainer" parent="."]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="Planner" type="VBoxContainer" parent="Views"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Title" type="Label" parent="Views/Planner"]
+layout_mode = 2
+text = "策划视图"
+
+[node name="Groups" type="VBoxContainer" parent="Views/Planner"]
+layout_mode = 2
+
+[node name="Developer" type="VBoxContainer" parent="Views"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Title" type="Label" parent="Views/Developer"]
+layout_mode = 2
+text = "程序视图"
+
+[node name="Groups" type="VBoxContainer" parent="Views/Developer"]
+layout_mode = 2

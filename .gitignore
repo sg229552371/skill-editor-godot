@@ -8,3 +8,6 @@ test_results/
 .workbuddy/
 # 临时诊断脚本（下划线前缀，审核方临时放置）
 tests/_diag_*.gd
+
+# 本地 AI 助手插件（开发环境工具，不入库）
+addons/godot_ai/

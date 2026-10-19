@@ -13,7 +13,7 @@
 |---|---|---|
 | 1 填卡 | 01-fill-card.md | 已落盘输入材料；未由引擎认证 |
 | 2 即时校验 | 02-live-validation.md | 未生成；无实际非法/修复诊断数组 |
-| 3 整卡校验 | 03-card-validation.md | 未生成；无六入口运行摘要 |
+| 3 整卡校验 | [03-card-validation.md](03-card-validation.md) | ✅ **已生成**（08:0x 审核方实测）：v2 卡六阶段 **`ok=true` / block=0 / revision=2**，含坑 13 非空对照 |
 | 4 保存 | 04-save-reload.md | 未生成；未取得实际磁盘原文/重载比较 |
 | 5 预览 | [05-preview.md](05-preview.md) | ✅ **已生成**（06:3x 审核方实测）：三栏 events 1 / records 1 / debug 1，**分别非空** |
 | 6 正式复现 | [06-formal-replay.md](06-formal-replay.md) | ✅ **已生成**：正式/预览双入口 `equal=true`、`first_diff_index=-1`，指纹交叉验证一致 |

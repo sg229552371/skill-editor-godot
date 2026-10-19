@@ -282,10 +282,12 @@ func _launch_root(launch: Dictionary) -> Dictionary:
 	var template_id: String = launch["template_id"]
 	var body_cfg: Dictionary = _templates[template_id].duplicate(true)
 	body_cfg["body_id"] = id
+	var equipment_value: Variant = launch.get("equipment_snapshot", null)
+	var equipment_snapshot: Dictionary = equipment_value.duplicate(true) if equipment_value is Dictionary else {}
 	var body: RefCounted = Body.create(body_cfg["carrier"], body_cfg, 0)
 	if not _derive.register_root(body, template_id, {"origin_skill": _cfg["skill_id"], "origin_cast_id": _cast_id}):
 		return {"ok": false, "admitted": false, "id": id, "error": _derive.last_error, "path": "roots"}
-	var entity: Dictionary = _build_entity(body, template_id, null)
+	var entity: Dictionary = _build_entity(body, template_id, null, equipment_snapshot)
 	if entity.is_empty():
 		_derive.purge(id)
 		return {"ok": false, "admitted": false, "id": id,
@@ -295,13 +297,19 @@ func _launch_root(launch: Dictionary) -> Dictionary:
 	return {"ok": true, "admitted": true, "id": id, "error": "", "path": ""}
 
 
-func _build_entity(body: RefCounted, template_id: String, parent: Variant) -> Dictionary:
+func _build_entity(body: RefCounted, template_id: String, parent: Variant, equipment_snapshot: Variant = null) -> Dictionary:
 	var template: Dictionary = _templates[template_id]
 	var value: Variant = _motion_inputs.get(template_id, null)
 	var inputs: Dictionary = value.duplicate(true) if value is Dictionary else {}
+	var equipment: Dictionary = {}
 	if parent is Dictionary:
+		var inherited: Variant = parent.get("equipment_snapshot", null)
+		if inherited is Dictionary:
+			equipment = inherited.duplicate(true)
 		inputs["position"] = parent["motion"].position
 		inputs["direction"] = parent["motion"].direction
+	if equipment_snapshot is Dictionary:
+		equipment = equipment_snapshot.duplicate(true)
 	var motion: RefCounted = Motion.new()
 	if not motion.configure(template, body, _clock, inputs):
 		last_error = motion.last_error
@@ -311,7 +319,8 @@ func _build_entity(body: RefCounted, template_id: String, parent: Variant) -> Di
 	if not settle.configure(template, body, _clock, _handlers, Callable(), shape):
 		last_error = settle.last_error
 		return {}
-	return {"body": body, "template_id": template_id, "motion": motion, "shape": shape, "settle": settle, "inputs": inputs}
+	return {"body": body, "template_id": template_id, "motion": motion, "shape": shape, "settle": settle, "inputs": inputs,
+		"equipment_snapshot": equipment}
 
 
 func _valid_targets() -> bool:
@@ -544,6 +553,8 @@ func snapshot_state() -> Dictionary:
 		var entry: Dictionary = body.to_debug_record()
 		entry["position"] = entity["motion"].position
 		entry["template_id"] = entity["template_id"]
+		var equipment_value: Variant = entity.get("equipment_snapshot", null)
+		entry["equipment_snapshot"] = equipment_value.duplicate(true) if equipment_value is Dictionary else {}
 		entities[id] = entry
 		if body.is_alive():
 			active += 1

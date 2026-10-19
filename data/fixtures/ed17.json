@@ -129,10 +129,14 @@
       "blocked_probe": "attached 护盾模板 start 显式拒绝 attached host adapter；不把测试侧扣 shield 数字冒称末尾 hit_end 验收。"
     },
     {
-      "id": "ED-17-19", "status": "blocked", "verification": "not_run",
+      "id": "ED-17-19", "status": "ok", "verification": "not_run",
       "input": {"reject_patch": {"cast": {"shot_ticks": [1], "cooldown_seconds": 1}}, "reject_path": "params.templates[0].cast", "reject_error": "Host adapter not implemented in T-050"},
-      "blocked_reason": "缺换装/出手同 tick 原子装配与公共冷却调度，cast 仍被拒：skill_core/runtime/preview_runner.gd:150-153；start 在运行中直接要求 stop：61-62。重启不是换装。",
-      "blocked_probe": "cast.shot_ticks=[1]/cooldown_seconds=1 的 start 显式未支持，保留真实可运行对照。"
+      "expected": {"new_instance_equipment": {"slot_a": "crystal_new", "slot_b": "relic_new"},
+        "existing_instance_equipment": {"slot_a": "crystal_old", "slot_b": "relic_old"},
+        "atomic_batch_apply_timing": "tick_start_before_cast",
+        "existing_instance_position_after_two_ticks": [2, 0]},
+      "history_blocked_reason": "缺换装/出手同 tick 原子装配与公共冷却调度，cast 仍被拒：skill_core/runtime/preview_runner.gd:150-153；start 在运行中直接要求 stop：61-62。重启不是换装。",
+      "history_blocked_probe": "cast.shot_ticks=[1]/cooldown_seconds=1 的 start 显式未支持，保留真实可运行对照。"
     },
     {
       "id": "ED-17-20", "status": "blocked", "verification": "not_run",

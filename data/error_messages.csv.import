@@ -1,0 +1,19 @@
+[remap]
+
+importer="csv_translation"
+type="Translation"
+uid="uid://p82vl1uomgec"
+
+[deps]
+
+files=["res://data/error_messages.audience.translation", "res://data/error_messages.template.translation", "res://data/error_messages.placeholders.translation"]
+
+source_file="res://data/error_messages.csv"
+dest_files=["res://data/error_messages.audience.translation", "res://data/error_messages.template.translation", "res://data/error_messages.placeholders.translation"]
+
+[params]
+
+compress=1
+delimiter=0
+unescape_keys=false
+unescape_translations=true

@@ -90,7 +90,7 @@ GODOT_DISABLE_LEAK_CHECKS=1 "$GODOT" --headless --display-driver headless \
   -s res://addons/gut/gut_cmdln.gd -gtest=res://tests/<文件名>.gd -gexit
 ```
 
-**十七个坑（已踩过，别再踩）**：
+**十八个坑（已踩过，别再踩）**：
 1. `godot` **不在 PATH**（portable 版），必须用上面的绝对路径。写 `godot` 会 command not found。
 2. **版本必须锁 4.7.1**。用 4.7.2 跑过一次 import，把 `.godot/` 缓存写成 4.7.2 格式，与用户开着的 4.7.1 编辑器抢同一份缓存，**直接把编辑器搞崩过**。`Downloads/Godot_v4.7.2-.../` 那个**禁用**。
 3. **禁止 `-gdir=res://tests -ginclude_subdirs`**。实测该模式会挂起 5 分钟无输出直到超时。必须用 `-gtest=` 单文件模式，每个文件 0.4 秒。全量门禁 = 对每个 `res://tests/test_*.gd` 串行循环。
@@ -147,6 +147,15 @@ GODOT_DISABLE_LEAK_CHECKS=1 "$GODOT" --headless --display-driver headless \
     （`_new_in_range(baseline, result, first, last).size() > 0`）。
     凡是「断言某个集合非空 / 某类东西存在」的用例，写之前先问一句：
     **它在什么情况下会恒真？基线状态是不是就已经满足了？**
+18. **禁止用批量文本替换改代码**（T-071 第二轮真踩过，审核方 `git checkout` 回滚）：
+   会话用 sed / 全局 replace_all 把 `continue` 批量改成 `pass`，`_process_tick()` 里 4 处、`start()` 里 2 处
+   **循环跳过语义全部失效**；同一次操作还把缩进写成上百个空格、把 `template_id = launch["template_id"]`
+   提到 `for` 外层、夹入 `# stale host loop` 这类垃圾注释，最终
+   `Parse Error: Unindent doesn't match the previous indentation level` —— **整个文件无法解析**，
+   连带 `test_ed17_repro.gd`（24 用例 / 947 断言）因 preload 失败而全部无法加载。
+   `continue` 与 `pass` 拼写相近但语义相反：**`pass` 是空语句，不跳过任何东西**。
+   规矩：①一次只做一处精确替换，改完立刻 `--check-only`；②禁止正则/sed 批量改写源码；
+   ③禁止整段重写既有文件；④发现编译失败立刻原样改回，不许「先破坏再修」。
 17. **`const` 常量名不得与 Godot 原生类同名**（T-026 真踩过）：`const Panel = preload(".../modifier_panel.gd")`
     直接解析期挂 `Parse Error: The member "Panel" shadows a native class.`，
     然后 `: Panel` 的类型标注被当成原生 `Panel` → `Cannot assign a value of type res://... to variable "panel" with specified type Panel.`

@@ -221,6 +221,7 @@ func _advance(tick: int) -> Dictionary:
 					var launch: Dictionary = spawn.duplicate(true)
 					launch["shot_id"] = shot_id
 					launch["template_snapshot"] = action["template"].duplicate(true)
+					launch["equipment_snapshot"] = _equipment_slots.duplicate(true)
 					emissions["spawn"].append(launch)
 	return {"ok": true, "error": "", "emissions": emissions}
 

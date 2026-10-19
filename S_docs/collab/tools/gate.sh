@@ -15,7 +15,7 @@ if [ "${1:-}" = "--all" ] || [ $# -eq 0 ]; then
   done
 fi
 
-T=0; A=0; BAD=""; N=0
+T=0; A=0; BAD=""; WARN=""; N=0
 for f in "${FILES[@]}"; do
   [ -f "$f" ] || { echo "MISSING $f"; BAD="$BAD $f"; continue; }
   N=$((N+1))
@@ -23,8 +23,14 @@ for f in "${FILES[@]}"; do
   n=$(echo "$OUT" | grep -E "^Tests +[0-9]+" | grep -oE "[0-9]+" | head -1)
   a=$(echo "$OUT" | grep -E "^Asserts +[0-9]+" | grep -oE "[0-9]+" | head -1)
   T=$((T + ${n:-0})); A=$((A + ${a:-0}))
+  failn=$(echo "$OUT" | grep -E "^Failing Tests +[0-9]+" | grep -oE "[0-9]+" | head -1)
   if echo "$OUT" | grep -q "All tests passed"; then
     printf "GREEN %-46s tests=%-4s asserts=%-6s\n" "$(basename "$f")" "${n:-0}" "${a:-0}"
+  elif [ "${failn:-0}" = "0" ] && echo "$OUT" | grep -qE "pending/risky"; then
+    # 有用例诚实标 pending（能力缺口，非通过、非失败），必须单独可见，不能混进绿也不能算红
+    printf "YELLOW %-45s tests=%-4s asserts=%-6s  << pending\n" "$(basename "$f")" "${n:-0}" "${a:-0}"
+    echo "$OUT" | grep -E "\[Pending\]" | head -3
+    WARN="$WARN $(basename "$f")"
   else
     printf "RED   %-46s tests=%-4s asserts=%-6s  <<<\n" "$(basename "$f")" "${n:-0}" "${a:-0}"
     echo "$OUT" | grep -E "Failed\]|Parse Error|SCRIPT ERROR|Unexpected Errors" | sed -E 's/实际=.*//' | head -6
@@ -34,3 +40,4 @@ done
 echo "---------------------------------------------------------------"
 echo "FILES=$N TESTS=$T ASSERTS=$A"
 echo "FAILED:${BAD:- (none)}"
+echo "PENDING:${WARN:- (none)}"

@@ -1,0 +1,19 @@
+[remap]
+
+importer="csv_translation"
+type="Translation"
+uid="uid://dv1ufnrp1u2ph"
+
+[deps]
+
+files=["res://data/validation_rules.condition.translation", "res://data/validation_rules.severity.translation", "res://data/validation_rules.field.translation", "res://data/validation_rules.error.translation"]
+
+source_file="res://data/validation_rules.csv"
+dest_files=["res://data/validation_rules.condition.translation", "res://data/validation_rules.severity.translation", "res://data/validation_rules.field.translation", "res://data/validation_rules.error.translation"]
+
+[params]
+
+compress=1
+delimiter=0
+unescape_keys=false
+unescape_translations=true

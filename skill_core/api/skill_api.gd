@@ -12,6 +12,12 @@ const CodecScript = preload("res://skill_core/schema/cfg_codec.gd")
 const SchemaScript = preload("res://skill_core/schema/cfg_schema.gd")
 const ResolverScript = preload("res://skill_core/resolve/param_resolver.gd")
 const BodyScript = preload("res://skill_core/runtime/effect_body.gd")
+const ValidatorScript = preload("res://skill_core/validate/validator.gd")
+const IdentityRulesScript = preload("res://skill_core/validate/rules/r_identity.gd")
+const TypesRulesScript = preload("res://skill_core/validate/rules/r_types.gd")
+const ModifierRulesScript = preload("res://skill_core/validate/rules/r_modifier.gd")
+const PresentationRulesScript = preload("res://skill_core/validate/rules/r_present.gd")
+const IdentityMetaScript = preload("res://skill_core/validate/identity_meta.gd")
 
 # 职责：加载技能 CFG；参数：path 为 UTF-8 配置路径；返回：统一结果包；对应真源：第 16.1 节。
 func load_cfg(path: String) -> Dictionary:
@@ -45,6 +51,77 @@ func list_bricks(catalog: Variant, carrier: String = "", status: String = "") ->
 func validate(cfg: Dictionary, stage: StringName = STAGE_SAVE) -> Dictionary:
 	return _not_implemented("validate", String(stage))
 
+# Narrow validation entry: callers must provide the real validation facts explicitly.
+# The frozen validate(cfg, stage) stub remains unchanged for legacy callers.
+func validate_with_context(cfg: Dictionary, stage: StringName = STAGE_SAVE, context: Dictionary = {}) -> Dictionary:
+	var failure: Callable = func(path: String, message: String) -> Dictionary:
+		return {"ok": false, "path": path, "error": message, "diagnostics": []}
+	var required_context: Array[Dictionary] = [
+		{"key": "draft_revision", "type": "int"},
+		{"key": "submitted_paths", "type": "Array"},
+		{"key": "baseline_version_state", "type": "Dictionary"},
+		{"key": "migration_state", "type": "Dictionary"},
+		{"key": "probe_credentials", "type": "Dictionary"},
+		{"key": "preview_fingerprint", "type": "Dictionary"}
+	]
+	for requirement in required_context:
+		var key: String = str(requirement["key"])
+		if not context.has(key):
+			return failure.call("context." + key, "调用方必须显式提供 context." + key)
+		var value: Variant = context[key]
+		var expected: String = str(requirement["type"])
+		if expected == "int" and not value is int:
+			return failure.call("context." + key, "context.%s 必须是 int" % key)
+		if expected == "Array" and not value is Array:
+			return failure.call("context." + key, "context.%s 必须是 Array" % key)
+		if expected == "Dictionary" and not value is Dictionary:
+			return failure.call("context." + key, "context.%s 必须是 Dictionary" % key)
+	var cross_card_present: bool = context.has("cross_card_facts") or context.has("assembly_facts") or context.has("cross_card")
+	if not cross_card_present:
+		return failure.call("context.cross_card_facts", "调用方必须显式提供跨卡事实 context.cross_card_facts/assembly_facts/cross_card")
+
+	var load_json: Callable = func(path: String) -> Dictionary:
+		var file: FileAccess = FileAccess.open(path, FileAccess.READ)
+		if file == null:
+			return {}
+		var parsed: Variant = JSON.parse_string(file.get_as_text())
+		return parsed if parsed is Dictionary else {}
+	var identity: Variant = IdentityRulesScript.new()
+	var types: Variant = TypesRulesScript.new()
+	var modifier: Variant = ModifierRulesScript.new()
+	var presentation: Variant = PresentationRulesScript.new()
+	var identity_metadata: Dictionary = IdentityMetaScript.load_metadata()
+	var params_metadata: Dictionary = load_json.call("res://data/params_meta.json")
+	var presentation_metadata: Dictionary = load_json.call("res://data/presentation_meta.json")
+	if identity_metadata.is_empty() or params_metadata.is_empty() or presentation_metadata.is_empty():
+		return failure.call("validator.metadata", "真实校验元数据缺失")
+	if not identity.configure(identity_metadata):
+		return failure.call("validator.identity", identity.last_error)
+	if not types.configure(params_metadata):
+		return failure.call("validator.types", types.last_error)
+	if not modifier.configure(params_metadata):
+		return failure.call("validator.modifier", modifier.last_error)
+	if not presentation.configure(presentation_metadata):
+		return failure.call("validator.presentation", presentation.last_error)
+
+	var card_table: Array[Dictionary] = [
+		{"name": "identity", "card": identity, "first": 1, "last": 18},
+		{"name": "types", "card": types, "first": 19, "last": 38},
+		{"name": "modifier", "card": modifier, "first": 39, "last": 69},
+		{"name": "presentation", "card": presentation, "first": 70, "last": 84}
+	]
+	var spec: Dictionary = {"cards": [], "groups": [], "stages": {}}
+	for entry in card_table:
+		spec["cards"].append({"name": entry["name"], "card": entry["card"]})
+		spec["groups"].append({"first": entry["first"], "last": entry["last"], "card": entry["name"], "stages": []})
+	var stage_keys: Array[StringName] = [STAGE_FILLING, STAGE_CARD, STAGE_ASSEMBLY, STAGE_SAVE, STAGE_LOAD, STAGE_PREVIEW]
+	var all_groups: Array[int] = [0, 1, 2, 3]
+	for stage_key in stage_keys:
+		spec["stages"][stage_key] = all_groups.duplicate()
+	var validator: Variant = ValidatorScript.new()
+	if not validator.configure(spec):
+		return failure.call("validator", validator.last_error)
+	return validator.validate(cfg, stage, context)
 # 职责：解析 CFG 得到确定性运行定义；参数：cfg 为已加载定义；返回：统一结果包；对应真源：第 5—7、16.2 节。
 func resolve(cfg: Dictionary) -> Dictionary:
 	return _not_implemented("resolve", "cfg")

@@ -182,3 +182,92 @@ func test_save_reload_and_formal_preview_are_same_trace_with_nonempty_difference
 	assert_false(broken["equal"], str(broken))
 	assert_ne(broken["first_diff_index"], -1)
 	assert_eq(cfg["meta"]["version"], "1")
+
+
+func _cfg_v2() -> Dictionary:
+	var cfg: Dictionary = _cfg()
+	cfg["meta"]["version"] = "1.0.0"
+	return cfg
+
+
+func _validation_context(cfg: Dictionary) -> Dictionary:
+	var catalog_entries: Array = _json("res://data/bricks/brick_catalog.json")
+	var catalog: Dictionary = {}
+	for entry in catalog_entries:
+		if entry is Dictionary and entry.get("brick_id", "") == cfg["bricks"][0]["brick_id"]:
+			catalog[entry["brick_id"]] = {"resolved": true, "status": entry.get("status", "")}
+	var behaviors: Dictionary = {}
+	for index in range(cfg["bricks"].size()):
+		behaviors["bricks[%d]" % index] = ["damage"]
+	return {
+		"draft_revision": 2,
+		"submitted_paths": ["schema_version", "skill_id", "meta", "bricks", "params", "presentation", "runtime_hints"],
+		"roles": ["mage"], "pools": ["starter"], "tags": ["ranged"],
+		"catalog": catalog, "card_behaviors": behaviors,
+		"outputs": {}, "definitions": [], "current_source": "",
+		"capabilities": {"params": {"summon": false}}, "item_category": "relic", "exposed": {},
+		"live_requests": [], "stack_operations": {}, "set_counts": {}, "reset_writes": [],
+		"derivation_analysis": {"truncated_paths": []},
+		"budget_estimate": {"total_requested_instances": 1, "capped": false, "guarantee_bindings": []},
+		"produced_types": {"spawn_ref": "effect_template"}, "record_fields": _json("res://data/record_fields.json"),
+		"condition_registry": {"condition_ref": {"accessible_fields": ["source", "target"], "part_filters": []}},
+		"self_chain_evidence": {"depth_bound": true, "source_mark_bound": true, "cooldown_bound": true, "budget_bound": true, "worst_case_note_complete": true},
+		"project_limits": {"defaults": {"cast_budget": 16}, "hard_caps": {"max_generation": 4, "cast_budget": 64, "max_chain_depth": 8}},
+		"player_attribute_bindings": {}, "resource_resolution": {}, "default_applications": [],
+		"baseline_version_state": {"baseline_version": "1.0.0", "current_underlying_version": "1.0.0", "operation": "save"},
+		"migration_state": {"migrating": false, "source_version": "0.1", "target_version": "0.1", "path_complete": true, "lossless": true},
+		"probe_credentials": {}, "preview_fingerprint": {"preview_fingerprint": "v2", "current_fingerprint": "v2", "operation": "save"},
+		"cross_card_facts": {}
+	}
+
+
+func _block_diagnostics(result: Dictionary) -> Array:
+	var blocks: Array = []
+	for diagnostic in result.get("diagnostics", []):
+		var severity: int = int(diagnostic.severity) if diagnostic is RefCounted else int(diagnostic.get("severity", -1))
+		if severity == 0:
+			blocks.append(diagnostic)
+	return blocks
+
+
+func test_v2_validate_with_context_returns_all_six_stages_without_blocks() -> void:
+	var cfg: Dictionary = _cfg_v2()
+	var context: Dictionary = _validation_context(cfg)
+	var api: RefCounted = ApiScript.new()
+	var stages: Array[StringName] = [ApiScript.STAGE_FILLING, ApiScript.STAGE_CARD,
+		ApiScript.STAGE_ASSEMBLY, ApiScript.STAGE_SAVE, ApiScript.STAGE_LOAD, ApiScript.STAGE_PREVIEW]
+	var revisions: Array[int] = []
+	for stage in stages:
+		var result: Dictionary = api.validate_with_context(cfg, stage, context)
+		print("T078 v2 validation ", String(stage), ": ", result)
+		assert_true(result.has("ok"), str(result))
+		assert_eq(_block_diagnostics(result).size(), 0, "%s must have zero block diagnostics" % String(stage))
+		revisions.append(int(result.get("revision", -1)))
+	assert_eq(revisions.size(), 6)
+	for revision in revisions:
+		assert_eq(revision, 2)
+
+
+func test_v2_validate_with_context_rejects_invalid_skill_id_with_nonempty_block_probe() -> void:
+	var cfg: Dictionary = _cfg_v2()
+	cfg["skill_id"] = "INVALID"
+	var result: Dictionary = ApiScript.new().validate_with_context(cfg, ApiScript.STAGE_SAVE, _validation_context(cfg))
+	print("T078 v2 invalid identity probe: ", result)
+	assert_false(result["ok"], str(result))
+	var matching: Array = []
+	for diagnostic in result.get("diagnostics", []):
+		var rule_id: String = str(diagnostic.rule_id) if diagnostic is RefCounted else str(diagnostic.get("rule_id", ""))
+		var path: String = str(diagnostic.path) if diagnostic is RefCounted else str(diagnostic.get("path", ""))
+		var severity: int = int(diagnostic.severity) if diagnostic is RefCounted else int(diagnostic.get("severity", -1))
+		if rule_id == "V-002" and path == "skill_id" and severity == 0:
+			matching.append(diagnostic)
+	assert_eq(matching.size(), 1, "invalid skill_id must produce one concrete V-002 block")
+
+
+func test_validate_with_context_does_not_fabricate_missing_context() -> void:
+	var cfg: Dictionary = _cfg_v2()
+	var context: Dictionary = _validation_context(cfg)
+	context.erase("draft_revision")
+	var result: Dictionary = ApiScript.new().validate_with_context(cfg, ApiScript.STAGE_SAVE, context)
+	assert_false(result["ok"], str(result))
+	assert_eq(result.get("path", ""), "context.draft_revision")
