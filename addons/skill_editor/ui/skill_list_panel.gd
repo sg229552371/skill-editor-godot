@@ -31,8 +31,11 @@ func open_skill() -> void:
 		_message.text = "功能未就绪：core API 尚无编辑器可执行桥接。"
 		return
 	var result: Dictionary = api.load_cfg(path)
-	if not result.get("ok", false):
-		_message.text = "功能未就绪或打开失败：core 未返回成功；列表保持不变。"
+	# openable 与 ok 分离：ok 表示内容干净，openable 表示内容读得出来（可打开修复）。
+	# 旧 bridge 不返回 openable 时回退到 ok，保持对桩的兼容。
+	var openable: bool = bool(result.get("openable", result.get("ok", false)))
+	if not openable:
+		_message.text = "功能未就绪或打开失败：core 未返回可打开内容；列表保持不变。"
 		return
 	var data: Variant = result.get("data")
 	if not data is Dictionary:

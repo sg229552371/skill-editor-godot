@@ -63,9 +63,30 @@ func load_cfg(path: String) -> Dictionary:
 	if not supported is Array or supported.is_empty():
 		return failure.call("metadata", "身份元数据缺失或未登记 supported_schema_versions", [])
 	var declared: String = str(cfg.get("schema_version", ""))
-	var version_supported: bool = supported.has(declared)
+	var version_supported: bool = (not declared.is_empty()) and supported.has(declared)
+	var declared_missing: bool = declared.is_empty()
+	if not version_supported:
+		# 只剔除「因版本不受支持而产生的 schema_version 枚举诊断」，
+		# 其余结构/类型诊断一律保留 —— 不允许「写个 9.9 就什么都放行」。
+		var kept: Array = []
+		for entry in diagnostics:
+			if not declared_missing and str(entry.get("path")) == "schema_version":
+				continue
+			kept.append(entry)
+		diagnostics = kept
+	if declared_missing:
+		var missing: RefCounted = Diagnostic.new()
+		missing.rule_id = "API"
+		missing.code = "SCHEMA_VERSION_MISSING"
+		missing.path = "schema_version"
+		missing.actual = ""
+		missing.expected = "必须显式声明 schema_version"
+		missing.hint = "缺少版本号无法判定兼容性，按阻止保存处理"
+		diagnostics.append(missing)
 	var blocking: bool = not diagnostics.is_empty()
-	return {"ok": (not blocking) or (not version_supported), "cfg": cfg, "data": cfg, "path": path,
+	# data 为既有 UI 消费的增量别名（U-37 第 3 条只增键），给副本：调用方改 data 不得污染 cfg。
+	var alias: Dictionary = cfg.duplicate(true)
+	return {"ok": not blocking, "openable": true, "cfg": cfg, "data": alias, "path": path,
 		"diagnostics": diagnostics,
 		"error": "" if not blocking else "CFG 存在结构或类型问题，详见 diagnostics",
 		"fingerprint": text.sha256_text(), "bytes": text.to_utf8_buffer().size(),
@@ -101,11 +122,12 @@ func save_cfg(path: String, cfg: Dictionary) -> Dictionary:
 	var codec: RefCounted = CodecScript.new()
 	var text: String = codec.encode(cfg)
 	if text.is_empty():
-		return failure.call("cfg", "CFG 序列化失败: %s" % codec.last_error, [])
+		return failure.call("cfg", "序列化器返回空文本，拒绝写入（codec 结构校验已通过，属序列化层异常）", [])
 	var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
 	if file == null:
 		return failure.call("path", "无法写入 CFG（%s）: %s" % [error_string(FileAccess.get_open_error()), path], [])
 	file.store_string(text)
+	file.flush()
 	var write_error: int = file.get_error()
 	file.close()
 	if write_error != OK:

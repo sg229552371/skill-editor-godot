@@ -160,7 +160,10 @@ func test_load_valid_cfg_returns_identity_and_version_state() -> void:
 	assert_true(bool(loaded["version_supported"]), "0.1 必须是已支持版本")
 	assert_false(bool(loaded["read_only"]))
 	assert_eq(String(loaded["path"]), path)
-	assert_eq(loaded["data"], loaded["cfg"], "data 是 cfg 的增量别名（既有 UI 读 data）")
+	assert_true(loaded["data"] is Dictionary, "data 必须是 map，供既有 UI 读取")
+	assert_eq(loaded["data"]["skill_id"], "mage_active_t081", "data 必须带真实内容而非空壳")
+	assert_eq(_canonical(loaded["data"]), _canonical(loaded["cfg"]), "data 与 cfg 内容必须一致")
+	assert_true(bool(loaded["openable"]))
 
 
 # 验收 9（20.1.4 保存重载凭据）：值无损 —— 深比较 + 指纹对内容敏感。
@@ -245,24 +248,91 @@ func test_load_structural_problem_reports_not_ok_but_returns_content() -> void:
 	assert_gt(loaded["diagnostics"].size(), 0, "残缺文件必须带诊断")
 	assert_false(String(loaded["error"]).is_empty())
 	assert_true(loaded["cfg"] is Dictionary, "失败仍须带回内容，否则编辑器无法打开修复")
-	assert_eq(loaded["data"], loaded["cfg"], "data 为 cfg 的增量别名，供既有 UI 消费")
+	assert_true(bool(loaded["openable"]), "可解析即 openable=true，与 ok 分离")
+	assert_true(loaded["data"] is Dictionary, "data 别名在失败路径同样必须带内容")
+	assert_eq(loaded["data"]["bricks"].size(), 1, "data 必须携带真实内容")
+
+
+# 验收 14：data 是**副本**，调用方改写不得污染 cfg（别名语义显式化）。
+func test_data_alias_is_isolated_copy() -> void:
+	var api: RefCounted = ApiScript.new()
+	var path: String = TMP_DIR + "/alias.yaml"
+	assert_true(api.save_cfg(path, _cfg())["ok"])
+	var loaded: Dictionary = api.load_cfg(path)
+	assert_eq(loaded["data"]["skill_id"], "mage_active_t081")
+	loaded["data"]["skill_id"] = "mutated_by_caller"
+	assert_eq(loaded["cfg"]["skill_id"], "mage_active_t081", "改 data 不得污染 cfg")
+
+
+# 验收 15：缺 schema_version 不得被当成「版本不受支持」而放行。
+func test_missing_schema_version_is_blocking() -> void:
+	var api: RefCounted = ApiScript.new()
+	var path: String = TMP_DIR + "/no_version.yaml"
+	var codec: RefCounted = CodecScript.new()
+	var text: String = codec.encode(_cfg()).replace("schema_version: \"0.1\"\n", "")
+	assert_ne(text, codec.encode(_cfg()), "夹具必须真的删掉了 schema_version")
+	var file: FileAccess = FileAccess.open(path, FileAccess.WRITE)
+	file.store_string(text)
+	file.close()
+	var loaded: Dictionary = api.load_cfg(path)
+	assert_false(loaded["ok"], "缺版本必须阻止（不是「版本不受支持」）")
+	assert_true(bool(loaded["openable"]), "但仍要能打开")
+	var codes: PackedStringArray = []
+	for entry in loaded["diagnostics"]:
+		codes.append(str(entry.get("code")))
+	assert_true(codes.has("SCHEMA_VERSION_MISSING"), "必须给出专用原因码: " + str(codes))
+
+
+# 验收 16：版本不受支持但结构干净 → 只读放行，且 ok:true 时 error 必须为空。
+func test_clean_unknown_version_passes_with_empty_error() -> void:
+	var api: RefCounted = ApiScript.new()
+	var path: String = TMP_DIR + "/clean_future.yaml"
+	var future: Dictionary = _cfg()
+	future["schema_version"] = "9.9"
+	assert_true(bool(CodecScript.save_cfg(path, future).get("ok", false)))
+	var loaded: Dictionary = api.load_cfg(path)
+	assert_true(loaded["ok"], str(loaded["diagnostics"]))
+	assert_eq(String(loaded["error"]), "", "ok:true 不允许带 error 文本")
+	assert_true(bool(loaded["read_only"]))
+	assert_eq(loaded["diagnostics"].size(), 0, "只因版本枚举产生的诊断应被剔除，其余不得残留")
+
+
+# 验收 17：版本不受支持 **且** 结构有问题 → 仍必须阻止（不许拿 9.9 当免死金牌）。
+func test_unknown_version_with_structural_error_is_blocked() -> void:
+	var api: RefCounted = ApiScript.new()
+	var path: String = TMP_DIR + "/dirty_future.yaml"
+	var dirty: Dictionary = _cfg()
+	dirty["schema_version"] = "9.9"
+	dirty["meta"]["version"] = 1.5
+	assert_true(bool(CodecScript.save_cfg(path, dirty).get("ok", false)))
+	var loaded: Dictionary = api.load_cfg(path)
+	assert_false(loaded["ok"], "版本不支持不能豁免结构/类型诊断")
+	assert_gt(loaded["diagnostics"].size(), 0)
 
 
 
-## 值比较用规范化串：字典按 key 排序、整值浮点收敛为整数（YAML 解析可能给出 float）。
+## 值比较用规范化串：**带类型标签 + 字符串转义**，避免「1 / 1.0 / "1"」「逗号分隔符」互相碰撞。
 func _canonical(value: Variant) -> String:
+	if value == null:
+		return "null"
 	if value is Dictionary:
 		var keys: Array = value.keys()
 		keys.sort()
 		var parts: PackedStringArray = []
 		for key in keys:
-			parts.append("%s=%s" % [str(key), _canonical(value[key])])
-		return "{" + ",".join(parts) + "}"
+			parts.append("k=%s=>%s" % [JSON.stringify(str(key)), _canonical(value[key])])
+		return "map{" + ",".join(parts) + "}"
 	if value is Array:
 		var items: PackedStringArray = []
 		for item in value:
 			items.append(_canonical(item))
-		return "[" + ",".join(items) + "]"
-	if value is float and float(value) == floor(float(value)):
-		return str(int(value))
-	return str(value)
+		return "arr[" + ",".join(items) + "]"
+	if value is String:
+		return "str:" + JSON.stringify(value)
+	if value is bool:
+		return "bool:" + ("true" if value else "false")
+	if value is int:
+		return "int:%d" % value
+	if value is float:
+		return "float:" + String.num(float(value), 10)
+	return "other:" + str(value)
