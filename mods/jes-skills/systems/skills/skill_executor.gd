@@ -16,26 +16,17 @@ const BEHAVIORS := {
 	&"bhv_buff_self": "res://mods/jes-skills/systems/skills/behavior/bhv_buff_self.gd",
 }
 
-## 整数型 stat（规格 §3.5）：管线末端统一 floor 一次
-const INT_STATS := [&"projectile_count", &"chain_count", &"fork_count", &"pierce"]
+## 整数型 stat（规格 §3.5）：真源在 StatRegistry.INT_STATS，这里不再另写一份。
+## 管线末端统一 floor 一次，中途不取整。
 
 
 ## 通用倍率型 stat：值域管线走 (base+flat)×(1+inc)×more，base=1.0。
 ## area_size（范围半径倍率）/ duration（持续时间倍率）共用此求值。
+## 聚合走 StatsComponent 的脏标记缓存（§13.2 第 9 条）；MORE 是连乘不是求和。
 static func mult_stat(stat: StringName, stats: StatsComponent) -> float:
-	var flat := 0.0
-	var inc := 0.0
-	var more := 1.0
-	for m in stats.get_modifiers():
-		if m.stat != stat:
-			continue
-		match m.op:
-			StatModifier.Op.FLAT_ADD:
-				flat += m.value
-			StatModifier.Op.INCREASED:
-				inc += m.value
-			StatModifier.Op.MORE:
-				more *= 1.0 + m.value / 100.0
+	var flat := stats.aggregate(stat, StatModifier.Op.FLAT_ADD)
+	var inc := stats.aggregate(stat, StatModifier.Op.INCREASED)
+	var more := stats.multiplier_of(stat)
 	return (1.0 + flat) * (1.0 + inc / 100.0) * more
 
 
@@ -79,8 +70,9 @@ static func cast(
 			else:
 				params[target_key] = ov
 		# ⑥ 行为参数：整数型 stat 末端统一 floor 一次，中途不取整
-		for s in INT_STATS:
-			params[s] = int(_stat_value(s, params, stats, skill.tags, part.damage_channel))
+		# floor 收口点只有 StatRegistry.finalize 一处，调用方不自己判断类型
+		for s in StatRegistry.INT_STATS:
+			params[s] = int(StatRegistry.finalize(s, _stat_value(s, params, stats, skill.tags, part.damage_channel)))
 		# 每发投射物一条计划；其他行为单条
 		var count := 1
 		if part.behavior_id == &"bhv_projectile":

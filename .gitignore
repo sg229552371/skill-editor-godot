@@ -18,3 +18,6 @@ Thumbs.db
 
 # Local agent memory / workspace data
 .workbuddy/
+
+# 本机 Godot 版本固定（GodotHub 生成，机器相关）
+.godotrc

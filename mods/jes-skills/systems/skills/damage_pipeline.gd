@@ -9,10 +9,11 @@
 # - 转换在 ② 之后 ④ 之前；多源相加、超 100% 归一化；转换后吃新类型词缀；禁止链式
 # - ④ 与 ⑤ 之间不得插入任何逻辑
 # - stat 命名约定：元素伤害 stat 为 &"<element>_damage"，元素键为 &"<element>"
+#   后缀常量真源在 StatRegistry（避免两处各写一份字符串）
 class_name DamagePipeline
 extends RefCounted
 
-const DAMAGE_SUFFIX := "_damage"
+const DAMAGE_SUFFIX := StatRegistry.DAMAGE_SUFFIX
 
 
 ## 纯函数：输入基础元素伤害与 stats，输出各元素最终伤害。

@@ -1,4 +1,6 @@
 # 沙盒投射物（S3）：消费 ProjectilePool 槽位的可视化投射物。
+# ⚠️ 已被 M8 的 ProjectileField（SoA）+ SandboxProjectileLayer（MultiMesh）取代，
+#    场景不再使用本类，留作「每发一个 Node2D」的对照实现，勿在新代码里引用。
 # 几何命中（点-圆距离判定），不依赖物理引擎；伤害结算仍走 HitboxComponent 通用闭环。
 # 硬门禁：无 gem_id 分支；无 Timer 节点；时间推进由外部 tick(dt) 驱动。
 class_name SandboxProjectile
@@ -12,6 +14,7 @@ var radius: float = 12.0
 var direction: Vector2 = Vector2.RIGHT
 var packet: DamagePacket = null
 var attacker_stats: StatsComponent = null
+var attacker: Node = null        # 发射者本体（tick 中跳过，防止出生即自伤）
 var pierce: int = 0
 var pool: ProjectilePool = null
 var slot: ProjectileSlot = null
@@ -32,7 +35,8 @@ func setup(p_packet: DamagePacket, p_attacker_stats: StatsComponent,
 	hitbox = HitboxComponent.new()
 	hitbox.packet = packet
 	hitbox.attacker_stats = attacker_stats
-	position = Vector2.ZERO
+	# 注意：不在这里重置 position —— 出生点由演示层在 setup 前后自行指定，
+	# 否则会把 _exec_projectile 先设好的 global_position 抹成 (0,0)。
 
 
 ## 外部驱动：移动 + 寿命 + 几何命中检测。
@@ -49,6 +53,8 @@ func tick(dt: float, targets: Array, rng: Object) -> void:
 			_hit_cooldowns.erase(k)
 	# 几何命中：点-圆距离
 	for t in targets:
+		if t == attacker:
+			continue   # 不与发射者自身判定
 		if t.is_dead():
 			continue
 		var tid: int = t.get_instance_id()
@@ -56,7 +62,8 @@ func tick(dt: float, targets: Array, rng: Object) -> void:
 			continue
 		var to_t: Vector2 = t.global_position - global_position
 		if to_t.length() <= radius + t.radius():
-			var hit: Dictionary = hitbox.strike(t.hurtbox, rng)
+			# defender 契约：必须传带 .stats 的实体本身（与 SandboxMain._strike 一致）
+			var hit: Dictionary = hitbox.strike(t.hurtbox, rng, t)
 			_hit_cooldowns[tid] = HIT_COOLDOWN_SEC
 			# 未穿透即消亡
 			if pierce <= 0:

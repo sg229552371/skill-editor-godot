@@ -225,7 +225,9 @@ func _defender() -> DefenderStub:
 class _FakeRng:
 	extends RefCounted
 	var fixed_value: float = 0.0
-	func randf() -> float:
+	# RNG 契约（§9.4）：DamageCalculator 只认 next_float(stream)，
+	# 假体固定返回同一个值，用于强制"必暴 / 必不暴"两种分支。
+	func next_float(_stream: StringName) -> float:
 		return fixed_value
 
 

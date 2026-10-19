@@ -22,23 +22,49 @@
 
 **交付**：按 §11 的 M0–M8 顺序提交，每阶段附测试报告（通过数/失败数/未覆盖项）。
 
-## 0.1 施工进度（2026-10-19 终局更新）
+## 0.1 施工进度（2026-10-19 R7 校准）
 
-全部里程碑 **M0–M8 已完成**，全量测试 **85/85（269 asserts）100% 绿**。
+**M0–M8 的代码、headless 测试、桌面渲染压测均已完成**，全量 **242 用例 / 1433 断言 100% 绿**，
+headless 无孤儿节点、无 ObjectDB 泄漏；300 弹 × 80 敌的桌面渲染实测 **1.65 ms/帧（605 fps）**。
+
+> **注意口径**：这句话**不等于"项目开发完成"**。§0.2 仍有 2 项收尾：Android 真机未实测（无设备/SDK）、
+> M6 门禁 `W1` 口径待人类定义。R2 那次就是因为本文档自称"全完"才被人类抓出与代码不符，同一坑不踩第二次。
+
+> **口径修正（R2）**：本表原先把「DoT / 异常 / 投射物池」记作 M8，与 §11 的 M8（性能架构）**重名冲突**。
+> 现按 §11 口径拆分：功能层归 **M6.5**，M8 只指 §9 的性能架构。
+> **R4**：M8 逻辑层全落地。**R5**：RNG 契约统一 + G8 统计用例。**R6**：内容全量 .tres 化。
+> **R7**：注册表 / 条件系统 / SkillInstance / 装配缓存 / 脏标记 / 召唤物三规则 / CI / 导出预设 / 渲染压测。
 
 | 里程碑 | 状态 | 测试 |
 |---|---|---|
-| M0 环境/GUT | ✅ | 2 |
-| M1 StatsComponent/修饰符管线 | ✅ | 8 |
-| M2 DamageConversion/SkillData | ✅ | 9 |
-| M3 SupportGem/SocketGraph 装配 | ✅ | 6 |
-| M4 DamagePacket/Calculator/命中与击杀 | ✅ | 16 |
-| M5 ResourcePool/冷却充能/技能栏 | ✅ | 14 |
-| M6 行为组件（7 项） | ✅ | 13 |
-| M7 TriggerManager/CombatEventBus | ✅ | 10 |
-| M8 DoT 全局 ticker/AILMENT 通道隔离/ProjectilePool 硬上限 | ✅ | 7 |
+| M0 环境/GUT/CI | ✅ **R7 补 CI** | 2 + GitHub Actions |
+| M1 StatsComponent/修饰符管线 | ✅ **R7 加脏标记缓存** | 8 + 10（`test_stats_dirty_cache.gd`） |
+| M2 DamageConversion/SkillData（.tres 驱动） | ✅ R6 全量内容真源化 | 9 + 8（`test_content_registry.gd`） |
+| M3 SupportGem/SocketGraph 装配（G5–G7 + G7b） | ✅ **R7 补 G7b 到 M3 主测试 + 装配缓存** | 11 + 10（`test_m3_assembly_cache.gd`）+ 沙盒 14 |
+| M4 DamagePacket/Calculator/命中与击杀 | ✅ R5 闭合 G8 | 16 + 7（`test_m4_g8_statistics.gd`） |
+| M5 ResourcePool/冷却充能/技能栏（8 槽） | ✅ **R7 加 SkillInstance** | 14 + 11（`test_m5_skill_instance.gd`） |
+| M6 行为组件（7 项）+ 召唤物管理 | ✅ **R7 补 §8.2 三规则** | 13 + 10（`test_minion_registry.gd`） |
+| **M6.5** DoT 全局 ticker / AILMENT 通道隔离 / ProjectilePool 硬上限 | ✅ | 7 |
+| M7 TriggerManager/CombatEventBus（G10 限流、链深保护） | ✅ | 10 |
+| **M8** 性能架构（SoA / 空间哈希 / effect_pool / RngService / MultiMesh） | ✅ **R7 补渲染压测与分配尖刺** | 46 + 渲染 bench |
+| **扩展层** 属性注册表 / 标签注册表 / 条件门（§3.5 / §6） | ✅ **R7 新建** | 12（`test_registries.gd`）+ 10（`test_condition_spec.gd`） |
 
-关键实现位置：`mods/jes-skills/systems/skills/`（核心）+ `behavior/`（行为）+ `combat/`（战斗管线/DoT/池）+ `data/`（数据类）；测试 `mods/jes-skills/tests/skills/test_m0…m8.gd`。
+### 0.2 已知缺口（按优先级）
+
+| # | 缺口 | 对应条款 | 现状 |
+|---|---|---|---|
+| 1 | ~~M8 性能层~~ | §9.1–§9.4、§11 M8 | ✅ R4 闭合 |
+| 2 | ~~G8 统计用例缺失~~ | §12 G8、§11 M4 | ✅ R5 闭合（均值 114.70 / 暴击率 29.4% / DPS 误差 0.044%） |
+| 3 | ~~SkillInstance 缺失~~ | §5.1、§5.3、§13.1 | ✅ **R7 闭合**：`skill_instance.gd`，一槽一实例、**不持槽数据副本**、冷却跟槽走 |
+| 4 | ~~装配缓存~~ | §5.2 第 5 条 | ✅ **R7 闭合**：`assemble_cached`，key=(gem_id, level, 排序 support_ids, links)；命中返回深拷贝（防 source_id 污染） |
+| 5 | ~~StatRegistry / TagRegistry~~ | §3.5、§10 util/ | ✅ **R7 闭合**：`util/stat_registry.gd`、`util/tag_registry.gd`，含整数型末端 floor 唯一收口 + 内容一致性校验 |
+| 6 | ~~条件系统 `condition_spec.gd`~~ | §6 第 4 条、§10 data/ | ✅ **R7 机制闭合**：`data/condition_spec.gd` 7 种判定 + AND 语义 + `SkillInstance.condition_context()` 接入点。**水晶具体效果仍待 v0.5 文档**，本规格不定义 |
+| 7 | ~~内容 .tres 化~~ | §10、附录 C 第 1 条 | ✅ R6 闭合（17 个 .tres，答案 = 0） |
+| 8 | **Android 真机 60fps 未实测** | §14 | 预设与 `Mobile` feature 已就位（R7）；本机无 Android SDK/设备，**真机帧率仍未验**。桌面侧见 §9.7 |
+| 9 | ~~M8 渲染层未验~~ | §11 M8 | ✅ **R7 桌面侧闭合**：300 弹 × 80 敌端到端 **1.65 ms/帧（605 fps）**，见 §9.7。Android 侧并入 #8 |
+| 10 | **M6 门禁口径不明** | §11 M6「W1 内容集 8 主动全部上线」 | `W1` 全文仅此一处出现、无定义。实际内容为 7 个主动技能 + 槽 7 触发器复制实例。**待人类定义 W1 指什么** |
+
+**M3 结束门禁复核（R1 后）**：G5/G6/G7/G7b 全部有断言且通过；`assemble()` 无 `if gem_id ==` 分支。
 
 ---
 
@@ -163,6 +189,9 @@ class_name SupportGemData extends Resource
 **装配规则（必须按此顺序，不可交换）**：
 
 ```
+0. 【镶嵌前置校验 · 2026-10-19 R1】socket_check(slot, support)：
+   把待镶嵌辅助加入后整组是否仍合法（含孔位上限）；不合法则拒绝镶嵌，不进槽位
+   —— 对齐 PoE 2：非法组合在"放入那一刻"就被拦住，运行时永不出现不兼容状态
 1. 从 SkillData.allowed_support_tags 与 support.require_tags / exclude_tags 求交集 → 判定兼容
 2. 先把所有已装配辅助的 add_tags 追加到"有效标签集"（多轮判定，直到收敛）
    —— 即：靠前的辅助可以"打开"靠后辅助的兼容性
@@ -171,6 +200,16 @@ class_name SupportGemData extends Resource
 5. cost = base_cost × Π(cost_multiplier) × skill_cost_multiplier
 6. 检查 conflicts_with：命中两件即装配失败，回滚全部注入
 ```
+
+**双语义（缺一不可，不要互相取代）**：
+
+| 层 | 函数 | 语义 | 对齐 |
+|---|---|---|---|
+| 准入层（UI/镶嵌动作） | `SocketGraph.socket_check()` | 非法组合**不能放进去**（返回 `ERR_INCOMPATIBLE_SUPPORT` / `ERR_CONFLICT` / `ERR_NO_SOCKET`） | PoE 2 |
+| 校验层（装配函数） | `SocketGraph.assemble()` | 对已存在的配置 fail-fast：**装配失败 + 明确错误码，不得静默忽略** | 本规格 G7 |
+
+即：G7 保留为"数据错误兜底"（编辑器/测试/存档校验），正常游玩路径由准入层保证永不触发。
+**禁止**：把二者简化成"逐颗跳过不兼容辅助继续算"（那是 PoE 1 / PoB 的语义，本作不采用）。
 
 **禁止**：把兼容判定写成字符串包含判断（`stat_name.contains("area")`）。标签是精确匹配的 `StringName`。
 
@@ -312,6 +351,12 @@ assemble(slot) -> AssemblyResult:
      以便后续开启链式约束时无需重构）
   4. 输出 AssemblyResult { modifiers[], behavior_overrides{}, effective_tags, cost_multiplier }
   5. 缓存结果，key = (gem_id, level, support_ids 排序后哈希)；装配是纯函数
+
+socket_check(slot, support) -> AssemblyResult   # 【2026-10-19 R1】镶嵌准入（PoE2 语义）
+  1. slot 无主动宝石 → ERR_NO_ACTIVE_GEM
+  2. slot.supports.size() >= slot.socket_count → ERR_NO_SOCKET
+  3. clone_slot(slot) + append(support) → assemble() 的结果原样返回
+can_socket(slot, support) -> bool                # socket_check(...).ok 的快捷方式
 ```
 
 **必须**：装配结果**只包含数据**，不持有 Node 引用。这样"换辅助 = 重算 + 重挂 modifier"，无需销毁重建实例。
@@ -452,10 +497,91 @@ func release(slot: ProjectileSlot) -> void
 class_name RngService
 # 分流：damage / loot / spawn / cosmetic
 # 同一 seed + 同一输入序列 ⇒ 同一结果（支持回放与复现 BUG）
-func roll(stream: StringName, tick: int, salt: int) -> float
+func roll(stream: StringName, tick: int, salt: int) -> float   # 无状态：调用方自带 tick/salt
+func next_float(stream: StringName) -> float                   # 游标：每条流各自计数，热路径用
+func next_chance(stream: StringName, probability: float) -> bool
+func reset_cursors() -> void                                   # 回放：从头重演
 ```
 
 **必须**：战斗结果相关的 roll 不得与表现层（粒子随机）共用流，否则改动特效会改变战斗结果。
+
+**R5 补充：两种取数方式各管一段**
+
+| 方式 | 用在哪 | 为什么 |
+|---|---|---|
+| `roll(stream, tick, salt)` | 有明确 tick 的离散事件（战利品结算、刷怪） | 无状态，同一 (tick, salt) 永远同值，天然可重入 |
+| `next_float(stream)` | 命中暴击这类没有天然 tick 的热路径 | 每条流一个游标，第 n 次取值恒等于 `roll(stream, n, 0)` |
+
+**关键性质**：游标**按流独立**。表现层狂吃 5000 次 `cosmetic`，`damage` 流第 n 个值纹丝不动 —— 这才是
+"改特效不改变战斗结果"的真正保证，已由 `test_g8c_cosmetic_stream_does_not_shift_damage_sequence` 断言。
+
+**接入点（R5 实测）**：`DamageCalculator.resolve` 的 rng 契约统一为 `next_float(stream)`，
+暴击只消费 `STREAM_DAMAGE`；沙盒（`sandbox_main.gd`）与压测脚本均已从 `RandomNumberGenerator` 切换。
+测试假体 `_FakeRng` 也实现同一方法，**不允许出现第二套 RNG 契约**。
+
+### 9.5 实测数据（R4，Godot 4.7.1 headless，纯逻辑层）
+
+跑法：`godot --headless --path . -s res://mods/jes-skills/tests/perf/bench_projectiles.gd`
+
+| 项 | 结果 | 判据 |
+|---|---|---|
+| 稳态 300 弹 × 80 敌，`ProjectileField.tick` | **0.439 ms/帧** | 同屏 300 发 < 4ms |
+| 网格重建（80 敌 insert） | 0.062 ms/帧 | — |
+| 逻辑层合计 | **0.501 ms/帧（16.6ms 预算的 3.0%）** | 达标 |
+| 每帧候选判定数 | **7 个**（暴力全扫为 24000） | §9.2 预期 < 2000 |
+| 暴力路径对照 | 23–25 ms/帧 | — |
+| 加速比 | **52–56×**（多次运行波动，取两次实测 56.3× / 52.3×） | — |
+
+说明：
+- 上表**不含渲染**（headless 无渲染器）。渲染侧是 1 个 `MultiMeshInstance2D` = 1 次 draw call，与弹数无关；
+  每帧成本只有 `visible_instance_count` 内的 `set_instance_transform_2d`（300 次结构写入）。
+- 候选数 7 而不是几百：敌人撒在 1600×1200，弹丸半径 8 + 目标半径 20 = 28 的查询半径，格子 64 时通常只覆盖 1 格。
+- 表中 300 弹是「同屏并发」，折算发射速率远超 §9.1 的 100 发/秒。
+
+### 9.6 对象池实测（R4）
+
+| 池 | 硬上限 | 满时策略 | 测试 |
+|---|---|---|---|
+| `ProjectileField`（内含 `ProjectilePool`） | 512 | 回收 seq 最小的活跃槽位 | `test_m8_projectile_field` pf12 |
+| `EffectPool`（GPUParticles2D） | 128 | 回收最旧的活跃槽位，`emitting` 开关复用 | `test_m8_effect_pool` ef5/ef6/ef7 |
+
+**必须**：两个池都**永不扩容**。节点数/槽位数在测试里被断言恒等于 cap（ef7：连发 20 次，子节点仍为 4）。
+
+---
+
+### 9.7 渲染层与整帧实测（R7，桌面 GPU）
+
+§11 M8 的门禁原文是「100 弹并发**同屏** ≥ 60fps（目标机型）」，这必须含渲染，不能只报逻辑层。
+本节补的就是渲染侧证据。
+
+**跑法**（不能加 `--headless`，dummy 渲染器不画像素）：
+
+```bash
+godot --path . --rendering-driver opengl3 -s res://mods/jes-skills/tests/perf/bench_render.gd
+```
+
+| 项 | 数值 |
+|---|---|
+| 场景 | 300 弹 × 80 敌，240 帧（60 帧预热） |
+| 绘制方式 | 单个 `MultiMeshInstance2D`，**1 次 draw call**（与沙盒同一套实现，非另写简化版） |
+| 端到端帧间隔 | 均值 **1.65 ms** / p99 1.85 ms / max 2.00 ms |
+| 其中逻辑 | 1.22 ms（refill + tick + 网格重建 + sync） |
+| 渲染 + 呈现 | 0.43 ms |
+| 等效帧率 | **605 fps** |
+| 16.6 ms 预算占用 | **10.0%** |
+| 环境 | Godot 4.7.1 / OpenGL 3.3 Compatibility / NVIDIA CMP 40HX / Windows |
+
+**结论**：渲染层不是瓶颈，且成本与弹数**基本无关**（1 次 draw call）；
+剩余开销集中在 GDScript 侧逐实例写 MultiMesh（`set_instance_transform_2d` × 300/帧）。
+
+**一次真实的误判（值得记下来）**：首轮测量读到 44 fps，差点被判成"渲染不达标"。
+实际原因是压测脚本给 `tick()` 传了 `grid = null`，退化成 O(m×n) 暴力全扫 —— 逻辑层占了 23.2 ms。
+加回空间哈希后立刻降到 1.65 ms。**教训：整帧变慢时先看逻辑分项，别急着怪渲染。**
+
+**局限（不要当成已达标）**：
+- 桌面 GPU ≠ Android 目标机型，真机帧率仍未测（§0.2 #8）
+- 未含 UI、后处理、粒子特效的叠加开销
+- 未在低端集显上验证
 
 ---
 
@@ -479,7 +605,10 @@ res://
 │   ├── data/
 │   │   ├── skill_data.gd  skill_part.gd  support_gem_data.gd
 │   │   ├── trigger_data.gd  modifier_spec.gd  condition_spec.gd
-│   │   └── gem_level_scaling.gd
+│   │   ├── gem_level_scaling.gd
+│   │   └── gem_registry.gd          # R6：扫描 content/ 加载全部 .tres（唯一内容入口）
+│   ├── summon/
+│   │   └── minion_registry.gd        # R7：§8.2 召唤物三规则（白名单继承/复用出招/上限顶替）
 │   ├── combat/
 │   │   ├── stats_component.gd        # 只做"存 + 按来源移除"，不做业务
 │   │   ├── modifier.gd
@@ -494,6 +623,22 @@ res://
 └── tests/skills/                                       # GUT 或自写 assert
 ```
 
+**实际结构偏差（R6 核实，功能不受影响，仅文档与磁盘不一致）**：
+
+- `pools/` 目录不存在：`projectile_pool.gd` 在 `systems/skills/combat/`、`effect_pool.gd` 在 `systems/perf/`
+- `assembly.gd` 不存在：`assemble()` 作为静态方法写在 `socket_graph.gd` 内
+- `status_effect_manager.gd` 实际名为 `combat/ailment_component.gd`
+- `dot_ticker.gd` 实际在 `systems/skills/combat/`，不在 `systems/perf/`
+- `stats_component.gd` / `stat_modifier.gd` 在 `systems/skills/` 顶层，不在 `combat/` 子目录
+
+**R7 追加核实**（扫描 `find systems tests -name "*.gd"`，共 50 个源文件 / 23 个测试脚本）：
+
+- `assembly_result.gd`、`skill_channel.gd`、`cooldown_component.gd`、`cost_calculator.gd`、`resource_pool.gd`、`damage_conversion.gd`、`trigger_manager.gd`、`skill_slot_bar.gd` 均在 `systems/skills/` 顶层，树中原先未列全（功能无影响，仅补记）
+- `systems/perf/` 实际只有 `spatial_hash.gd` + `effect_pool.gd`；`dot_ticker.gd` 在 `combat/`（同上）
+- 新增 `tests/perf/`：`bench_projectiles.gd`（逻辑层压测）、`bench_render.gd`（渲染整帧压测，**必须非 headless 运行**）
+- 新增 `sandbox/`：`sandbox_main.gd/.tscn`、`sandbox_main` 驱动、`sandbox_hud.gd`（10Hz 重建文本）、`sandbox_projectile_layer.gd`（MultiMesh 单 draw call）、`sandbox_lab.gd`、`sandbox_entity.gd`
+- 根目录新增 `export_presets.cfg`（Windows / Linux / Android 三预设）、`.github/workflows/gut.yml`（CI）
+
 ---
 
 ## 11. 施工顺序与门禁
@@ -503,7 +648,7 @@ res://
 | **M0** 工程骨架 | `project.godot`、目录、GUT 接入、CI | `godot --headless` 跑测试退出码 = 0；空测试也能跑通「0 通过 0 失败」而非报错 |
 | **M1** 管线 | `StatsComponent` + `damage_pipeline.gd` | §12 的 G1–G4 全绿；转换归一化用例通过 |
 | **M2** 技能与行为 | `SkillData` + `SkillExecutor` + projectile/melee 两个行为 | 单发冰矛能打出数字；改 `.tres` 数值即改伤害，不改代码 |
-| **M3** 装配 | `SocketGraph` + `Assembly` | G5–G7 通过；卸下辅助后数值**完全还原**（逐位相等，不是近似） |
+| **M3** 装配 | `SocketGraph` + `Assembly` | G5–G7 + G7b 通过；卸下辅助后数值**完全还原**（逐位相等，不是近似） |
 | **M4** 伤害闭环 | Hitbox/Hurtbox、暴击、抗性、击杀 | G8–G9 通过；端到端 DPS 与手算差 ≤ 0.5% |
 | **M5** 资源 | 冷却/充能/消耗/多技能栏 | 资源不足无法施法；8 个技能位全可用 |
 | **M6** 其余行为 | aoe/channel/summon/dash/buff | W1 内容集 8 主动全部上线 |
@@ -527,6 +672,7 @@ res://
 | **G5** | 辅助装配 | 冰矛 + 多重投射(+2) + 连锁(+2) | `projectile_count = 3`、`chain_count = 2`、消耗 `×1.5×1.3` |
 | **G6** | 卸下还原 | 装上再卸下同一辅助 | 所有 stat **逐位等于**装配前 |
 | **G7** | 兼容排除 | 无情（require=melee, exclude=spell）挂到法术技能 | 装配失败，返回明确错误码，**不得静默忽略** |
+| **G7b**（2026-10-19 R1） | 镶嵌准入 | 不兼容辅助尝试放入合法槽位 | `socket_check` 返回 false + 错误码（`ERR_INCOMPATIBLE_SUPPORT` / `ERR_CONFLICT` / `ERR_NO_SOCKET`），**该辅助不进入槽位**；其余辅助不受影响 |
 | **G8** | 暴击期望 | base 100，crit 30%，crit_multi 150% | 1000 次采样均值 ≈ `115 ± 3` |
 | **G9** | 异常通道 | 点燃目标，施加 "hit damage +100%" | 点燃 DPS **不变**（证明通道隔离正确） |
 | **G10** | 触发限流 | 事件率 5/s，chance 0.3，CD 0.5s | 100 秒触发 `150 ± 15` 次 |
@@ -552,6 +698,13 @@ res://
 8. 禁止每个 DoT 挂 `Timer`。
 9. 禁止每帧重算全部 stats（脏标记 + 按需重算）。
 10. 禁止在 `_process` 里做字符串拼接/字典分配。
+
+**R7 落地状态（此三条已有对应实现，不再是纸面要求）**：
+
+- 第 9 条 → `StatsComponent` 内置版本号：`_version` 在 `add_modifier` / `add_modifiers` / `remove_by_source` / `set_base` 时 `+= 1`；`aggregate(stat, op)` 与 `multiplier_of(stat)` 各自带 `(值, 版本)` 缓存，命中即返回。**MORE 连乘必须独立一张表**（`_mul_cache` / `_mul_ver`），不能与按 op 求和的 bucket 共用键，否则互相覆盖（见台账 P-18）。
+- 第 9 条的配套单一收口：所有整数型 stat（`projectile_count` / `chain_count` / `fork_count` / `pierce`）的 `floor` **只允许**在 `StatRegistry.finalize()` 出现一次；管线各处一律读 `StatRegistry.finalize()`，不得自行取整。
+- 第 10 条 → `sandbox/sandbox_hud.gd` 的 `_draw()` 只做绘制，文本由 `_rebuild_lines()` 在 10Hz 节拍重建，`_lines` 数组 `clear()` 复用容量；`_process` 内零字符串拼接。
+- 补充红线：热路径 `Dictionary` 命中冷却已全部改定长 SoA（`projectile_field.gd` 的 `_memo_tid` / `_memo_t`，`HIT_MEMO = 4`），`SpatialHash.clear()` 把桶数组收进 `_bucket_pool` 复用——这两处是"每帧分配"最常见的藏身处。
 
 ### 13.3 从 kit 抄的时候必须避开的坑
 
@@ -627,6 +780,7 @@ res://
 ## 附录 C｜提交前自检（AI 请逐条回答 yes/no）
 
 1. 新增一个辅助石，我改了几个 `.gd` 文件？（答案必须是 **0**）
+   > R6 起成立：往 `content/gems/supports/` 丢一个 `.tres` 即生效，`GemRegistry` 自动扫描，代码零改动。
 2. `INCREASED` 是求和后一次乘，还是逐条乘？（必须是**求和后一次乘**）
 3. 转换发生在 `INCREASED` 之前还是之后？（必须是**之前**）
 4. 点燃伤害吃不吃 `hit damage`？（必须是**不吃**）
@@ -637,6 +791,57 @@ res://
 9. 是否有任何一行代码写死了宝石 id 或数值？（必须是**没有**）
 10. 测试里是否把默认值清零来"制造通过"？（必须是**没有**）
 
+**R7 追加自检（对应本轮新增的四块能力）**：
+
+11. 新增一个**属性**，我改了几个 `.gd` 文件？（答案必须是 **1**，只改 `util/stat_registry.gd` 的 `DEFS`）
+    > 若还要改 `skill_executor.gd` / `damage_calculator.gd`，说明没走 `StatRegistry.finalize()` 的单一收口。
+12. 新增一个**标签**（`damage_type` / `cast_type` / `form`）是否只改 `util/tag_registry.gd`？（必须是 **能**）
+13. 装配缓存命中时，返回的是**深拷贝**吗？（必须是**是**）
+    > 否的话 `StatsComponent.add_modifiers` 会统一改写 `modifier.source_id`，第二次命中即污染缓存，G6「卸下即还原」当场失效。
+14. 同一个槽连续装配两次（配置未变），`rebuild_count` 会增加吗？（必须**不增加**，走缓存）
+15. `SkillInstance` 里有没有 `SkillSlot` 字段的副本？（必须是**没有**，只存引用；§13.1 第 5 条）
+16. 冷却对象在槽重建后是否沿用？（必须是**沿用**——冷却跟着槽走，不跟着装配结果走）
+17. 条件门缺上下文时是**放行**还是**拦截**？（必须是 **fail-closed，拦截**）
+18. 召唤物到达 `max_count` 时是**拒绝新召唤**还是**顶掉最旧**？（必须是**顶掉最旧**；另有 `HARD_CAP = 64` 兜底）
+19. 召唤物继承施法者属性时，是全量拷贝还是白名单子集？（必须是**白名单子集**：`minion_damage` / `minion_attack_speed` / `minion_life`）
+20. CI 里 `godot --headless --import` 跑了几次？（必须是 **≥2 次**，否则 `class_name` 缓存不刷新，测试报 "Could not find type"，见台账 P-08）
+
 ---
+
+---
+
+## 变更记录
+
+| 日期 / 轮次 | 位置 | 变更 | 起因 |
+|---|---|---|---|
+| 2026-10-19 / R1 | §3.3 | 装配规则新增第 0 步「镶嵌前置校验」，并补充「准入层 / 校验层」双语义表 | 人类拍板：采用 PoE 2 语义（非法组合不能被镶嵌）；G7 原样保留作数据错误兜底 |
+| 2026-10-19 / R1 | §5.2 | 新增 `socket_check` / `can_socket` / `clone_slot` 契约；`AssemblyResult` 新增 `ERR_NO_SOCKET = 5` | 同上 |
+| 2026-10-19 / R1 | §11 M3 | 门禁改为「G5–G7 + G7b」 | 同上 |
+| 2026-10-19 / R1 | §12 | 新增 G7b 用例（镶嵌准入） | 同上 |
+| 2026-10-19 / R2 | §0.1 | 修正里程碑口径：原「M8 = DoT/异常/池」与 §11 的 M8（性能）重名，改记 M6.5；M8 标注未开始；新增 §0.2 已知缺口表（8 项） | 用户询问「是否全完」，审计发现文档自称全完与代码实际不符 |
+| 2026-10-19 / R3 | §0.1 | M8 状态改为「进行中」：`spatial_hash.gd`（均匀网格 + 平方距离 + 复用缓冲查询）与 `util/rng_service.gd`（lowbias32 分流域确定性随机）落地，`test_m8_perf_foundation.gd` 14 用例全绿；SoA 批处理 / 批量绘制 / effect_pool / 压测待做 | 用户批准按 M8 顺序开工 |
+| 2026-10-19 / R3 | — | 新增 `class_name` 后需 `godot --headless --import` 刷新全局脚本类缓存，否则 headless 测试报 "Could not find type" | 本次踩坑，记入台账 P-08 |
+| 2026-10-19 / R4 | §9.5 / §9.6 | 新增实测数据表（300 弹 × 80 敌：逻辑层 0.501ms/帧、候选 7 个/帧、比暴力快 56.3×）与对象池实测表 | M8 收尾，用户要求「压测出帧数」 |
+| 2026-10-19 / R4 | §0.1 / §0.2 | M8 标 ✅ 完成（46 用例），缺口 #1 划除；全量 158 用例 / 1005 断言 | 同上 |
+| 2026-10-19 / R4 | — | 沙盒投射物由 `SandboxProjectile`(Node2D) 切换为 `ProjectileField`(SoA) + `SandboxProjectileLayer`(MultiMesh)；新增 `EffectPool` 并接入命中反馈 | 同上 |
+| 2026-10-19 / R5 | §0.1 / §0.2 | 口径改为「**M0–M8 的代码与 headless 测试**已完成」，并显式写明「不等于项目开发完成、§0.2 仍有 6 项未做」；缺口 #2（G8）划除，新增 #9（M8 渲染/真机帧率未验）、#10（M6 的 W1 口径无定义） | 人类要求「是否全部开发完成，不要乱猜，要查依据」的审计结论 —— 原表述会被误读为全完 |
+| 2026-10-19 / R5 | §9.4 | 补 `next_float` / `next_chance` / `reset_cursors` 游标 API 与「按流独立」性质；写明接入点与「禁止第二套 RNG 契约」 | 审计发现 `RngService` 此前只在测试里被引用，生产代码仍是 `RandomNumberGenerator`，§9.4 名存实亡 |
+| 2026-10-19 / R5 | §12 G8 | 新增 `test_m4_g8_statistics.gd` 7 用例：均值 114.70、暴击率 29.4%、DPS 229.9 vs 230（误差 0.044%）、分流域隔离、reset 回放 | 补 M4 门禁唯一未验项 |
+| 2026-10-19 / R6 | §0.2 #7 / §10 / 附录 C | 内容全量 .tres 化：`GemRegistry` 扫目录加载，7 主动 + 9 辅助 + 1 触发器共 17 个 `.tres`；删除 `sandbox_gems.gd` 工厂 → 附录 C 第 1 条答 **0** | 缺口 #7 是附录 C 的硬违规（原答案是 1） |
+| 2026-10-19 / R6 | §10 | 补记 5 处「文档与磁盘结构不一致」（`pools/` 不存在、`assembly.gd` 合进 `socket_graph.gd` 等） | 审计发现，功能无影响，但文档不能假装一致 |
+| 2026-10-19 / R6 | — | 新增 `test_content_registry.gd` 8 用例：断言每个内容对象的 `resource_path` 非空，**挡住"为了过测试又加回工厂函数"的退化** | 仅断言"文件存在"挡不住回退 |
+| 2026-10-19 / R7 | §0.1 / §0.2 | 进度表重写为 R7：M0–M8 代码 + headless 测试 + 桌面渲染压测全部完成，**242 用例 / 1433 断言全绿**；缺口表从 10 项收敛到 2 项（Android 真机未实测、M6 `W1` 口径无定义），8 项划除 | 用户批准「计划内未完成 13 项」全部开工，本轮收口 |
+| 2026-10-19 / R7 | §3.5 / §6 | 新建 `util/stat_registry.gd`、`util/tag_registry.gd`（属性名/标签名唯一真源 + `finalize()` 整数收口）与 `data/condition_spec.gd`（7 种判定 + AND 语义 + fail-closed）；`INT_STATS` 从 `skill_executor.gd` 挪进注册表 | 缺口 #3 / #4：属性名此前散落在 4 个文件里各写一份常量 |
+| 2026-10-19 / R7 | §5.3 / §13.1 第 5 条 | 新建 `skill_instance.gd`（一槽一实例、只存槽引用、`cache_key` 感知配置变更、冷却跨重建沿用），`skill_slot_bar.gd` 增实例层 `instance_of()` / `rebuild_instance()`；沙盒施法改走实例 | 缺口 #1：此前施法直读槽数据，§13.1 第 5 条与"冷却跟着槽走"都无处落地 |
+| 2026-10-19 / R7 | §5.2 | `SocketGraph` 增装配缓存（`cache_key` = 宝石 id + 等级 + 排序后辅助 id + 连线），命中**返回深拷贝**，暴露 `cache_stats()` / `clear_cache()` | 缺口 #2：每帧施法都重跑一遍装配 |
+| 2026-10-19 / R7 | §13.2 第 9 条 | `StatsComponent` 增 `_version` 脏标记 + `aggregate()` / `multiplier_of()` 按需重算缓存；**MORE 连乘独立建表**，不与求和 bucket 共用键 | 缺口 #6 + 性能红线 9 的落地 |
+| 2026-10-19 / R7 | §8.2 | 新建 `summon/minion_registry.gd`：白名单子集继承、复用 `SkillExecutor` 出招、`max_count` 到达时顶掉最旧、`HARD_CAP = 64` 兜底；沙盒接入 `_exec_summon` / `_tick_summons` | 缺口 B 类：§8.2 三条规则此前只有文案没有实现 |
+| 2026-10-19 / R7 | §9.5 / §9.7 | 压测新增「分配尖刺」判据（`OBJECT_COUNT` / `MEMORY_STATIC` 按帧采样，取后半段与末帧差）；新增 `tests/perf/bench_render.gd`，桌面实测 300 弹 × 80 敌 **1.65 ms/帧（605 fps）** | 缺口 #5 / #9：GC 峰值无判据、渲染层无证据 |
+| 2026-10-19 / R7 | §9.7 | 记入「44 fps 误判」教训：`bench_render.gd` 首轮给 `tick()` 传 `grid = null`，退化成 O(m×n) 暴力全扫（逻辑 23.2 ms / 渲染 0.96 ms），加每帧重建 `SpatialHash` 后修正 | 不写下来下次还会误判成"渲染不达标" |
+| 2026-10-19 / R7 | §14 | 新增 `export_presets.cfg`（Windows / Linux / Android arm64-v8a）；`project.godot` 的 `config/features` 补 `"Mobile"` | 缺口 #8 / #9 的前置条件 |
+| 2026-10-19 / R7 | §11 M0 | 新增 `.github/workflows/gut.yml`：Ubuntu + Godot 4.7.1 headless，`--import` 两次后跑 GUT，上传日志 | 缺口 B 类：M0 门禁要求 CI 但仓库里没有 |
+| 2026-10-19 / R7 | §10 / §13.2 / 附录 C | 目录树补 `summon/`、补记 3 类磁盘偏差；§13.2 第 9/10 条补「已实现」落地说明；附录 C 追加第 11–20 条 R7 自检项 | 本轮收尾的文档同步 |
+
+> 已确认的既有决策（G1–G10、M0–M8 门禁、七步管线顺序）**不受本轮影响**，一条未改。
 
 **文档结束。** 执行中遇到本文件未覆盖的设计抉择，**停下来问人类**，不要自行发明规则——尤其是水晶系统的具体效果与《水晶系统 v0.5》的对接方式。

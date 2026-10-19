@@ -33,6 +33,8 @@ func _init(p_name: String, p_is_player: bool, p_radius: float = 24.0) -> void:
 	hurtbox.bind_health(health)
 	# 在 _init 挂树而非 _ready：冒烟测试里实体常由 main 树外驱动，_ready 不执行，
 	# 会导致 hurtbox 成为孤儿节点（OS 泄漏）。_init 挂树对入树场景同样安全。
+	# 注意：必须真的 add_child，只 new 出来不挂树 = 永久孤儿（ObjectDB 泄漏）。
+	add_child(hurtbox)
 
 
 func _ready() -> void:

@@ -3,7 +3,8 @@
 # 顺序契约（§4.2 七步严格固定）：⑥ 暴击必须发生在 ⑦ 目标侧减免之前。
 # 硬规则（§14）：
 #   - 全部纯函数，无演出逻辑、无 Node 依赖
-#   - RNG 由调用方注入（统一 RNG 服务，便于测试与回放）
+#   - RNG 由调用方注入；契约是 `next_float(stream: StringName) -> float`
+#     （RngService 提供，按 §9.4 分流域：暴击只消费 damage 流）
 #   - 数值常量集中声明（护甲系数、抗性 cap），代码中不出现散落魔数
 #   - 暴击率无基础值（完全由词缀提供，0% 永不暴击）；暴击倍率有基础值 1.5
 # defender 契约：鸭子类型，只要求持有 stats: StatsComponent 属性
@@ -14,7 +15,7 @@ extends RefCounted
 const ARMOR_COEFFICIENT := 10.0   # 护甲公式分母系数（规格 §10）
 const RESIST_CAP := 0.75          # 元素/混沌抗性上限（规格 §10）
 const CRIT_MULTI_BASE := 1.5      # 基础暴击倍率 150%
-const RESIST_SUFFIX := "_resistance"
+const RESIST_SUFFIX := StatRegistry.RESIST_SUFFIX
 
 
 ## HitEvent 字典：
@@ -32,7 +33,7 @@ static func resolve(packet: DamagePacket, attacker_stats: StatsComponent,
 		* (1.0 + _agg(attacker_stats, &"crit_multi", StatModifier.Op.INCREASED) / 100.0)
 
 	var crit := false
-	if crit_chance > 0.0 and rng.randf() < crit_chance:
+	if crit_chance > 0.0 and rng.next_float(RngService.STREAM_DAMAGE) < crit_chance:
 		crit = true
 
 	# ⑥ 先把暴击倍率乘进快照，再交给 ⑦ 目标侧减免
@@ -80,9 +81,7 @@ static func _apply_defense(scaled: Dictionary, defender) -> Dictionary:
 
 
 ## 按 op 聚合某条 stat 的词缀值（对齐 DamagePipeline 的取数语义）。
+## 聚合与缓存由 StatsComponent 负责（脏标记 + 按需重算，规格 §13.2 第 9 条），
+## 这里只做转发 —— 避免第二处"遍历 modifiers 求和"的实现漂移。
 static func _agg(stats: StatsComponent, stat: StringName, op: int) -> float:
-	var total := 0.0
-	for m in stats.get_modifiers():
-		if m.stat == stat and m.op == op:
-			total += m.value
-	return total
+	return stats.aggregate(stat, op)

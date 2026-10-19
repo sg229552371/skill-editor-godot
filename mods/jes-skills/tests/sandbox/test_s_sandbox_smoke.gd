@@ -4,7 +4,6 @@
 extends GutTest
 
 const SandboxMainScript := preload("res://mods/jes-skills/sandbox/sandbox_main.gd")
-const GEMS := preload("res://mods/jes-skills/sandbox/sandbox_gems.gd")
 
 var main: SandboxMain = null
 
@@ -61,7 +60,7 @@ func test_s4_cast_slot0_spends_mana_and_spawns_projectiles() -> void:
 	assert_true(main.try_cast(0), "槽 0 应施放成功")
 	assert_almost_eq(mana_before - main.mana.get_current(&"mana"), 16.8, 0.0001,
 		"应扣魔 10 × 1.4 × 1.2 = 16.8")
-	assert_eq(main.projectiles.size(), 3, "1 基础 + 多重投射 +2 应共 3 发")
+	assert_eq(main.projectile_field.active_count(), 3, "1 基础 + 多重投射 +2 应共 3 发")
 
 ## 冷却未就绪时禁止施放（§8.3：资源/冷却不满足不进入 cast）
 func test_s5_cooldown_blocks_recash() -> void:
@@ -134,11 +133,9 @@ func test_s10_crit_trigger_fires_linked_slot() -> void:
 	var fired := [false]
 	main.trigger_mgr.trigger_cast_requested.connect(func(_idx: int) -> void:
 		fired[0] = true)
-	# 构造暴击命中事件（必暴 RNG）
+	# 构造暴击命中事件
 	var packet := DamagePacket.new()
 	packet.elements[&"physical"] = 50.0
-	var fake_rng := _FakeRng.new()
-	fake_rng.fixed_value = 0.0
 	main._strike(packet, main.stumps[0])
 	# 玩家自带 crit_chance 需保证暴击：直接往事件总线发暴击事件更直接
 	main.bus.crit_landed.emit(packet, main.stumps[0])
@@ -174,19 +171,28 @@ func test_s12_stump_respawn_restores_health() -> void:
 	stump.tick(2.5)
 	assert_eq(stump.health.current_health, stump.health.max_health, "重生后应满血")
 
-## 召唤物（槽 6）：生成 max_count 个召唤物，寿命到期回收
+## 召唤物（槽 6）：每次施法召唤 1 只，max_count 是**上限**（§8.2「到达上限顶掉最旧的」）
+## 旧实现把 max_count 当"每次召唤数"，导致"顶掉最旧"永远不会触发，与规格语义不符。
 func test_s13_summon_spawn_and_expire() -> void:
 	main._build_entities()
 	main._build_skills()
 	var before := main.get_child_count()
-	assert_true(main.try_cast(6), "召唤应施放成功")
-	assert_eq(main.get_child_count() - before, 2, "应生成 max_count=2 个召唤物")
+
+	assert_true(main.try_cast(6), "第一次召唤应成功")
+	assert_eq(main.minions.active_count(), 1, "每次施法召唤 1 只")
+
+	# 第 2 次：达到上限
+	main.cooldowns[6].configure(0.0, 1.0, 0, 0.0)
+	assert_true(main.try_cast(6))
+	assert_eq(main.minions.active_count(), 2, "连放 2 次后达到上限 2")
+	assert_eq(main.minions.evicted_total, 0, "未超上限时不应顶掉任何一只")
+
+	# 第 3 次：顶掉最旧的，总数不超上限
+	main.cooldowns[6].configure(0.0, 1.0, 0, 0.0)
+	assert_true(main.try_cast(6))
+	assert_eq(main.minions.active_count(), 2, "上限到达后总数不变")
+	assert_eq(main.minions.evicted_total, 1, "应顶掉 1 只最旧的")
+
 	main.tick(10.5)
-	assert_eq(main.get_child_count(), before, "寿命 10s 到期后召唤物应回收")
-
-
-class _FakeRng:
-	extends RefCounted
-	var fixed_value: float = 0.5
-	func randf() -> float:
-		return fixed_value
+	assert_eq(main.minions.active_count(), 0, "寿命 10s 到期后应全部回收")
+	assert_eq(main.get_child_count(), before, "表现层节点也应释放")

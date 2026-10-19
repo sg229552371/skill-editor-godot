@@ -12,8 +12,8 @@ var _free: Array[ProjectileSlot] = []
 var _seq_counter: int = 0
 
 
-func _init(capacity: int = 512) -> void:
-	_cap = maxi(capacity, 1)
+func _init(p_capacity: int = 512) -> void:
+	_cap = maxi(p_capacity, 1)
 
 
 func acquire() -> ProjectileSlot:
@@ -23,6 +23,7 @@ func acquire() -> ProjectileSlot:
 	else:
 		if _slots.size() < _cap:
 			slot = ProjectileSlot.new()
+			slot.index = _slots.size()   # 容器下标在创建时钉死，回收不改变
 			slot.seq = _seq_counter
 			_seq_counter += 1
 			_slots.append(slot)

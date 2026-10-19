@@ -1,5 +1,6 @@
-# M3 测试：SocketGraph + Assembly（规格 §5 / §11 M3，验收 G5–G7）
+# M3 测试：SocketGraph + Assembly（规格 §5 / §11 M3，验收 G5–G7 + G7b）
 # G5 辅助装配 / G6 卸下逐位还原（== 精确比较）/ G7 兼容排除装配失败
+# G7b 镶嵌准入（R1 PoE2 语义）：非法组合在镶嵌那一刻被拒，且不入槽位
 # 附加：add_tags 多轮收敛（六步第 2 步）、并查集分组隔离、conflicts_with 独占
 # 硬门禁：被测实现中禁止出现任何 if gem_id == 分支
 extends GutTest
@@ -154,3 +155,92 @@ func test_conflict_fails_assembly() -> void:
 	var res: AssemblyResult = SocketGraphScript.assemble(_slot(gem, [a, b]))
 	assert_false(res.ok, "独占冲突必须装配失败")
 	assert_eq(res.error_code, AssemblyResultScript.ErrorCode.ERR_CONFLICT)
+
+
+# ==================== G7b：镶嵌准入（§12 G7b / §5.2「准入层」，2026-10-19 R1 语义） ====================
+#
+# 与 G7 的分工（两者必须并存，缺一不可）：
+#   G7   = assemble() 对"已存在配置"做校验 → fail-fast 兜底（数据层被绕过时仍不静默）
+#   G7b  = socket_check() 对"准备镶嵌的辅助"做准入 → 非法组合根本进不了槽位
+# 关键断言不是"assemble 会失败"，而是"**入参槽位没有被改动**"—— 准入必须无副作用。
+
+
+## G7b-1：不兼容辅助被拒，返回 ERR_INCOMPATIBLE_SUPPORT，且槽位未被写入
+func test_g7b_reject_incompatible_without_mutating_slot() -> void:
+	var gem: SkillData = load(FROST_SHARD_PATH)   # frost_shard：spell + projectile + cold
+	var slot: SkillSlot = _slot(gem, [])
+	slot.socket_count = 4
+	# 要求 melee 的辅助挂不上法术技能
+	var melee_only := _support(&"brutal_slam", [&"melee"], 1.5)
+	var before := slot.supports.size()
+
+	var chk: AssemblyResult = SocketGraphScript.socket_check(slot, melee_only)
+
+	assert_false(chk.ok, "G7b：不兼容辅助必须被准入拒绝")
+	assert_eq(chk.error_code, AssemblyResultScript.ErrorCode.ERR_INCOMPATIBLE_SUPPORT)
+	assert_eq(chk.error_support_id, &"brutal_slam", "必须指明是哪颗辅助被拒")
+	assert_eq(slot.supports.size(), before, "G7b：准入失败不得改动槽位（无副作用）")
+	assert_false(SocketGraphScript.can_socket(slot, melee_only), "can_socket 应与 socket_check 一致")
+
+
+## G7b-2：孔位已满 → ERR_NO_SOCKET，且不尝试装配
+func test_g7b_reject_when_socket_full() -> void:
+	var gem: SkillData = load(FROST_SHARD_PATH)
+	var ok_support := _support(&"wide_area", [], 1.2)
+	var slot: SkillSlot = _slot(gem, [ok_support, ok_support, ok_support, ok_support])
+	slot.socket_count = 4
+	assert_eq(slot.supports.size(), 4)
+
+	var chk: AssemblyResult = SocketGraphScript.socket_check(slot, ok_support)
+
+	assert_false(chk.ok, "G7b：孔位满时不得镶嵌")
+	assert_eq(chk.error_code, AssemblyResultScript.ErrorCode.ERR_NO_SOCKET)
+	assert_eq(slot.supports.size(), 4, "G7b：拒绝后孔位数不变")
+
+
+## G7b-3：互斥组合 → ERR_CONFLICT（即便单颗自身兼容）
+func test_g7b_reject_conflict_pair() -> void:
+	var gem: SkillData = load(FROST_SHARD_PATH)
+	var a := _support(&"savage_shot", [&"projectile"], 1.4, {}, [], [], [], [&"echo_shot"])
+	var b := _support(&"echo_shot", [&"projectile"], 1.5, {}, [], [], [], [&"savage_shot"])
+	var slot: SkillSlot = _slot(gem, [a])
+	slot.socket_count = 4
+
+	var chk: AssemblyResult = SocketGraphScript.socket_check(slot, b)
+
+	assert_false(chk.ok, "G7b：互斥辅助不得共存")
+	assert_eq(chk.error_code, AssemblyResultScript.ErrorCode.ERR_CONFLICT)
+	assert_eq(slot.supports.size(), 1, "G7b：冲突拒绝后槽位不变")
+
+
+## G7b-4：槽位无主动宝石 → ERR_NO_ACTIVE_GEM（前置条件先于孔位判定）
+func test_g7b_reject_without_active_gem() -> void:
+	var slot: SkillSlot = _slot(null, [])
+	slot.socket_count = 4
+	var any_support := _support(&"wide_area", [], 1.2)
+
+	var chk: AssemblyResult = SocketGraphScript.socket_check(slot, any_support)
+
+	assert_false(chk.ok)
+	assert_eq(chk.error_code, AssemblyResultScript.ErrorCode.ERR_NO_ACTIVE_GEM)
+
+
+## G7b-5：合法辅助放行，且"准入结果"必须与"真装上去再 assemble"逐项一致
+## 这条是防"两套判定逻辑漂移"的关键：准入层不能自己另写一份兼容规则。
+func test_g7b_accept_matches_real_assembly() -> void:
+	var gem: SkillData = load(FROST_SHARD_PATH)
+	var slot: SkillSlot = _slot(gem, [])
+	slot.socket_count = 4
+	var multi := _support(&"multi_shot", [&"projectile"], 1.5, {&"projectile_count": {&"add": 2.0}})
+
+	var chk: AssemblyResult = SocketGraphScript.socket_check(slot, multi)
+	assert_true(chk.ok, "G7b：兼容辅助应放行")
+
+	# 真装上去再装配，结果必须等价
+	slot.supports.append(multi)
+	var real: AssemblyResult = SocketGraphScript.assemble(slot)
+	assert_true(real.ok)
+	assert_eq(real.modifiers.size(), chk.modifiers.size(), "准入预演与真装配的词缀数必须一致")
+	assert_almost_eq(real.cost_multiplier, chk.cost_multiplier, 0.0001, "耗魔倍率必须一致")
+	for key in chk.behavior_overrides:
+		assert_true(real.behavior_overrides.has(key), "行为覆盖键 %s 应一致" % key)

@@ -90,7 +90,11 @@ func test_projectile_count_floor_once() -> void:
 
 # ---------- 多发扇形 spread：count_base 3 + spread 30° ----------
 func test_projectile_spread_plan() -> void:
-	var data: SkillData = load(FROST_SHARD_PATH)
+	# 注意：.tres 加载出来的 Resource 是进程级共享实例（同一路径只 load 一次）。
+	# 直接改 data.parts[0].behavior_params 会永久污染后续所有测试与沙盒
+	# （本用例曾把 count_base 改成 3，导致 test_registries 的 r12 拿到 3+2=5）。
+	# 改内容一律先 duplicate(true) 深拷贝。
+	var data: SkillData = load(FROST_SHARD_PATH).duplicate(true)
 	var part: SkillPart = data.parts[0]
 	part.behavior_params[&"count_base"] = 3
 	part.behavior_params[&"spread_deg"] = 30.0
@@ -98,6 +102,19 @@ func test_projectile_spread_plan() -> void:
 	assert_eq(plans.size(), 3)
 	assert_almost_eq(float(plans[0].get(&"angle_deg")), -15.0, 0.0001, "扇形均分：第一发 -15°")
 	assert_almost_eq(float(plans[2].get(&"angle_deg")), 15.0, 0.0001, "扇形均分：最后一发 +15°")
+
+
+# ---------- 纯函数守卫：cast 不得修改内容 Resource ----------
+func test_cast_is_pure_over_skill_resource() -> void:
+	# .tres 是进程级共享实例。cast 只要碰一下 data.parts[i].behavior_params，
+	# 全局所有使用该技能的实体都会被污染，且不报错 —— 最难查的一类 bug。
+	var data: SkillData = load(FROST_SHARD_PATH)
+	var before := data.parts[0].behavior_params.duplicate(true)
+	var sc := StatsComponent.new()
+	sc.add_modifier(_mod(&"projectile_count", StatModifierScript.Op.FLAT_ADD, 2.0))
+	SkillExecutor.cast(data, 3, sc, [], {&"projectile_count": {&"add": 3.0}})
+	assert_eq(data.parts[0].behavior_params, before,
+			"cast 必须纯函数：不得改动传入 SkillData 的任何字段")
 
 
 # ---------- 近战行为金样：base 120 物理，inc +20% → 144 ----------

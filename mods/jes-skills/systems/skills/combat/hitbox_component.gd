@@ -10,7 +10,8 @@ var packet: DamagePacket = null
 var attacker_stats: StatsComponent = null
 
 
-## 结算一次命中并交给 hurtbox。rng 由调用方注入（统一 RNG 服务）。
+## 结算一次命中并交给 hurtbox。
+## rng 契约：`next_float(stream: StringName) -> float`（RngService 提供，§9.4 分流域）。
 ## 返回 HitEvent 字典（与 DamageCalculator.resolve 的返回一致）。
 func strike(hurtbox, rng: Object, defender = null) -> Dictionary:
 	# defender duck-type contract: must expose .stats: StatsComponent.

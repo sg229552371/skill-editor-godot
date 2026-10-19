@@ -1,0 +1,68 @@
+name: GUT
+
+# 规格 §11 M0 门禁：「godot --headless 跑测试退出码 = 0」。
+# 本工作流是所有提交的唯一自动化门禁：测试不绿 = 不可合并。
+#
+# 注意顺序（踩坑台账 P-08）：新增/改名 class_name 后，.godot 里的全局脚本类缓存
+# 只有「导入」才会刷新，纯 headless 直接跑测试会报 Could not find type "Xxx"。
+# 所以必须先 --import，再跑 GUT。
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  GODOT_VERSION: 4.7.1
+  GODOT_BIN: /usr/local/bin/godot
+
+jobs:
+  gut:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Godot ${{ env.GODOT_VERSION }} (headless)
+        run: |
+          set -euo pipefail
+          URL="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable/Godot_v${GODOT_VERSION}-stable_linux.x86_64.zip"
+          echo "Downloading $URL"
+          curl -fsSL --retry 3 -o /tmp/godot.zip "$URL"
+          unzip -q /tmp/godot.zip -d /tmp/godot
+          BIN="$(find /tmp/godot -maxdepth 1 -type f -name 'Godot_v*' | head -n 1)"
+          if [ -z "$BIN" ]; then
+            echo "::error::Godot 可执行文件未找到，检查版本号 ${GODOT_VERSION}"
+            exit 1
+          fi
+          chmod +x "$BIN"
+          sudo ln -sf "$BIN" "$GODOT_BIN"
+          "$GODOT_BIN" --version
+
+      - name: Import (refresh global script class cache)
+        run: |
+          set -euo pipefail
+          # 首次导入会生成 .godot/，缺了它 headless 会找不到 class_name
+          "$GODOT_BIN" --headless --path . --import || true
+          "$GODOT_BIN" --headless --path . --import
+
+      - name: Run GUT (all tests)
+        run: |
+          set -euo pipefail
+          "$GODOT_BIN" --headless --path . \
+            -s addons/gut/gut_cmdln.gd \
+            -gdir=res://mods/jes-skills/tests -ginclude_subdirs \
+            -gexit
+
+      - name: Upload test log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gut-log
+          path: |
+            test_stdout.txt
+            test_stderr.txt
+          if-no-files-found: ignore

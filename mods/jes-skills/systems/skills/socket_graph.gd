@@ -10,7 +10,7 @@
 #
 # 硬门禁：禁止出现任何 if gem_id == / if support_id == 分支（规格 §11）。
 # 硬规则：装配结果只含数据、不持 Node；装配是纯函数，可缓存
-#（key = (gem_id, level, support_ids 排序后哈希) —— 缓存层后续接，先保证正确）。
+#（key = (gem_id, level, support_ids 排序后哈希, links) —— 见文件末尾「装配缓存」一节）。
 class_name SocketGraph
 extends RefCounted
 
@@ -221,3 +221,136 @@ static func _merge_result(main: AssemblyResult, sub: AssemblyResult) -> void:
 	for f in sub.flags:
 		if not main.flags.has(f):
 			main.flags.append(f)
+
+
+# ---------------- 镶嵌前置校验（PoE2 语义，2026-10-19 R1） ----------------
+#
+# 语义分工（两者不冲突，缺一不可）：
+#   assemble()      = 对"已存在的配置"做校验 → G7：fail-fast + 明确错误码（数据错误兜底）
+#   socket_check()  = 对"准备加入的辅助"做准入 → 非法组合在镶嵌那一刻就被拒绝
+# 结果是：运行时永不出现不兼容组合，玩家看到的是"这颗辅助放不进去"，而不是技能整体失效。
+
+## 镶嵌准入：把 support 加进 slot 后，整组是否仍合法（含孔位上限）。
+## 返回的 AssemblyResult 即"假想装配"的结果，error_support_id 指明问题辅助。
+static func socket_check(slot: SkillSlot, support: SupportGemData) -> AssemblyResult:
+	if slot == null or slot.active_gem == null:
+		var err: AssemblyResult = AssemblyResultScript.new()
+		err.error_code = AssemblyResult.ErrorCode.ERR_NO_ACTIVE_GEM
+		return err
+	if slot.supports.size() >= maxi(slot.socket_count, 0):
+		var full: AssemblyResult = AssemblyResultScript.new()
+		full.error_code = AssemblyResult.ErrorCode.ERR_NO_SOCKET
+		return full
+	var probe := clone_slot(slot)
+	probe.supports.append(support)
+	return assemble(probe)
+
+
+## 布尔快捷方式（UI 置灰用）
+static func can_socket(slot: SkillSlot, support: SupportGemData) -> bool:
+	return socket_check(slot, support).ok
+
+
+## 浅拷贝槽位（supports/links 只复制引用，装配是纯函数不会改写入参）
+static func clone_slot(slot: SkillSlot) -> SkillSlot:
+	var out := SkillSlot.new()
+	out.slot_index = slot.slot_index
+	out.active_gem = slot.active_gem
+	out.active_level = slot.active_level
+	out.active_quality = slot.active_quality
+	out.socket_count = slot.socket_count
+	for s in slot.supports:
+		out.supports.append(s)
+	for l in slot.links:
+		out.links.append(l)
+	return out
+
+
+# ---------------- 装配缓存（规格 §5.2 第 5 条） ----------------
+#
+# 为什么要缓存：装配六步里有「多轮标签收敛」，输入是槽位数据，输出是纯数据。
+# 施法热路径每帧可能问同一套配置好几遍（施法 / 触发 / UI 预览），
+# 每次都跑并查集 + 多轮收敛是纯浪费。
+#
+# 为什么命中时要 clone：
+#   调用方拿到结果会 `StatsComponent.add_modifiers(res.modifiers, source_id)`，
+#   而 add_modifiers 会**改写 modifier 的 source_id**。若缓存直接返回本体，
+#   第二个槽注入后会把第一个槽的 modifier 也染成自己的 source_id，
+#   卸下时就会误删（G6「卸下即还原」直接崩）。所以缓存进出都走深拷贝。
+#
+# key 必须包含 links：links 决定连通分组，同一组辅助换一种连法结果完全不同。
+# 失败结果一并缓存：非法配置反复重算同样浪费，且错误码是确定性的。
+
+static var _cache: Dictionary = {}
+static var _hits: int = 0
+static var _misses: int = 0
+
+
+## 缓存 key。空 slot / 无主动宝石返回空串（这类不缓存，直接走 assemble）
+static func cache_key(slot: SkillSlot) -> String:
+	if slot == null or slot.active_gem == null:
+		return ""
+	var ids := PackedStringArray()
+	for s in slot.supports:
+		if s != null:
+			ids.append(String(s.support_id))
+	ids.sort()   # 辅助顺序不影响装配结果（多轮收敛对全序收敛），排序后同 key
+	var link_s := PackedStringArray()
+	for l in slot.links:
+		link_s.append(str(int(l)))
+	return "%s|%d|%s|%s" % [slot.active_gem.gem_id, slot.active_level,
+			",".join(ids), ",".join(link_s)]
+
+
+## 带缓存的装配入口（生产路径用这个；assemble 仍保留为无缓存纯函数）
+static func assemble_cached(slot: SkillSlot) -> AssemblyResult:
+	var key := cache_key(slot)
+	if key.is_empty():
+		_misses += 1
+		return assemble(slot)
+	if _cache.has(key):
+		_hits += 1
+		return _clone_result(_cache[key])
+	_misses += 1
+	var res := assemble(slot)
+	_cache[key] = _clone_result(res)
+	return res
+
+
+## 深拷贝装配结果（缓存隔离 + 调用方自由改写）
+static func _clone_result(src: AssemblyResult) -> AssemblyResult:
+	var out: AssemblyResult = AssemblyResultScript.new()
+	out.ok = src.ok
+	out.error_code = src.error_code
+	out.error_support_id = src.error_support_id
+	out.cost_multiplier = src.cost_multiplier
+	for m in src.modifiers:
+		var copy := StatModifier.new()
+		copy.stat = m.stat
+		copy.op = m.op
+		copy.value = m.value
+		copy.source_id = m.source_id
+		copy.channel_mask = m.channel_mask
+		for t in m.require_tags:
+			copy.require_tags.append(t)
+		for t in m.exclude_tags:
+			copy.exclude_tags.append(t)
+		out.modifiers.append(copy)
+	out.behavior_overrides = src.behavior_overrides.duplicate(true)
+	for t in src.effective_tags:
+		out.effective_tags.append(t)
+	for f in src.flags:
+		out.flags.append(f)
+	return out
+
+
+## 清空缓存（改内容 .tres / 热重载 / 测试隔离时调用）
+static func clear_cache() -> void:
+	_cache.clear()
+	_hits = 0
+	_misses = 0
+
+
+## 命中统计（HUD / 压测观察用）
+static func cache_stats() -> Dictionary:
+	return {&"size": _cache.size(), &"hits": _hits, &"misses": _misses}

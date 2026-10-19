@@ -9,6 +9,7 @@ enum ErrorCode {
 	ERR_MULTIPLE_ACTIVE = 2,         # 组内 ≥2 个主动宝石
 	ERR_INCOMPATIBLE_SUPPORT = 3,    # require/exclude/allowed 不兼容（G7）
 	ERR_CONFLICT = 4,                # conflicts_with 独占冲突
+	ERR_NO_SOCKET = 5,               # 孔位已满（镶嵌前置校验，2026-10-19 R1）
 }
 
 var ok: bool = false

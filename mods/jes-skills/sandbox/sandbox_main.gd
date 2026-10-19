@@ -6,7 +6,6 @@
 class_name SandboxMain
 extends Node2D
 
-const GEMS := preload("res://mods/jes-skills/sandbox/sandbox_gems.gd")
 const RNG_SEED := 20261019
 const PLAYER_START := Vector2(300, 300)
 const STUMP_SPACING := Vector2(0, 110)
@@ -14,8 +13,18 @@ const STUMP_START := Vector2(700, 190)
 const RESPAWN_WAIT := 2.0
 const MANA_MAX := 200.0
 const MANA_REGEN_PER_SEC := 20.0
+const AUTO_CAST_INTERVAL := 1.0   # 自动施法周期（实验台勾选框控制）
 const ACTIVE_SLOT_COUNT := 7
+# 演示槽位编排：1~7 键分别对应的技能。只影响"哪个键放哪个技能"，不影响任何结算逻辑。
+const DEMO_SLOT_ORDER: Array[StringName] = [
+	&"frost_shard", &"fire_burst", &"lightning_slash", &"chaos_beam",
+	&"shadow_dash", &"berserk", &"spirit_summon",
+]
+const SOCKET_COUNT := 6        # 孔位上限（规格首版 4~6，实验台统一 6）
 const TRIGGER_SLOT := 7   # 触发器目标槽（雷光斩的复制实例，含 on_crit 触发）
+const PROJECTILE_CAP := 512    # 投射物硬上限（规格 §9.3）
+const PROJECTILE_TINT := Color(0.62, 0.86, 1.0)
+const MELEE_FX_TINT := Color(1.0, 0.82, 0.42)
 
 # 行为分派只认计划里的 behavior_id（数据驱动，与宝石无关）
 const BEHAVIOR_HANDLERS := {
@@ -28,7 +37,9 @@ const BEHAVIOR_HANDLERS := {
 	&"bhv_summon": &"_exec_summon",
 }
 
-var rng := RandomNumberGenerator.new()
+# 战斗随机统一走 RngService（规格 §9.4）：分流域 + 同 seed 可回放。
+# 不再用 RandomNumberGenerator —— 后者无处安放"流派"语义，改特效会移动战斗序列。
+var rng := RngService.new(RNG_SEED)
 var bus := CombatEventBus.new()
 
 var player: SandboxEntity = null
@@ -40,35 +51,59 @@ var slot_bar := SkillSlotBar.new()
 var cooldowns: Array = []       # Array[CooldownComponent]，与槽位对齐
 var trigger_mgr := TriggerManager.new()
 
-var projectile_pool := ProjectilePool.new()
-var projectiles: Array = []     # Array[SandboxProjectile]
+var projectile_field := ProjectileField.new(PROJECTILE_CAP)
+var target_hash := SpatialHash.new(64.0)
+var projectile_layer: SandboxProjectileLayer = null
+var effect_pool: EffectPool = null
+var _max_target_radius: float = 24.0
+
+# 兼容旧读数：HUD/测试历史上读 projectile_pool，语义转到 SoA 容器内部的池
+var projectile_pool: ProjectilePool:
+	get:
+		return projectile_field.pool
 
 # 进行中效果状态
 var _pending_aoe: Array = []    # {fire_at, radius, elements, tags}
 var _channel: Dictionary = {}   # {tick_times, next_idx, plan, start_at}
 var _dash: Dictionary = {}      # {remaining, dir, speed, plan, hit_cd}
 var _buffs: Array = []          # {until, mods, source_id}
-var _summons: Array = []        # {until, node}
+var minions := MinionRegistry.new()   # 召唤物数据层（§8.2：子集继承 / 顶掉最旧 / 寿命）
 var _elapsed: float = 0.0
 var _hud = null                 # SandboxHud（可选）
 
+# 自动施法（实验台勾选框）：每 AUTO_CAST_INTERVAL 秒对槽 0 调一次 try_cast
+var auto_cast: bool = false
+var _auto_cast_timer: float = 0.0
+var cast_count: int = 0          # 成功施放次数（实验台/测试观测用）
+
 
 func _ready() -> void:
-	rng.seed = RNG_SEED
 	_build_entities()
 	_build_skills()
+	_build_projectile_layer()
 	trigger_mgr.bus = bus
 	trigger_mgr._ready()
 	trigger_mgr.trigger_cast_requested.connect(_on_trigger_cast)
 	# 总线演出观测（HUD 计数）
-	var hud := get_node_or_null("Hud")
+	var hud := get_node_or_null("Hud/HudView")
 	if hud != null:
 		_hud = hud
 		_hud.main = self
+	# 装配实验台（技能下拉 + 辅助多选）
+	var lab := get_node_or_null("Hud/Lab")
+	if lab != null:
+		lab.bind(self)
 
 
 ## 玩家 + 三种木桩（普通 / 50% 全抗 / 200 护甲）
 func _build_entities() -> void:
+	if effect_pool == null:
+		# 挂在 _build_entities 而不是 _ready：冒烟测试不走 _ready，
+		# 不 add_child 的话 128 个粒子节点会变成孤儿（ObjectDB 泄漏）
+		effect_pool = EffectPool.new()
+		effect_pool.name = "Effects"
+		effect_pool.z_index = 6
+		add_child(effect_pool)
 	player = SandboxEntity.new("player", true)
 	player.position = PLAYER_START
 	add_child(player)
@@ -104,6 +139,18 @@ func _build_entities() -> void:
 		stumps.append(e)
 		entities.append(e)
 		e.hurtbox.owner_died.connect(_on_entity_died.bind(e))
+	# 邻域查询半径 = 投射物半径 + 最大目标半径，进攻时用它算覆盖格数
+	for e in entities:
+		_max_target_radius = maxf(_max_target_radius, e.radius())
+
+
+## 批量绘制层：整个沙盒只有 1 个 MultiMeshInstance2D（规格 §9.1）
+func _build_projectile_layer() -> void:
+	projectile_layer = SandboxProjectileLayer.new()
+	projectile_layer.name = "ProjectileLayer"
+	projectile_layer.z_index = 5
+	add_child(projectile_layer)
+	projectile_layer.setup(projectile_field, PROJECTILE_TINT)
 
 
 ## 7 个主动槽（0~6 演示技能）+ 槽 7（触发器专用雷光斩复制）+ 演示辅助/触发器
@@ -111,20 +158,23 @@ func _build_skills() -> void:
 	mana.set_max(&"mana", MANA_MAX)
 	mana.set_current(&"mana", MANA_MAX)
 
-	var skills: Array = GEMS.all_skills()
-	for i in ACTIVE_SLOT_COUNT:
-		_bind_skill_slot(i, skills[i])
+	# 槽位编排只属于沙盒：决定 1~7 键各放哪个技能。
+	# 这是"内容编排列表"，不是运行时分支 —— 装配、消耗、施法都与具体 id 无关。
+	# 不能依赖 GemRegistry.skills() 的返回顺序：那是按 id 排序的，改个文件名就会
+	# 把冰系辅助装到火技能上，触发 G7 整组拒绝（本文件 R5 就踩过这一下）。
+	for i in mini(ACTIVE_SLOT_COUNT, DEMO_SLOT_ORDER.size()):
+		_bind_skill_slot(i, GemRegistry.skill(DEMO_SLOT_ORDER[i]))
 	# 槽 7：触发器目标（独立 SkillSlot 实例，防止与槽 2 共用装配状态）
-	_bind_skill_slot(TRIGGER_SLOT, GEMS.lightning_slash())
+	_bind_skill_slot(TRIGGER_SLOT, GemRegistry.skill(&"lightning_slash"))
 
 	# 槽 0 挂多重投射 + 寒冰聚焦双辅助（演示 G5/G6 装配链路 + stat_modifiers 注入链路：
 	# 霜矛为 projectile+cold，两个辅助均兼容；cost = 10 × 1.4 × 1.2 = 16.8）
 	var slot0 := slot_bar.get_slot(0)
-	slot0.supports.append(GEMS.support_multi_projectile())
-	slot0.supports.append(GEMS.support_cold_focus())
+	slot0.supports.append(GemRegistry.support(&"support_multi"))
+	slot0.supports.append(GemRegistry.support(&"support_cold_focus"))
 
 	# 演示触发器：暴击 → 施放槽 7
-	trigger_mgr.add_trigger(GEMS.trigger_on_crit())
+	trigger_mgr.add_trigger(GemRegistry.trigger(&"on_crit"))
 
 
 func _bind_skill_slot(index: int, skill: SkillData) -> void:
@@ -132,11 +182,38 @@ func _bind_skill_slot(index: int, skill: SkillData) -> void:
 	slot.slot_index = index
 	slot.active_gem = skill
 	slot.active_level = 1
-	slot.socket_count = 4
+	slot.socket_count = SOCKET_COUNT
 	slot_bar.bind_slot(index, slot)
 	var cd := CooldownComponent.new()
 	cd.configure(skill.base_cooldown, 1.0, skill.max_charges, skill.charge_recharge_time)
 	cooldowns.append(cd)
+	# 冷却挂到实例上：实例负责「装配 → 冷却 → 出计划」（§5.3），
+	# cooldowns 数组保留只是为了 HUD/测试按槽读取，与实例共用同一对象
+	slot_bar.instance_of(index, cd)
+
+
+## 实验台入口：把「技能 + 辅助宝石集合」写入槽 0，并同步冷却/充能参数。
+## 只改数据，装配与结算仍走 SocketGraph / SkillExecutor 通用管线。
+func apply_lab_loadout(gem: SkillData, supports: Array) -> void:
+	if gem == null:
+		return
+	var slot := slot_bar.get_slot(0)
+	if slot == null:
+		return
+	slot.active_gem = gem
+	slot.active_level = 1
+	slot.supports.clear()
+	for s in supports:
+		slot.supports.append(s)
+	slot.socket_count = SOCKET_COUNT
+	var cd0: CooldownComponent = null
+	if cooldowns.size() > 0:
+		cd0 = cooldowns[0]
+		cd0.configure(gem.base_cooldown, 1.0, gem.max_charges, gem.charge_recharge_time)
+	# 换技能 = 配置变了：丢弃实例的装配缓存，下次施法重新装配
+	var inst := slot_bar.instance_of(0, cd0)
+	if inst != null:
+		inst.discard_assembly()
 
 
 # ---------------- 输入 ----------------
@@ -161,14 +238,16 @@ func try_cast(slot_index: int) -> bool:
 	var slot := slot_bar.get_slot(slot_index)
 	if slot == null or slot.active_gem == null:
 		return false
-	var cd: CooldownComponent = cooldowns[slot_index]
-	if not cd.is_ready():
-		return false
 	var skill: SkillData = slot.active_gem
 
-	# ① 装配（六步纯函数）
-	var res := SocketGraph.assemble(slot)
-	if not res.ok:
+	# 实例由槽位派生（§5.3）：一槽一实例，实例不复制槽数据
+	var inst := slot_bar.instance_of(slot_index, cooldowns[slot_index])
+	if inst == null or not inst.is_ready():
+		return false
+
+	# ① 装配（实例内走装配缓存；配置没变直接复用，§5.2 第 5 条）
+	var res := inst.begin()
+	if res == null or not res.ok:
 		return false
 	# ② 辅助词缀注入（source_id = 槽位，卸下即还原）
 	var source_id := StringName("slot_%d" % slot_index)
@@ -181,17 +260,17 @@ func try_cast(slot_index: int) -> bool:
 		return false
 	mana.spend(&"mana", cost)
 
-	# ④ 冷却/充能消耗
-	cd.start()
+	# ④ 冷却/充能消耗（实例持有）
+	inst.commit()
 
 	# ⑤ 出手结算 → 行为计划
-	var plans := SkillExecutor.cast(skill, slot.active_level, player.stats,
-			[], res.behavior_overrides)
+	var plans := inst.cast_plans(player.stats)
 	player.stats.remove_by_source(source_id)
 
 	# ⑥ 执行计划（演出层）
 	for plan in plans:
 		_execute_plan(plan)
+	cast_count += 1
 	return true
 
 
@@ -230,19 +309,19 @@ func _aim_angle() -> float:
 
 func _exec_projectile(plan: Dictionary) -> void:
 	var launch := BhvProjectile.plan_to_launch(plan)
-	# SkillExecutor already splits multi-shot into one plan per projectile,
-	# so each plan must spawn exactly one projectile (launch count is per-plan).
-	for i in mini(int(launch[&"count"]), 1):
-		var base_angle: float = _aim_angle() + deg_to_rad(float(launch[&"angle_deg"]))
-		var p := SandboxProjectile.new()
-		add_child(p)
-		p.global_position = player.global_position
-		p.setup(_make_packet(plan), player.stats, projectile_pool, launch[&"pierce"])
-		p.speed = launch[&"speed"]
-		p.lifetime = launch[&"lifetime"]
-		p.radius = launch[&"radius"]
-		p.direction = Vector2.RIGHT.rotated(base_angle)
-		projectiles.append(p)
+	# SkillExecutor 已把多发拆成「每发一个 plan」，所以这里只出 1 发，
+	# 位置/速度/寿命/半径全部来自计划（数据驱动，不看宝石）
+	var angle := _aim_angle() + deg_to_rad(float(launch[&"angle_deg"]))
+	projectile_field.spawn(
+			player.global_position,
+			Vector2.RIGHT.rotated(angle),
+			float(launch[&"speed"]),
+			float(launch[&"lifetime"]),
+			float(launch[&"radius"]),
+			int(launch[&"pierce"]),
+			_make_packet(plan),
+			player,
+			player.stats)
 
 
 func _exec_melee(plan: Dictionary) -> void:
@@ -304,14 +383,26 @@ func _exec_buff(plan: Dictionary) -> void:
 
 func _exec_summon(plan: Dictionary) -> void:
 	var s := BhvSummon.plan_to_summon(plan)
-	var summoned: Array = []
-	for i in int(s[&"max_count"]):
-		var minion := SandboxEntity.new("summon_%d" % (randi() % 1000), false, 14.0)
-		minion.position = player.global_position + Vector2(-40.0, -30.0 + 30.0 * float(i))
-		add_child(minion)
-		summoned.append(minion)
-	if not summoned.is_empty():
-		_summons.append({&"until": _elapsed + float(s[&"lifetime"]), &"nodes": summoned})
+	var max_count := int(s[&"max_count"])
+	if max_count <= 0:
+		return
+	# 一次施法召唤 1 只；上限由 MinionRegistry 管理（§8.2「到达上限顶掉最旧的」）
+	var idx := int(rng.next_range_float(RngService.STREAM_SPAWN, 0.0, 1000.0))
+	var entity := SandboxEntity.new("minion_%d" % idx, false, 12.0)
+	entity.position = player.global_position + Vector2(-48.0, -24.0 + 16.0 * float(minions.active_count() % 4))
+	add_child(entity)
+
+	# skill 传 null = 本 registry 内全部召唤物统一计数（"最多 N 只"语义）
+	var res := minions.spawn(player.stats, null, 1, float(s[&"lifetime"]), max_count, entity)
+	var rec = res[&"record"]
+	# ① 只继承 minion_* 子集（§8.2），不继承施法者全部属性
+	entity.stats = rec.stats
+
+	# ③ 被顶掉的旧召唤物：数据层已移除，表现层在这里释放
+	for old in res[&"evicted"]:
+		var node = old.payload
+		if node != null and is_instance_valid(node):
+			node.free()
 
 
 # ---------------- 命中与事件 ----------------
@@ -332,6 +423,9 @@ func _strike(packet: DamagePacket, target: SandboxEntity) -> Dictionary:
 	# DamageCalculator defender 契约要求传含 .stats 的实体本身（hurtbox 只负责收伤）
 	var hit := hitbox.strike(target.hurtbox, rng, target)
 	hitbox.free()
+	# 命中反馈：近战/范围/引导/冲刺共用这一个出口（投射物走 ProjectileField 自己的）
+	if effect_pool != null:
+		effect_pool.emit_at(target.global_position, MELEE_FX_TINT)
 	# 总线事件（触发器链路的数据源）：命中 + 暴击
 	bus.hit_landed.emit(packet, target)
 	if hit.get(&"crit", false):
@@ -357,10 +451,22 @@ func _process(delta: float) -> void:
 	tick(delta)
 
 
+## 实验台入口：开关自动施法（立即重置计时，勾上后下一帧就放一次）
+func set_auto_cast(on: bool) -> void:
+	auto_cast = on
+	_auto_cast_timer = 0.0
+
+
 func tick(dt: float) -> void:
 	_elapsed += dt
 	# 回蓝（简单线性回蓝，演示资源系统）
 	mana.set_current(&"mana", mana.get_current(&"mana") + MANA_REGEN_PER_SEC * dt)
+	# 自动施法（冷却/资源门禁仍由 try_cast 内部判定，失败就等下一拍）
+	if auto_cast:
+		_auto_cast_timer += dt
+		if _auto_cast_timer >= AUTO_CAST_INTERVAL:
+			_auto_cast_timer -= AUTO_CAST_INTERVAL
+			try_cast(0)
 	# 冷却推进
 	for cd in cooldowns:
 		cd.advance(dt)
@@ -369,21 +475,28 @@ func tick(dt: float) -> void:
 	# 实体推进（DoT / 重生）
 	for e in entities:
 		e.tick(dt)
-	# 投射物推进
-	var live: Array = []
-	for p in projectiles:
-		if p.is_active():
-			p.tick(dt, entities, rng)
-		if p.is_active():
-			live.append(p)
-		else:
-			p.queue_free()
-	projectiles = live
+	# 投射物推进：先重建目标网格（O(n)），再让 SoA 批量推进（哈希邻域，非 O(m×n)）
+	_rebuild_target_hash()
+	projectile_field.tick(dt, target_hash, _max_target_radius, entities, rng)
+	if projectile_layer != null:
+		projectile_layer.sync()
+	if effect_pool != null:
+		# 投射物命中点交给特效池（演出与结算分离：这边只读 last_hit_points）
+		for hp in projectile_field.last_hit_points:
+			effect_pool.emit_at(hp, PROJECTILE_TINT)
+		effect_pool.advance(dt)
 	_tick_aoe(dt)
 	_tick_channel()
 	_tick_dash(dt)
 	_tick_buffs()
-	_tick_summons()
+	_tick_summons(dt)
+
+
+## 每帧重建目标网格。id 用 entities 下标：下标稳定，查询回来的 id 可直接索引
+func _rebuild_target_hash() -> void:
+	target_hash.clear()
+	for i in entities.size():
+		target_hash.insert(i, entities[i].global_position)
 
 
 func _tick_aoe(_dt: float) -> void:
@@ -449,16 +562,13 @@ func _tick_buffs() -> void:
 	_buffs = remaining
 
 
-func _tick_summons() -> void:
-	var remaining: Array = []
-	for s in _summons:
-		if _elapsed < float(s[&"until"]):
-			remaining.append(s)
-		else:
-			for n in s[&"nodes"]:
-				# 冒烟测试中 main 常在树外驱动，queue_free 不生效，演示层统一用 free()
-				n.free()
-	_summons = remaining
+func _tick_summons(dt: float) -> void:
+	# 寿命到期回收：数据层返回过期记录，表现层按 payload 释放
+	for rec in minions.tick(dt):
+		var node = rec.payload
+		if node != null and is_instance_valid(node):
+			# 冒烟测试中 main 常在树外驱动，queue_free 不生效，演示层统一用 free()
+			node.free()
 
 
 # ---------------- 演示组合与工具 ----------------
