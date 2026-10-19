@@ -1,0 +1,17 @@
+# Godot 4
+.godot/
+.godothub/
+*.import
+icon.svg.import
+
+# Test / temp output
+test_stdout.txt
+test_stderr.txt
+t_out.txt
+t_err.txt
+m6_red.txt
+*.log
+
+# OS
+Thumbs.db
+.DS_Store
