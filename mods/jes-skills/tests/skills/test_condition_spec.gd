@@ -1,6 +1,6 @@
 # ConditionSpec 测试（规格 §6 第 4 条）：条件门机制。
 #
-# 规格只要求"可表达"，不要求有水晶内容 —— 所以这里的断言全部是机制层：
+# 规格只要求"可表达"，不要求有具体辅助宝石内容 —— 所以这里的断言全部是机制层：
 #   判定正确、AND 语义、缺失上下文时保守不生效、与 SkillInstance 打通。
 extends GutTest
 
@@ -34,7 +34,7 @@ func test_k3_not_has_tag() -> void:
 
 
 func test_k4_rare_and_initial_default_false() -> void:
-	# 水晶概念的两个标记位：没有外部设置时必须保守为 false
+	# 辅助宝石条件用的两个标记位：没有外部设置时必须保守为 false
 	var ctx := _ctx()
 	assert_false(ConditionSpec.is_rare().matches(ctx), "默认不是稀有技能")
 	assert_false(ConditionSpec.is_initial().matches(ctx), "默认不是初始技能")
@@ -94,7 +94,7 @@ func test_k10_instance_context_reflects_slot_state() -> void:
 	assert_true(inst.conditions_pass([ConditionSpec.has_tag(&"projectile")]))
 	assert_false(inst.conditions_pass([ConditionSpec.is_rare()]))
 
-	# 外部把标记位打开后，条件立刻成立（水晶层将来就是这样驱动）
+	# 外部把标记位打开后，条件立刻成立（辅助宝石的条件就是这样驱动）
 	inst.is_rare = true
 	assert_true(inst.conditions_pass([ConditionSpec.is_rare()]))
 	assert_true(inst.conditions_pass([

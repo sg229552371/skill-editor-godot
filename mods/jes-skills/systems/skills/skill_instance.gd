@@ -23,7 +23,7 @@ var _assembly_key: String = ""
 var rebuild_count: int = 0      # 重装配次数（测试与 HUD 观察用）
 
 # 条件判定用的两个标记位（§6 第 4 条）。
-# 它们属于水晶/稀有度概念，规格未定义来源，所以由外部设置；
+# 它们属于辅助宝石的条件概念，其来源由槽位配置或装备层写入；
 # 未设置时保守为 false —— 拿不到证据就不让条件生效。
 var is_rare: bool = false
 var is_initial: bool = false
@@ -117,6 +117,6 @@ func condition_context() -> Dictionary:
 	}
 
 
-## 条件求值入口：将来水晶挂 modifiers 前先过这一关（AND 语义）。
+## 条件求值入口：辅助宝石挂 modifiers 前先过这一关（AND 语义）。
 func conditions_pass(conds: Array) -> bool:
 	return ConditionSpec.all_match(conds, condition_context())

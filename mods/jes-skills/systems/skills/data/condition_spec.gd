@@ -1,17 +1,21 @@
-# ConditionSpec（规格 §6 第 4 条 / §10 data/）：条件门 —— 水晶接入的第四个口子。
+# ConditionSpec（规格 §6 第 4 条 / §10 data/）：条件门 —— 辅助宝石的第四个作用口子。
 #
-# 本文件**只定义机制，不定义任何水晶效果**（规格 §6 明文：「本规格不定义水晶的具体效果」）。
+# 本文件**只定义机制，不定义任何具体效果**（规格 §6：「本规格不定义具体效果」）。
 # 它回答一个问题：某个修饰符 / 标签源 / 行为改写，在**什么条件下**才生效。
 #
-# 为什么要独立成类而不是塞进 SupportGemData：
-#   §6 明确禁止「把水晶逻辑写进 SupportGemData（会破坏两种来源的正交性）」。
-#   条件是可复用的判定单元：辅助石、水晶、装备词缀都可以挂同一套条件。
+# 术语（D-14）：原「水晶」概念已并入**辅助宝石**，项目内不再有独立的水晶层。
+# 因此条件门不是「另一种来源」，而是 `SupportGemData.conditions` 这一列字段的求值器——
+# 一颗辅助宝石可以带条件（「仅对初始技能生效」），也可以不带（缺省 ALWAYS）。
 #
-# 扩展方式（水晶 v0.5 文档到位时）：
+# 为什么独立成类而不是在 SupportGemData 里写分支：
+#   条件是可复用的判定单元：辅助宝石、装备词缀、天赋都可以挂同一套条件。
+#   把判定逻辑集中在这里，`SupportGemData` 只需要持有一个 `Array[ConditionSpec]`。
+#
+# 扩展方式：
 #   - 新增判定类型 → 在 Kind 里加一枚枚举 + matches() 分支，不新建类
 #   - 组合语义固定为 **AND**（全部满足才生效）；需要 OR 时由调用方拆成多条 spec
 #   - 上下文字段由调用方填（见 SkillInstance.condition_context()），
-#     本类只读不猜 —— is_rare / is_initial 属于水晶概念，规格未定义来源
+#     本类只读不猜 —— is_rare / is_initial 的来源由槽位配置或装备层写入
 class_name ConditionSpec
 extends Resource
 
@@ -66,7 +70,7 @@ static func all_match(conds: Array, ctx: Dictionary) -> bool:
 	return true
 
 
-## 静态工厂（构造测试与将来水晶内容用，避免到处手填枚举）
+## 静态工厂（构造测试与辅助宝石内容用，避免到处手填枚举）
 static func always() -> ConditionSpec:
 	return _make(Kind.ALWAYS)
 

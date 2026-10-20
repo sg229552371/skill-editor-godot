@@ -1,4 +1,4 @@
-# ModifierSpec（规格 §3.2）：辅助石/水晶携带的静态词缀"规格"。
+# ModifierSpec（规格 §3.2）：辅助宝石携带的静态词缀"规格"。
 # 运行时注入时转换为 StatModifier（M1），source_id 由装配层填写。
 class_name ModifierSpec
 extends Resource
