@@ -13,22 +13,29 @@ extends GutTest
 const DOCS_DIR := "res://mods/jes-skills/docs"
 
 ## 唯一豁免：清单自身必须能写出「哪些外部来源已作废」。
-const ALLOW_EXTERNAL_PATH: Array[String] = ["信息来源与真源清单.md"]
+## R20：改为**带目录的相对路径**。R20 把 docs/ 重排为三个顶层文件夹后，
+## 若仍只写裸文件名，本豁免会静默失效（_md_files() 返回的是 `_AI开发与文档/xxx.md`），
+## 表现为「清单里的 E-0x 来源被自家门禁判成断链」。
+const ALLOW_EXTERNAL_PATH: Array[String] = ["_AI开发与文档/信息来源与真源清单.md"]
 
 ## 缺任何一个，都说明「单一真源」被拆散了。
 ## 2026-10-21 R14：追加「主动技能体系」三份定稿口径（总纲 / AI 执行版 / 白名单矩阵），
 ## 它们是内容层的现行真源（总纲自述「本文件夹内唯一现行口径」），缺了内容就会按旧口径生产。
 ## 2026-10-21 R16：追加证据链图谱（S6）——它是新 AI 的接手入口，缺了就只剩通读推断。
+## 2026-10-21 R20：docs/ 重排为三个顶层文件夹（_AI开发与文档 / _人工文档流程 / _重要资料记录），
+## 全部改为带目录的相对路径。R20 删掉 `reference/README.md`（投放规则改为由本清单 §六 承担），
+## 故该项移除；「口径_S1」三份与「原始设计案/内容设计手册」的**相对位置发生变化**，
+## 但仍是同一批真源——REQUIRED_DOCS 校验的是「缺了就会按旧口径生产」，不是路径习惯。
 const REQUIRED_DOCS: Array[String] = [
-	"施工规格_Godot技能系统_AI执行版_v1.0.md",
-	"踩坑与决策台账.md",
-	"开工提示词.md",
-	"信息来源与真源清单.md",
-	"reference/README.md",
-	"设计方案_主动技能原稿/00_总纲_主动技能体系_v1.md",
-	"设计方案_主动技能原稿/01_AI执行版_主动技能体系_v1.md",
-	"设计方案_主动技能原稿/02_行为名称全集_白名单矩阵_v1.md",
-	"项目记忆图谱与证据链_v1.md",
+	"_AI开发与文档/施工规格_Godot技能系统_AI执行版_v1.0.md",
+	"_AI开发与文档/踩坑与决策台账.md",
+	"_AI开发与文档/开工提示词.md",
+	"_AI开发与文档/信息来源与真源清单.md",
+	"_AI开发与文档/项目记忆图谱与证据链_v1.md",
+	"_AI开发与文档/口径_S1/00_总纲_主动技能体系_v1.md",
+	"_AI开发与文档/口径_S1/01_AI执行版_主动技能体系_v1.md",
+	"_AI开发与文档/口径_S1/02_行为名称全集_白名单矩阵_v1.md",
+	"_人工文档流程/原始设计案/内容设计手册_技能与辅助宝石_v1.md",
 ]
 
 ## 项目外路径特征：盘符 + 分隔符，或已知的姊妹项目目录名。
@@ -91,8 +98,7 @@ func test_no_external_path_in_docs() -> void:
 	for f in _md_files():
 		if ALLOW_EXTERNAL_PATH.has(f):
 			continue
-		var text := FileAccess.get_file_as_string("%s/%s" % [DOCS_DIR, f])
-		var lines := text.split("\n")
+		var text := FileAccess.get_file_as_string("%s/%s" % [DOCS_DIR, f])		var lines := text.split("\n")
 		for i in lines.size():
 			var line: String = lines[i]
 			var probe := line
@@ -109,7 +115,7 @@ func test_no_external_path_in_docs() -> void:
 
 	assert_eq(
 		bad.size(), 0,
-		"文档不得引用项目外路径（R3）。需要外部依据：请人类投放至 docs/reference/ 并登记。\n"
+		"文档不得引用项目外路径（R3）。需要外部依据：请人类投放至 docs/_重要资料记录/人工资料源/ 并登记。\n"
 		+ "\n".join(bad)
 	)
 
@@ -124,7 +130,7 @@ func test_every_doc_is_registered_in_provenance() -> void:
 
 	var missing: Array[String] = []
 	for f in _md_files():
-		if f == "信息来源与真源清单.md":
+		if ALLOW_EXTERNAL_PATH.has(f):
 			continue
 		if not register.contains("docs/" + f):
 			missing.append(f)

@@ -108,7 +108,7 @@ DoT、触发器链、对象池、木桩重生。
   也就是说正常运行永远组不出非法配置
 - 装配函数 `assemble()` 仍保留 **G7 fail-fast**（返回 `ERR_INCOMPATIBLE_SUPPORT` 等错误码），
   作为绕过 UI 的数据错误兜底：`try_cast` 遇到非法配置会拒绝施放，不会静默算错
-- 语义溯源与对比（PoE1 / PoE2 / PoB）见 `../docs/踩坑与决策台账.md` 的 **D-01**
+- 语义溯源与对比（PoE1 / PoE2 / PoB）见 `../docs/_AI开发与文档/踩坑与决策台账.md` 的 **D-01**
 
 对应测试：`tests/sandbox/test_s_support_pool.gd`（池自洽 / 不兼容整体失败 / 耗魔连乘 /
 overrides 落计划 / 词缀落管线 / 互斥 / 卸下还原 / 镶嵌准入 5 项）。
