@@ -16,29 +16,57 @@ const DOCS_DIR := "res://mods/jes-skills/docs"
 const ALLOW_EXTERNAL_PATH: Array[String] = ["信息来源与真源清单.md"]
 
 ## 缺任何一个，都说明「单一真源」被拆散了。
+## 2026-10-21 R14：追加「主动技能体系」三份定稿口径（总纲 / AI 执行版 / 白名单矩阵），
+## 它们是内容层的现行真源（总纲自述「本文件夹内唯一现行口径」），缺了内容就会按旧口径生产。
 const REQUIRED_DOCS: Array[String] = [
 	"施工规格_Godot技能系统_AI执行版_v1.0.md",
 	"踩坑与决策台账.md",
 	"开工提示词.md",
 	"信息来源与真源清单.md",
 	"reference/README.md",
+	"设计方案_主动技能原稿/00_总纲_主动技能体系_v1.md",
+	"设计方案_主动技能原稿/01_AI执行版_主动技能体系_v1.md",
+	"设计方案_主动技能原稿/02_行为名称全集_白名单矩阵_v1.md",
 ]
 
 ## 项目外路径特征：盘符 + 分隔符，或已知的姊妹项目目录名。
 ## 注意：`res://` / `user://` / `uid://` 会被 `s:/` 这种形式误伤，判定前先剥掉协议前缀。
+## R14 追加：`https://` / `http://` 同样会命中 `s:/`（如 `poe2skills.com`）。
+## 网页 URL 是**可追溯来源**（S4 资料集必须能写明抓取站点），不是断链文件路径，故一并剥离。
+## 注意顺序：先剥 `https://` 再剥 `http://`，否则 `https://` 会残留 `s://` 再被 `s:/` 命中。
 const EXTERNAL_PATH_PATTERN := "[A-Za-z]:[/\\\\]"
 const EXTERNAL_DIR_MARKERS: Array[String] = ["S_docs"]
-const RES_PROTOCOLS: Array[String] = ["res://", "user://", "uid://"]
+const RES_PROTOCOLS: Array[String] = ["https://", "http://", "res://", "user://", "uid://"]
 
 
-func _md_files() -> PackedStringArray:
-	var out := PackedStringArray()
-	var dir := DirAccess.open(DOCS_DIR)
+## 递归遍历 docs/ 下的全部 .md，返回**相对 docs/ 的路径**（如 `设计方案_X/00_总纲.md`）。
+##
+## R14 修正：2026-10-21 前本函数用 `dir.get_files()` **不递归**，只覆盖 docs 顶层 4 份；
+## 而 10-21 拉回的 `设计方案_主动技能原稿/` 有 10 份 md 藏在子目录里，既不受「禁外部路径」
+## 也不受「必须登记」约束 —— 门禁全绿，但根本没看它们。盲区比违规更危险，故改为递归。
+const MAX_SCAN_DEPTH := 6
+
+
+func _collect(dir_path: String, prefix: String, out: Array[String], depth: int) -> void:
+	if depth > MAX_SCAN_DEPTH:
+		return
+	var dir := DirAccess.open(dir_path)
 	if dir == null:
-		return out
+		return
 	for f in dir.get_files():
 		if f.ends_with(".md"):
-			out.append(f)
+			out.append(prefix + f)
+	for sub in dir.get_directories():
+		# 跳过 . / .. 与隐藏目录（如 .godot），避免自指或扫进引擎缓存。
+		if sub.begins_with("."):
+			continue
+		_collect("%s/%s" % [dir_path, sub], "%s%s/" % [prefix, sub], out, depth + 1)
+
+
+func _md_files() -> Array[String]:
+	var out: Array[String] = []
+	_collect(DOCS_DIR, "", out, 0)
+	out.sort()
 	return out
 
 
@@ -86,6 +114,8 @@ func test_no_external_path_in_docs() -> void:
 
 func test_every_doc_is_registered_in_provenance() -> void:
 	# 「新增文档但不登记」会让下个 AI 不知道该读谁、谁优先。
+	# R14：按**带目录的相对路径**匹配（`docs/设计方案_X/00_.md`），不再只比文件名——
+	# 只比文件名时，子目录里同名文件会互相顶替，登记了 A 却让 B 蒙过去。
 	var register_path := "%s/信息来源与真源清单.md" % DOCS_DIR
 	var register := FileAccess.get_file_as_string(register_path)
 	assert_ne(register.length(), 0, "来源清单必须可读且非空")
@@ -94,7 +124,7 @@ func test_every_doc_is_registered_in_provenance() -> void:
 	for f in _md_files():
 		if f == "信息来源与真源清单.md":
 			continue
-		if not register.contains(f):
+		if not register.contains("docs/" + f):
 			missing.append(f)
 
-	assert_eq(missing.size(), 0, "下列文档未在来源清单 §四 登记：\n" + "\n".join(missing))
+	assert_eq(missing.size(), 0, "下列文档未在来源清单 §四 按 `docs/<相对路径>` 登记：\n" + "\n".join(missing))
