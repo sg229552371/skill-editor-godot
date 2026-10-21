@@ -26,16 +26,21 @@ const ALLOW_EXTERNAL_PATH: Array[String] = ["_AI开发与文档/信息来源与�
 ## 全部改为带目录的相对路径。R20 删掉 `reference/README.md`（投放规则改为由本清单 §六 承担），
 ## 故该项移除；「口径_S1」三份与「原始设计案/内容设计手册」的**相对位置发生变化**，
 ## 但仍是同一批真源——REQUIRED_DOCS 校验的是「缺了就会按旧口径生产」，不是路径习惯。
+## 2026-10-21 R22：① `开工提示词.md` 重写并改名为 `00_开工必读.md`（docs 唯一入口）——
+##   它是"新 AI 接手后第一份该读的"，改名后仍必须存在，否则新 AI 只能靠通读推断。
+## ② `内容设计手册` 由 `_人工文档流程/原始设计案/` 迁入 `_AI开发与文档/`（R22 解决 Q4：
+##   S1 手册不该待在"AI 默认不读"区）。**校验语义未变**：仍是"缺了就会按旧口径写内容"。
+## ③ 4 份 S6 追溯型文档迁去 AI资料源/架构溯源/（冷区），本表不含——它们是"按需查"不是"缺了就错"。
 const REQUIRED_DOCS: Array[String] = [
+	"_AI开发与文档/00_开工必读.md",
 	"_AI开发与文档/施工规格_Godot技能系统_AI执行版_v1.0.md",
+	"_AI开发与文档/内容设计手册_技能与辅助宝石_v1.md",
 	"_AI开发与文档/踩坑与决策台账.md",
-	"_AI开发与文档/开工提示词.md",
 	"_AI开发与文档/信息来源与真源清单.md",
 	"_AI开发与文档/项目记忆图谱与证据链_v1.md",
 	"_AI开发与文档/口径_S1/00_总纲_主动技能体系_v1.md",
 	"_AI开发与文档/口径_S1/01_AI执行版_主动技能体系_v1.md",
 	"_AI开发与文档/口径_S1/02_行为名称全集_白名单矩阵_v1.md",
-	"_人工文档流程/原始设计案/内容设计手册_技能与辅助宝石_v1.md",
 ]
 
 ## 项目外路径特征：盘符 + 分隔符，或已知的姊妹项目目录名。
@@ -98,7 +103,8 @@ func test_no_external_path_in_docs() -> void:
 	for f in _md_files():
 		if ALLOW_EXTERNAL_PATH.has(f):
 			continue
-		var text := FileAccess.get_file_as_string("%s/%s" % [DOCS_DIR, f])		var lines := text.split("\n")
+		var text := FileAccess.get_file_as_string("%s/%s" % [DOCS_DIR, f])
+		var lines := text.split("\n")
 		for i in lines.size():
 			var line: String = lines[i]
 			var probe := line
@@ -124,7 +130,9 @@ func test_every_doc_is_registered_in_provenance() -> void:
 	# 「新增文档但不登记」会让下个 AI 不知道该读谁、谁优先。
 	# R14：按**带目录的相对路径**匹配（`docs/设计方案_X/00_.md`），不再只比文件名——
 	# 只比文件名时，子目录里同名文件会互相顶替，登记了 A 却让 B 蒙过去。
-	var register_path := "%s/信息来源与真源清单.md" % DOCS_DIR
+	# R22：清单本体在 R20 三分区后已归入 `_AI开发与文档/`，此处必须带子目录；
+	# 否则读到空串，断言「清单必须可读且非空」先红，表现为「全部文档都未登记」的假象。
+	var register_path := "%s/%s" % [DOCS_DIR, ALLOW_EXTERNAL_PATH[0]]
 	var register := FileAccess.get_file_as_string(register_path)
 	assert_ne(register.length(), 0, "来源清单必须可读且非空")
 
