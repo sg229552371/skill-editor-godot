@@ -67,6 +67,8 @@ static func cast(
 				params[target_key] = float(params.get(target_key, 0.0)) + float(ov[&"add"])
 			elif ov.has(&"mul"):
 				params[target_key] = float(params.get(target_key, 1.0)) * float(ov[&"mul"])
+			elif ov.has(&"set"):
+				params[target_key] = ov[&"set"]   # D-36：整值替换（轨迹 motion 等非数值键的覆盖语义）
 			else:
 				params[target_key] = ov
 		# ⑥ 行为参数：整数型 stat 末端统一 floor 一次，中途不取整
@@ -88,6 +90,9 @@ static func cast(
 			}
 			if count > 1 and spread > 0.0:
 				plan[&"angle_deg"] = -spread / 2.0 + spread * float(i) / float(count - 1)
+			elif count > 1 and String(params.get(&"motion", &"linear")) == &"orbit":
+				# D-36：环绕弹按圈均布初相（多重投射 = 刀变多且均匀分布），散角不参与
+				plan[&"angle_deg"] = 360.0 * float(i) / float(count)
 			else:
 				plan[&"angle_deg"] = 0.0
 			if params.has(&"arc_deg"):

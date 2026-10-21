@@ -92,6 +92,45 @@ func test_aoe_burst_hit_count_two() -> void:
 	assert_almost_eq(float(hits[1]), 0.4, 0.0001, "第二击 = delay + hit_interval")
 
 
+# ---------- 环判定（D-31）：inner_radius 默认 0 时与实心圆逐位一致 ----------
+func test_ring_default_inner_zero_is_solid() -> void:
+	var data := _skill(&"bhv_aoe_burst", {&"radius": 120.0, &"delay": 0.0})
+	var burst := BhvAoeBurst.plan_to_burst(SkillExecutor.cast(data, 1, _make_stats())[0])
+	assert_almost_eq(float(burst.get(&"inner_radius")), 0.0, 0.0001, "未声明内半径 = 实心圆")
+	var c := Vector2.ZERO
+	assert_true(BhvAoeBurst.hits_ring(c, Vector2.ZERO, 12.0, 120.0, 0.0), "实心圆中心必中")
+	assert_true(BhvAoeBurst.hits_ring(c, Vector2(120, 0), 12.0, 120.0, 0.0), "外缘 + 目标半径仍中")
+	assert_false(BhvAoeBurst.hits_ring(c, Vector2(140, 0), 12.0, 120.0, 0.0), "超出外缘 + 半径不中")
+
+
+# ---------- 环判定：内圈留空（空心环的核心语义，与实心圆决策相反） ----------
+func test_ring_inner_leaves_center_empty() -> void:
+	var c := Vector2.ZERO
+	# 外 150 / 内 90 / 目标半径 12：中心 0 距 < 90-12 = 78 → 打不到
+	assert_false(BhvAoeBurst.hits_ring(c, Vector2.ZERO, 12.0, 150.0, 90.0), "站在正中心打不到")
+	assert_false(BhvAoeBurst.hits_ring(c, Vector2(60, 0), 12.0, 150.0, 90.0), "内圈 60 仍打不到")
+	# 环带 90~150：目标 100 距落在环带内
+	assert_true(BhvAoeBurst.hits_ring(c, Vector2(100, 0), 12.0, 150.0, 90.0), "环带上必中")
+	assert_true(BhvAoeBurst.hits_ring(c, Vector2(150, 0), 12.0, 150.0, 90.0), "外缘 + 容差命中")
+
+
+# ---------- 环判定：内半径随 area_size 同比缩放（环带宽度比例不变） ----------
+func test_ring_inner_scales_with_area() -> void:
+	var data := _skill(&"bhv_aoe_burst", {&"radius": 150.0, &"inner_radius": 90.0, &"delay": 0.0})
+	var sc := _make_stats()
+	sc.add_modifier(_mod(&"area_size", StatModifierScript.Op.INCREASED, 50.0))
+	var burst := BhvAoeBurst.plan_to_burst(SkillExecutor.cast(data, 1, sc)[0])
+	assert_almost_eq(float(burst.get(&"radius")), 225.0, 0.0001, "150 × 1.5")
+	assert_almost_eq(float(burst.get(&"inner_radius")), 135.0, 0.0001, "90 × 1.5，环带宽度按比例放大")
+
+
+# ---------- 环判定：内半径超过外半径时夹到外半径（数据错误不产生反向判定） ----------
+func test_ring_inner_clamped_to_outer() -> void:
+	var data := _skill(&"bhv_aoe_burst", {&"radius": 100.0, &"inner_radius": 200.0, &"delay": 0.0})
+	var burst := BhvAoeBurst.plan_to_burst(SkillExecutor.cast(data, 1, _make_stats())[0])
+	assert_almost_eq(float(burst.get(&"inner_radius")), 100.0, 0.0001, "内半径夹到外半径")
+
+
 # ---------- channel 金样：tick 0.25 / max 3.0 → 12 tick（引导光束参数） ----------
 func test_channel_golden() -> void:
 	var data := _skill(&"bhv_channel", {&"tick_interval": 0.25, &"max_channel_time": 3.0})
@@ -171,3 +210,30 @@ func test_unknown_behavior_still_skipped() -> void:
 	var data := _skill(&"bhv_nonexistent", {})
 	var plans := SkillExecutor.cast(data, 1, _make_stats())
 	assert_eq(plans.size(), 0)
+
+# ---------- 环绕轨迹（D-36）：计划层均布初相 + set 覆盖 ----------
+
+func test_executor_orbit_plans_even_ring() -> void:
+	var data := _skill(&"bhv_projectile", {
+		&"count_base": 3.0, &"speed": 375.0, &"lifetime": 4.0,
+		&"motion": &"orbit", &"orbit_radius": 90.0,
+	})
+	var plans := SkillExecutor.cast(data, 1, _make_stats())
+	assert_eq(plans.size(), 3, "3 发环绕弹 = 3 条计划")
+	var angles := []
+	for p in plans:
+		assert_eq(String(p[&"params"][&"motion"]), "orbit")
+		angles.append(float(p[&"angle_deg"]))
+	assert_almost_eq(float(angles[0]), 0.0, 0.001)
+	assert_almost_eq(float(angles[1]), 120.0, 0.001, "环绕初相应按圈均布")
+	assert_almost_eq(float(angles[2]), 240.0, 0.001)
+
+
+func test_executor_set_override_switches_motion() -> void:
+	# 环绕转化辅助的语义：behavior_overrides 用 set 整值替换 motion
+	var data := _skill(&"bhv_projectile", {&"count_base": 1.0, &"speed": 500.0, &"lifetime": 1.0})
+	var overrides := {&"motion": {&"set": &"orbit"}, &"orbit_radius": {&"set": 90.0}}
+	var plans := SkillExecutor.cast(data, 1, _make_stats(), [], overrides)
+	assert_eq(plans.size(), 1)
+	assert_eq(String(plans[0][&"params"][&"motion"]), "orbit", "set 覆盖应把直线弹转为环绕")
+	assert_almost_eq(float(plans[0][&"params"][&"orbit_radius"]), 90.0, 0.001)

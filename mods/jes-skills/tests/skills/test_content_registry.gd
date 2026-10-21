@@ -21,8 +21,9 @@ func test_c1_registry_loads_without_errors() -> void:
 
 func test_c2_expected_counts() -> void:
 	# 8 个主动 = 规格 §11 M6 门禁「W1 内容集 8 主动全部上线」的字面要求
-	assert_eq(GemRegistry.skills().size(), 8, "8 个演示主动技能")
-	assert_eq(GemRegistry.supports().size(), 9, "9 个演示辅助石")
+	# 第 9 个 ring_of_cinders = FLY·RING·ZONE 首格（D-31 环判定落地），按 P-23 同步增计数
+	assert_eq(GemRegistry.skills().size(), 10, "10 个演示主动技能（8 W1 + 落烬环 + 环绕飞刃，D-36）")
+	assert_eq(GemRegistry.supports().size(), 10, "10 个演示辅助石（+ 环绕转化，D-36）")
 	assert_eq(GemRegistry.triggers().size(), 1, "1 个演示触发器")
 
 

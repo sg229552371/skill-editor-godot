@@ -9,6 +9,10 @@ extends RefCounted
 static func plan_to_burst(plan: Dictionary) -> Dictionary:
 	var params: Dictionary = plan.get(&"params", {})
 	var radius: float = _scaled_area(float(params.get(&"radius", 160.0)), plan)
+	# 内半径（环）：默认 0 = 实心圆，行为与加环前逐位一致。
+	# 只由 area_size 缩放外半径，内半径按同一倍率缩放，保证环带宽度比例不变。
+	var inner_radius: float = _scaled_area(float(params.get(&"inner_radius", 0.0)), plan)
+	inner_radius = clampf(inner_radius, 0.0, radius)
 	var delay: float = _scaled_delay(float(params.get(&"delay", 0.0)), plan)
 	var hit_count := maxi(int(params.get(&"hit_count", 1)), 1)
 	var hit_interval := float(params.get(&"hit_interval", 0.0))
@@ -17,6 +21,7 @@ static func plan_to_burst(plan: Dictionary) -> Dictionary:
 		hits.append(delay + hit_interval * float(i))
 	return {
 		&"radius": radius,
+		&"inner_radius": inner_radius,
 		&"delay": delay,
 		&"hit_count": hit_count,
 		&"hits": hits,
@@ -28,6 +33,18 @@ static func plan_to_burst(plan: Dictionary) -> Dictionary:
 static func _scaled_area(base: float, plan: Dictionary) -> float:
 	var area_mult: float = plan.get(&"area_mult", 1.0)
 	return base * area_mult
+
+
+## 环形命中判定纯函数（D-31）：目标圆与描边环带相交即命中。
+## 中心点落在内圈（含目标自身半径的容差）即为「空心」：贴脸时打不到。
+static func hits_ring(center: Vector2, target_pos: Vector2, target_radius: float,
+		outer: float, inner: float) -> bool:
+	var d := center.distance_to(target_pos)
+	if d > outer + target_radius:
+		return false
+	if inner > 0.0 and d < inner - target_radius:
+		return false
+	return true
 
 
 ## duration 词缀缩放延迟（§3.3：持续时间倍率）。

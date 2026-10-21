@@ -140,10 +140,12 @@ func test_c2_charges_cap_at_max() -> void:
 	assert_eq(cd.charges, 2, "长时间不充爆，钳制在 max_charges")
 
 
-# ---------- S1：SkillSlotBar（8 个技能位全可用）----------
+# ---------- S1：SkillSlotBar（技能位全可用）----------
 func test_s1_bar_has_eight_slots() -> void:
+	# 9 = 原 8 键 + 槽 8「落烬环」（FLY·RING·ZONE 首格，D-31）；
+	# 与沙盒 ACTIVE_SLOT_COUNT 同步，按 P-23 改断言并写明依据
 	var bar: SkillSlotBar = SlotBarScript.new()
-	assert_eq(bar.slot_count, 8, "规格 §5.3：技能栏 1~8 键")
+	assert_eq(bar.slot_count, 9, "技能栏 1~9 键（8 W1 槽 + 落烬环槽）")
 
 
 func test_s1_bind_and_get_all_slots() -> void:
@@ -161,10 +163,11 @@ func test_s1_bind_and_get_all_slots() -> void:
 
 
 func test_s1_out_of_range_returns_null() -> void:
+	# 越界基准从 8 改为 MAX_SLOTS（D-31 扩到 9 后，原来的 8 已是合法槽 8）
 	var bar: SkillSlotBar = SlotBarScript.new()
-	assert_eq(bar.get_slot(8), null, "越界返回 null")
+	assert_eq(bar.get_slot(SkillSlotBar.MAX_SLOTS), null, "越界返回 null")
 	assert_eq(bar.get_slot(-1), null, "负索引返回 null")
-	assert_eq(bar.bind_slot(8, null), false, "越界绑定失败")
+	assert_eq(bar.bind_slot(SkillSlotBar.MAX_SLOTS, null), false, "越界绑定失败")
 
 
 # ---------- 辅助：手动推进时间（不用 Timer 节点）----------

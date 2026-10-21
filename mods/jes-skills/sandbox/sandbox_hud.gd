@@ -37,7 +37,7 @@ func _rebuild_lines() -> void:
 	if main == null:
 		return
 	_lines.clear()   # 保留已分配容量
-	var title := "=== 技能系统沙盒 ===  1~7 施放  Q 组合演示  R 木桩回血"
+	var title := "=== 技能系统沙盒 ===  Q 施放实验台技能  R 木桩回血"
 	if main.auto_cast:
 		title += "   [自动施法 ON]"
 	_lines.append(title)

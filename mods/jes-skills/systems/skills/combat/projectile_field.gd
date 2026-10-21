@@ -1,8 +1,13 @@
 # ProjectileField（规格 §9.1 / §9.2 / §9.3）：SoA 投射物容器。
 #
 # 为什么要它：一个投射物一个 Node2D 会带来节点树开销 + 每帧 _draw 调用，
-# 300 发就撑不住。这里把全部状态放在平行数组里（位置/速度/寿命/半径/穿透），
-# 渲染交给一个 MultiMeshInstance2D（见 sandbox_projectile_layer.gd）。
+# 300 发就撑不住。这里把全部状态放在平行数组里（位置/速度/寿命/半径/穿透/连锁/分裂），
+# 渲染交给表现层（见 sandbox_projectile_layer.gd）。
+#
+# 连锁/分裂（D-34，演出欠账清偿）：
+# - chain：命中后朝「最近的、本弹没打过的」目标偏转并继续飞（不消耗穿透、不消亡）
+# - fork：命中后原地分裂出两发 ±35° 的弹（继承剩余连锁/穿透/寿命），本体消亡
+# - 两者在计划层（bhv_projectile.chain/fork）早已存在，这里只是让运行时真正消费
 #
 # 硬规则：
 # - 容量固定，**永不扩容**；满了回收最旧（复用 ProjectilePool 的 seq 语义）
@@ -31,6 +36,14 @@ var age := PackedFloat32Array()
 var life := PackedFloat32Array()
 var radius := PackedFloat32Array()
 var pierce := PackedInt32Array()
+var chain := PackedInt32Array()   # 剩余连锁次数（D-34）
+var fork := PackedInt32Array()    # 剩余分裂数（D-34）
+# ---- 环绕轨迹（D-36）：orb_radius < 0 = 直线弹（默认）；>= 0 = 绕 anchor 旋转 ----
+var orb_radius := PackedFloat32Array()
+var orb_angle := PackedFloat32Array()     # 当前相位（弧度）
+var orb_follow := PackedByteArray()       # 1 = anchor 跟随发射者（手雷跟人语义）
+var orb_anchor_x := PackedFloat32Array()  # 静态锚点（follow=0 时使用）
+var orb_anchor_y := PackedFloat32Array()
 var alive := PackedByteArray()
 
 # ---- 逐发射物的附属数据（对象引用，不进热循环的数值运算） ----
@@ -60,6 +73,14 @@ func _init(p_capacity: int = 512) -> void:
 	life.resize(capacity)
 	radius.resize(capacity)
 	pierce.resize(capacity)
+	chain.resize(capacity)
+	fork.resize(capacity)
+	orb_radius.resize(capacity)
+	orb_angle.resize(capacity)
+	orb_follow.resize(capacity)
+	orb_anchor_x.resize(capacity)
+	orb_anchor_y.resize(capacity)
+	orb_radius.fill(-1.0)
 	alive.resize(capacity)
 	alive.fill(0)
 	_slots.resize(capacity)
@@ -80,10 +101,12 @@ func _notification(what: int) -> void:
 		_hitbox = null
 
 
-## 发射一发，返回索引；容量满时最旧的一发被顶掉（视觉舍弃，帧率优先）
+## 发射一发，返回索引；容量满时最旧的一发被顶掉（视觉舍弃，帧率优先）。
+## p_chain / p_fork 为可选尾参（D-34）：旧调用点（bench / 既有测试）零改动兼容。
 func spawn(pos: Vector2, direction: Vector2, speed: float, lifetime: float,
 		p_radius: float, p_pierce: int, packet: DamagePacket,
-		attacker: Object, attacker_stats: StatsComponent) -> int:
+		attacker: Object, attacker_stats: StatsComponent,
+		p_chain: int = 0, p_fork: int = 0) -> int:
 	var slot: ProjectileSlot = pool.acquire()
 	if slot == null:
 		return -1
@@ -99,6 +122,9 @@ func spawn(pos: Vector2, direction: Vector2, speed: float, lifetime: float,
 	life[i] = maxf(lifetime, 0.001)
 	radius[i] = p_radius
 	pierce[i] = p_pierce
+	chain[i] = maxi(p_chain, 0)
+	fork[i] = maxi(p_fork, 0)
+	orb_radius[i] = -1.0   # 默认直线弹；环绕弹由 configure_orbit() 开启（D-36）
 	alive[i] = 1
 	_slots[i] = slot
 	_packets[i] = packet
@@ -106,6 +132,41 @@ func spawn(pos: Vector2, direction: Vector2, speed: float, lifetime: float,
 	_attackers[i] = attacker
 	_clear_memo(i)
 	return i
+
+
+## 开启环绕轨迹（D-36）。速度真源仍是弹体 vx/vy 的模长；
+## 角速度 = 线速度 ÷ orbit_radius（导出量），弹速辅助天然生效。
+## angle0 < 0 = 自动取「锚点指向弹体当前位置」的相位。
+## 环绕弹不吃连锁/分裂（运动积分互斥，_strike_if_hit 里跳过）；命中冷却照常。
+func configure_orbit(i: int, radius: float, follow: bool = true, angle0: float = -2.0) -> void:
+	if not is_alive(i):
+		return
+	orb_radius[i] = maxf(radius, 1.0)
+	orb_follow[i] = 1 if follow else 0
+	var anchor := _orbit_anchor(i)
+	if angle0 < -1.5:
+		orb_angle[i] = (Vector2(px[i], py[i]) - anchor).angle()
+	else:
+		orb_angle[i] = angle0
+	# 立即落位到环上，切向速度同步（供渲染/调试读取）
+	_apply_orbit_pos(i, anchor)
+
+
+func _orbit_anchor(i: int) -> Vector2:
+	if orb_follow[i] == 1 and _attackers[i] != null and is_instance_valid(_attackers[i]):
+		var p: Vector2 = _attackers[i].global_position
+		orb_anchor_x[i] = p.x
+		orb_anchor_y[i] = p.y
+	return Vector2(orb_anchor_x[i], orb_anchor_y[i])
+
+
+func _apply_orbit_pos(i: int, anchor: Vector2) -> void:
+	var spd := Vector2(vx[i], vy[i]).length()
+	var dirv := Vector2(cos(orb_angle[i]), sin(orb_angle[i]))
+	px[i] = anchor.x + dirv.x * orb_radius[i]
+	py[i] = anchor.y + dirv.y * orb_radius[i]
+	vx[i] = -dirv.y * spd   # 切向（逆时针）
+	vy[i] = dirv.x * spd
 
 
 ## 清空某发的命中记忆（spawn 时调用；release 不清，下次 spawn 会覆盖）
@@ -149,8 +210,13 @@ func tick(dt: float, grid: SpatialHash, max_target_radius: float,
 		if alive[i] == 0:
 			continue
 		age[i] += dt
-		px[i] += vx[i] * dt
-		py[i] += vy[i] * dt
+		if orb_radius[i] >= 0.0:
+			# 环绕轨迹（D-36）：相位推进 → 直接落位，不做线性积分
+			orb_angle[i] += Vector2(vx[i], vy[i]).length() / orb_radius[i] * dt
+			_apply_orbit_pos(i, _orbit_anchor(i))
+		else:
+			px[i] += vx[i] * dt
+			py[i] += vy[i] * dt
 		var pos := Vector2(px[i], py[i])
 		var reach := radius[i] + max_target_radius
 
@@ -214,11 +280,84 @@ func _strike_if_hit(i: int, tid: int, targets: Array, rng: Object) -> bool:
 			slot_k = k
 	_memo_tid[base + slot_k] = tid
 	_memo_t[base + slot_k] = _clock
+	# ---- 连锁 / 分裂（D-34）：先偏转，再分裂，最后才走穿透/消亡 ----
+	# 环绕弹（D-36）跳过：角速度积分与偏转/分裂的运动语义互斥
+	var chained := false
+	if chain[i] > 0 and orb_radius[i] < 0.0:
+		var cid := _pick_chain_target(i, targets)
+		if cid >= 0:
+			_redirect(i, targets[cid].global_position)
+			chain[i] -= 1
+			chained = true
+	if fork[i] > 0 and orb_radius[i] < 0.0:
+		var f := fork[i]
+		fork[i] = 0
+		_spawn_forks(i, f - 1, tid)
+		if not chained:
+			release(i)   # 分裂本体消亡（除非本轮已连锁偏转，让连锁优先续命）
+			return true
+	if chained:
+		return true   # 连锁偏转后继续飞，不消耗穿透
+	if orb_radius[i] >= 0.0:
+		return true   # 环绕弹命中不消亡（D-36）：持续期内反复接触，靠命中冷却限频，寿命到期才回收
 	if pierce[i] <= 0:
 		release(i)
 	else:
 		pierce[i] -= 1
 	return true
+
+
+## 连锁目标选取（D-34）：最近的、本弹没打过的存活目标。
+## 「没打过」查整段命中记忆（不做时间窗），保证连锁不会原地打转。
+## 无射程限制：沙盒三木桩场景下无意义，接竞技场时再补 chain_range 参数。
+func _pick_chain_target(i: int, targets: Array) -> int:
+	var best := -1
+	var best_d := INF
+	var base := i * HIT_MEMO
+	for tid in targets.size():
+		var t = targets[tid]
+		if t == _attackers[i] or t.is_dead():
+			continue
+		var hit_before := false
+		for k in HIT_MEMO:
+			if _memo_tid[base + k] == tid:
+				hit_before = true
+				break
+		if hit_before:
+			continue
+		var d: float = Vector2(px[i], py[i]).distance_squared_to(t.global_position)
+		if d < best_d:
+			best_d = d
+			best = tid
+	return best
+
+
+## 连锁偏转：保持速率，改朝目标方向（D-34）
+func _redirect(i: int, target_pos: Vector2) -> void:
+	var speed := Vector2(vx[i], vy[i]).length()
+	var dir := (target_pos - Vector2(px[i], py[i])).normalized()
+	if speed <= 0.001:
+		speed = 1.0   # 静止弹也给出方向（测试里 speed=0 仍可断言朝向）
+	vx[i] = dir.x * speed
+	vy[i] = dir.y * speed
+
+
+## 分裂（D-34）：本体位置生成 ±35° 两发，继承剩余连锁/穿透/寿命/半径/弹速。
+## 分裂弹继承 packet/stats 引用 —— packet 是只读快照，共享安全（与 pierce 同一约定）。
+## hit_tid 写进分裂弹的命中记忆：分裂点就在被击目标身上，不预记会同一帧回打目标。
+func _spawn_forks(i: int, fork_remaining: int, hit_tid: int) -> void:
+	var pos := Vector2(px[i], py[i])
+	var speed := Vector2(vx[i], vy[i]).length()
+	var dir := Vector2(vx[i], vy[i]).normalized()
+	var life_left := maxf(life[i] - age[i], 0.05)
+	for angle in [-35.0, 35.0]:
+		var j := spawn(pos + dir * (radius[i] + 2.0), dir.rotated(deg_to_rad(angle)),
+				speed, life_left, radius[i], pierce[i], _packets[i],
+				_attackers[i], _stats[i], chain[i], fork_remaining)
+		if j >= 0:
+			var base := j * HIT_MEMO
+			_memo_tid[base] = hit_tid
+			_memo_t[base] = _clock
 
 
 ## 渲染层用：取第 i 发的视觉参数（不暴露内部数组语义）

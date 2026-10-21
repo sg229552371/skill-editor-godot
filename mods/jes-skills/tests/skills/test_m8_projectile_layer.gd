@@ -1,6 +1,9 @@
-# M8 批量绘制层测试（2026-10-19 R4）：SandboxProjectileLayer
-# 目标：验证 MultiMesh 配置正确、实例数与存活数一致、位置/尺寸跟着 SoA 走。
-# 说明：headless 下没有真实渲染，但 MultiMesh 的实例数据是 CPU 侧结构，可断言。
+# M8 批量绘制层测试（2026-10-19 R4 建立；2026-10-21 D-33 随层重写适配）
+# 目标：验证 setup 绑定正确、sync 返回存活数、位置/尺寸/淡出跟着 SoA 走。
+# 说明：D-33 起层改为 Node2D._draw（旧 MultiMesh + 3D 材质在 2D canvas 不渲染，
+# 投射物整体隐形）。headless 的 dummy 渲染器不产生绘制命令，所以：
+#   - 「画几发」的断言打在 sync() 返回值（= 本帧存活数）上
+#   - 「画在哪/多大/多透明」的断言打在纯函数 instance_state() 上
 extends GutTest
 
 const LayerScript := preload("res://mods/jes-skills/sandbox/sandbox_projectile_layer.gd")
@@ -27,34 +30,29 @@ func _spawn(pos: Vector2, radius: float = 8.0) -> int:
 	return field.spawn(pos, Vector2.RIGHT, 0.0, 5.0, radius, 0, p, null, StatsComponent.new())
 
 
-func test_pl1_multimesh_configured_once() -> void:
-	assert_not_null(layer.multimesh, "setup 必须建出 MultiMesh")
-	assert_eq(layer.multimesh.instance_count, field.capacity, "实例容量应等于投射物容量")
-	assert_eq(layer.multimesh.visible_instance_count, 0, "空场时应一个都不画")
-	assert_eq(layer.multimesh.transform_format, MultiMesh.TRANSFORM_2D, "2D 层必须用 TRANSFORM_2D")
-	assert_true(layer.multimesh.use_colors, "需要逐实例颜色做淡出")
-	assert_not_null(layer.multimesh.mesh, "必须挂 QuadMesh")
+func test_pl1_setup_binds_field_and_default_tint() -> void:
+	assert_not_null(layer.field, "setup 必须绑定 ProjectileField")
+	assert_eq(layer.field, field, "绑定的应是传入的 field 实例")
+	assert_eq(layer.tint, SandboxProjectileLayer.DEFAULT_TINT, "缺省色应为浅蓝弹丸色")
+	assert_eq(layer.sync(), 0, "空场时存活数为 0")
 
 
-func test_pl2_visible_count_tracks_active() -> void:
+func test_pl2_sync_count_tracks_active() -> void:
 	_spawn(Vector2(10, 10))
 	_spawn(Vector2(20, 20))
-	layer.sync()
-	assert_eq(layer.multimesh.visible_instance_count, 2, "两发存活应画两个实例")
+	assert_eq(layer.sync(), 2, "两发存活应计数为 2")
 
 
-func test_pl3_instance_transform_follows_soa() -> void:
+func test_pl3_instance_state_follows_soa() -> void:
 	var i := _spawn(Vector2(7, 9), 12.0)
 	layer.sync()
-	# headless 的 dummy 渲染器不保存 MultiMesh 实例数据，读回永远是默认值，
-	# 所以位置/尺寸的断言打在纯函数 instance_state 上（sync 只是把它写进去）
 	var st := SandboxProjectileLayer.instance_state(
 			field.px[i], field.py[i], field.radius[i], field.age[i], field.life[i],
 			SandboxProjectileLayer.DEFAULT_TINT)
 	var t: Transform2D = st[&"transform"]
 	assert_almost_eq(t.origin.x, 7.0, 0.001)
 	assert_almost_eq(t.origin.y, 9.0, 0.001)
-	# QuadMesh 是直径 2 的单位圆 → 缩放系数应等于半径
+	# 满寿命时缩放系数应等于半径（末期才收边）
 	assert_almost_eq(t.x.x, 12.0, 0.001, "缩放系数应等于半径")
 	# 推进后位置应跟着 SoA 走
 	field.tick(0.1, null, 20.0, [], RngService.new(0))
@@ -67,11 +65,9 @@ func test_pl3_instance_transform_follows_soa() -> void:
 
 func test_pl4_release_hides_instance() -> void:
 	var i := _spawn(Vector2.ZERO)
-	layer.sync()
-	assert_eq(layer.multimesh.visible_instance_count, 1)
+	assert_eq(layer.sync(), 1)
 	field.release(i)
-	layer.sync()
-	assert_eq(layer.multimesh.visible_instance_count, 0, "回收后不应继续绘制")
+	assert_eq(layer.sync(), 0, "回收后不应继续绘制")
 
 
 func test_pl5_color_alpha_fades_near_end_of_life() -> void:

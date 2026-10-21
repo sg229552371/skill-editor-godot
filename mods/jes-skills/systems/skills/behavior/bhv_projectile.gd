@@ -15,6 +15,8 @@ static func plan_to_launch(plan: Dictionary) -> Dictionary:
 		&"pierce": int(params.get(&"pierce", 0)),
 		&"fork": int(params.get(&"fork_count", 0)),
 		&"chain": int(params.get(&"chain_count", 0)),
+		&"motion": params.get(&"motion", &"linear"),          # D-36：linear / orbit（枚举封闭，加值=口径变更）
+		&"orbit_radius": float(params.get(&"orbit_radius", 0.0)),
 		&"lifetime": float(params.get(&"lifetime", 1.2)),
 		&"angle_deg": float(plan.get(&"angle_deg", 0.0)),
 	}

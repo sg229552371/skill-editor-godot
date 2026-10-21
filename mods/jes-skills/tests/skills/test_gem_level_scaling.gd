@@ -99,12 +99,23 @@ func test_is_segmented_flag() -> void:
 # ---------- 既有内容零影响（内容层，不只是公式层）----------
 # 若将来某颗主动真的要分段，这里会变红——那是**正确**的：
 # 改内容就必须同步改断言并写明依据（台账 P-23），不要改成 `>= 1` 糊过去。
+## 首批使用两段曲线的技能（D-31）：落烬环走「前期弱、10 级后爆发」成型型曲线。
+## 名单制而非放过全部分段内容——新增分段技能必须显式登记，否则本条仍会红。
+const SEGMENTED_BY_DESIGN := [&"ring_of_cinders"]
+
+
 func test_existing_content_stays_on_linear_branch() -> void:
 	var skills: Array = GemRegistry.skills()
 	assert_gt(skills.size(), 0, "内容必须已加载")
 	for s in skills:
 		var data: SkillData = s
 		if data.level_scaling == null:
+			continue
+		if SEGMENTED_BY_DESIGN.has(data.gem_id):
+			assert_true(
+				data.level_scaling.is_segmented(),
+				"%s 已登记为分段曲线，应为 knee_level>0" % data.gem_id
+			)
 			continue
 		assert_false(
 			data.level_scaling.is_segmented(),

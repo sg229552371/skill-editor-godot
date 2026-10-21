@@ -14,13 +14,16 @@ const RESPAWN_WAIT := 2.0
 const MANA_MAX := 200.0
 const MANA_REGEN_PER_SEC := 20.0
 const AUTO_CAST_INTERVAL := 1.0   # 自动施法周期（实验台勾选框控制）
-const ACTIVE_SLOT_COUNT := 8
-# 演示槽位编排：1~8 键分别对应的技能。只影响"哪个键放哪个技能"，不影响任何结算逻辑。
+const ACTIVE_SLOT_COUNT := 9
+# 演示槽位编排：0~8 号槽位各自对应的技能（D-33 起不再绑按键，Q 统一放槽 0）。
+# 只影响"哪个槽放哪个技能"，不影响任何结算逻辑。
 # 这是演示层**唯一**允许出现具体宝石 id 的地方（内容编排表），运行时代码一律经
 # GemRegistry 按 id 取内容，不得在分支里判 id（规格 §13.1 第 1 条）。
+# 槽 8 = 落烬环（FLY·RING·ZONE 首格）：空心环判定，用来在沙盒里肉眼验收环形。
 const DEMO_SLOT_ORDER: Array[StringName] = [
 	&"frost_shard", &"fire_burst", &"lightning_slash", &"chaos_beam",
 	&"shadow_dash", &"berserk", &"spirit_summon", &"frost_nova",
+	&"ring_of_cinders",
 ]
 # 槽 0 预挂的双辅助（演示 G5/G6 装配链路）：霜矛为 projectile+cold，两颗均兼容；
 # cost = 10 × 1.4 × 1.2 = 16.8。同属内容编排，集中在此处便于查阅。
@@ -58,6 +61,8 @@ var trigger_mgr := TriggerManager.new()
 var projectile_field := ProjectileField.new(PROJECTILE_CAP)
 var target_hash := SpatialHash.new(64.0)
 var projectile_layer: SandboxProjectileLayer = null
+var aoe_layer: SandboxAoeLayer = null        # AoE 落地区域可视化（纯表现，D-31）
+var fx_layer: SandboxFxLayer = null          # 瞬态特效层：近战挥砍/引导光束/冲刺轨迹/buff 光环（纯表现，D-32）
 var effect_pool: EffectPool = null
 var _max_target_radius: float = 24.0
 
@@ -71,6 +76,7 @@ var _pending_aoe: Array = []    # {fire_at, radius, elements, tags}
 var _channel: Dictionary = {}   # {tick_times, next_idx, plan, start_at}
 var _dash: Dictionary = {}      # {remaining, dir, speed, plan, hit_cd}
 var _buffs: Array = []          # {until, mods, source_id}
+var _fx: Array = []             # 瞬态特效 {kind, born_at, ttl, ...}，只给表现层读，tick 里剪枝
 var minions := MinionRegistry.new()   # 召唤物数据层（§8.2：子集继承 / 顶掉最旧 / 寿命）
 var _elapsed: float = 0.0
 var _hud = null                 # SandboxHud（可选）
@@ -88,6 +94,9 @@ func _ready() -> void:
 	trigger_mgr.bus = bus
 	trigger_mgr._ready()
 	trigger_mgr.trigger_cast_requested.connect(_on_trigger_cast)
+	# 默认勾选自动施法（D-33 用户裁定）：实验台配置好技能就持续开火，
+	# 手动施法统一按 Q。只改运行场景默认值；测试里直接 new 的实例不受影响。
+	set_auto_cast(true)
 	# 总线演出观测（HUD 计数）
 	var hud := get_node_or_null("Hud/HudView")
 	if hud != null:
@@ -155,6 +164,18 @@ func _build_projectile_layer() -> void:
 	projectile_layer.z_index = 5
 	add_child(projectile_layer)
 	projectile_layer.setup(projectile_field, PROJECTILE_TINT)
+	# AoE 区域绘制层（D-31 表现债）：环/实心圆落地区域可视化，纯表现不参与判定
+	aoe_layer = SandboxAoeLayer.new()
+	aoe_layer.name = "AoeLayer"
+	aoe_layer.z_index = 4
+	aoe_layer.main = self
+	add_child(aoe_layer)
+	# 瞬态特效层（D-32 表现债）：近战弧光 / 引导光束 / 冲刺轨迹 / buff 光环
+	fx_layer = SandboxFxLayer.new()
+	fx_layer.name = "FxLayer"
+	fx_layer.z_index = 6
+	fx_layer.main = self
+	add_child(fx_layer)
 
 
 ## 7 个主动槽（0~6 演示技能）+ 槽 7（触发器专用雷光斩复制）+ 演示辅助/触发器
@@ -162,7 +183,7 @@ func _build_skills() -> void:
 	mana.set_max(&"mana", MANA_MAX)
 	mana.set_current(&"mana", MANA_MAX)
 
-	# 槽位编排只属于沙盒：决定 1~8 键各放哪个技能。
+	# 槽位编排只属于沙盒：决定 0~8 号槽各放哪个技能。
 	# 这是"内容编排列表"，不是运行时分支 —— 装配、消耗、施法都与具体 id 无关。
 	# 不能依赖 GemRegistry.skills() 的返回顺序：那是按 id 排序的，改个文件名就会
 	# 把冰系辅助装到火技能上，触发 G7 整组拒绝（本文件 R5 就踩过这一下）。
@@ -222,11 +243,10 @@ func apply_lab_loadout(gem: SkillData, supports: Array) -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		var key: InputEventKey = event
-		# 1~8 施放槽 0~7；Q 触发演示组合；R 全体木桩回满血
-		if key.physical_keycode >= KEY_1 and key.physical_keycode <= KEY_8:
-			try_cast(int(key.physical_keycode) - KEY_1)
-		elif key.physical_keycode == KEY_Q:
-			_demo_combo()
+		# D-33 输入简化：不再按 1~9 选槽，Q 统一施放实验台当前配置（槽 0）；
+		# R 全体木桩回满血。触发器链路（槽 7）走 TriggerManager，不经按键。
+		if key.physical_keycode == KEY_Q:
+			try_cast(0)
 		elif key.physical_keycode == KEY_R:
 			for s in stumps:
 				s.respawn()
@@ -313,16 +333,28 @@ func _exec_projectile(plan: Dictionary) -> void:
 	# SkillExecutor 已把多发拆成「每发一个 plan」，所以这里只出 1 发，
 	# 位置/速度/寿命/半径全部来自计划（数据驱动，不看宝石）
 	var angle := _aim_angle() + deg_to_rad(float(launch[&"angle_deg"]))
-	projectile_field.spawn(
-			player.global_position,
-			Vector2.RIGHT.rotated(angle),
+	var is_orbit: bool = String(launch[&"motion"]) == &"orbit"
+	var spawn_pos := player.global_position
+	var dir := Vector2.RIGHT.rotated(angle)
+	if is_orbit:
+		# D-36 环绕弹：出生在环上（angle_deg 已由 SkillExecutor 均布），初速取切向
+		spawn_pos = player.global_position \
+				+ Vector2.RIGHT.rotated(angle) * float(launch[&"orbit_radius"])
+		dir = Vector2.RIGHT.rotated(angle + PI * 0.5)
+	var idx := projectile_field.spawn(
+			spawn_pos,
+			dir,
 			float(launch[&"speed"]),
 			float(launch[&"lifetime"]),
 			float(launch[&"radius"]),
 			int(launch[&"pierce"]),
 			_make_packet(plan),
 			player,
-			player.stats)
+			player.stats,
+			int(launch[&"chain"]),
+			int(launch[&"fork"]))
+	if is_orbit and idx >= 0:
+		projectile_field.configure_orbit(idx, float(launch[&"orbit_radius"]), true)
 
 
 func _exec_melee(plan: Dictionary) -> void:
@@ -330,6 +362,12 @@ func _exec_melee(plan: Dictionary) -> void:
 	var aim := _aim_angle()
 	var half := deg_to_rad(float(swing[&"arc_deg"])) / 2.0
 	var rng_len := float(swing[&"range"])
+	# 瞬态弧光（D-32）：0.18s 淡出，纯表现
+	_fx.append({
+		&"kind": &"melee_arc", &"born_at": _elapsed, &"ttl": 0.18,
+		&"center": player.global_position,
+		&"angle": aim, &"half": half, &"range": rng_len,
+	})
 	var packet := _make_packet(plan)
 	for t in stumps:
 		if t.is_dead():
@@ -348,6 +386,7 @@ func _exec_aoe(plan: Dictionary) -> void:
 		_pending_aoe.append({
 			&"fire_at": _elapsed + float(fire_time),
 			&"radius": float(burst[&"radius"]),
+			&"inner_radius": float(burst.get(&"inner_radius", 0.0)),
 			&"center": player.global_position + Vector2.RIGHT.rotated(_aim_angle()) \
 					* player.global_position.distance_to(_nearest_stump_pos()),
 			&"plan": plan,
@@ -361,6 +400,7 @@ func _exec_channel(plan: Dictionary) -> void:
 		&"next_idx": 0,
 		&"plan": plan,
 		&"start_at": _elapsed,
+		&"beam_len": 400.0,   # 与 _tick_channel 的判定长度同一数值（表现 ≠ 判定真源，改判定要两处同步）
 	}
 
 
@@ -372,6 +412,7 @@ func _exec_dash(plan: Dictionary) -> void:
 		&"dir": Vector2.RIGHT.rotated(_aim_angle()),
 		&"plan": plan,
 		&"has_path_damage": dash[&"has_path_damage"],
+		&"start_pos": player.global_position,   # 冲刺轨迹可视化的起点（D-32）
 	}
 
 
@@ -490,6 +531,7 @@ func tick(dt: float) -> void:
 	_tick_channel()
 	_tick_dash(dt)
 	_tick_buffs()
+	_tick_fx()
 	_tick_summons(dt)
 
 
@@ -506,8 +548,9 @@ func _tick_aoe(_dt: float) -> void:
 		if _elapsed >= float(a[&"fire_at"]):
 			var packet := _make_packet(a[&"plan"])
 			for t in stumps:
-				if not t.is_dead() \
-						and t.global_position.distance_to(a[&"center"]) <= float(a[&"radius"]) + t.radius():
+				if not t.is_dead() and BhvAoeBurst.hits_ring(
+						a[&"center"], t.global_position, t.radius(),
+						float(a[&"radius"]), float(a[&"inner_radius"])):
 					_strike(packet, t)
 		else:
 			remaining.append(a)
@@ -543,6 +586,11 @@ func _tick_dash(dt: float) -> void:
 	var step: float = float(_dash[&"speed"]) * dt
 	player.global_position += Vector2(_dash[&"dir"]) * step
 	_dash[&"remaining"] = float(_dash[&"remaining"]) - dt
+	# 冲刺残影（D-32）：每帧一枚小残影，0.25s 淡出，纯表现
+	_fx.append({
+		&"kind": &"dash_ghost", &"born_at": _elapsed, &"ttl": 0.25,
+		&"pos": player.global_position, &"radius": player.radius(),
+	})
 	if bool(_dash[&"has_path_damage"]):
 		var packet := _make_packet(_dash[&"plan"])
 		for t in stumps:
@@ -563,6 +611,15 @@ func _tick_buffs() -> void:
 	_buffs = remaining
 
 
+## 瞬态特效剪枝（D-32）：只管生命周期，画什么由 SandboxFxLayer 决定
+func _tick_fx() -> void:
+	var remaining: Array = []
+	for fx in _fx:
+		if _elapsed - float(fx[&"born_at"]) < float(fx[&"ttl"]):
+			remaining.append(fx)
+	_fx = remaining
+
+
 func _tick_summons(dt: float) -> void:
 	# 寿命到期回收：数据层返回过期记录，表现层按 payload 释放
 	for rec in minions.tick(dt):
@@ -572,12 +629,7 @@ func _tick_summons(dt: float) -> void:
 			node.free()
 
 
-# ---------------- 演示组合与工具 ----------------
-
-## Q 键演示：多重投射霜矛（槽 0 已带辅助）→ 展示装配 + 多发 + 触发链。
-func _demo_combo() -> void:
-	try_cast(0)
-
+# ---------------- 工具 ----------------
 
 func _closest_point(a: Vector2, b: Vector2, p: Vector2) -> Vector2:
 	var ab := b - a

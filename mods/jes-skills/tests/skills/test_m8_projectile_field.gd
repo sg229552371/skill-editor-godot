@@ -288,3 +288,117 @@ func test_pf18_is_alive_guards_bounds() -> void:
 	assert_false(field.is_alive(999))
 	var i := _spawn(Vector2.ZERO, Vector2.RIGHT, 0.0, 5.0, 4.0, 0)
 	assert_true(field.is_alive(i))
+
+
+# ---------------- 连锁 / 分裂（D-34） ----------------
+
+func _spawn_full(from: Vector2, dir: Vector2, speed: float,
+		chain: int, fork: int, pierce: int = 0) -> int:
+	return field.spawn(from, dir, speed, 5.0, 8.0, pierce,
+			_packet(), null, StatsComponent.new(), chain, fork)
+
+
+func test_pf19_chain_redirects_to_nearest_unhit_target() -> void:
+	var a := FakeTarget.new(Vector2(10, 0), 14.0)
+	var b := FakeTarget.new(Vector2(100, -40), 14.0)
+	var targets := [a, b]
+	var i := _spawn_full(Vector2.ZERO, Vector2.RIGHT, 400.0, 1, 0)
+	field.tick(0.016, _hash_of(targets), 14.0, targets, rng)
+	assert_eq(a.hit_count(), 1, "应先命中最近的 A")
+	assert_eq(field.chain[i], 0, "连锁次数应消耗 1")
+	assert_true(field.is_alive(i), "连锁偏转后应继续飞")
+	# 速度方向应改为朝向 B（速率不变）
+	var vel := Vector2(field.vx[i], field.vy[i])
+	assert_almost_eq(vel.length(), 400.0, 0.001, "偏转不得改变弹速")
+	var to_b := (b.global_position - Vector2(field.px[i], field.py[i])).normalized()
+	assert_gt(vel.normalized().dot(to_b), 0.99, "弹道应转向 B")
+
+
+func test_pf20_chain_bounces_through_all_targets_then_dies() -> void:
+	var a := FakeTarget.new(Vector2(10, 0), 14.0)
+	var b := FakeTarget.new(Vector2(30, 0), 14.0)
+	var c := FakeTarget.new(Vector2(50, 0), 14.0)
+	var targets := [a, b, c]
+	_spawn_full(Vector2.ZERO, Vector2.RIGHT, 400.0, 2, 0)
+	# 有界循环推进：连锁 2 次应把 A→B→C 全部各打 1 次后消亡
+	for _step in 40:
+		if field.active_count() == 0:
+			break
+		field.tick(0.016, _hash_of(targets), 14.0, targets, rng)
+	assert_eq(a.hit_count(), 1, "A 应被命中 1 次")
+	assert_eq(b.hit_count(), 1, "B 应被连锁命中 1 次")
+	assert_eq(c.hit_count(), 1, "C 应被连锁命中 1 次")
+	assert_eq(field.active_count(), 0, "连锁耗尽且无穿透应消亡")
+
+
+func test_pf21_fork_splits_into_two_on_hit() -> void:
+	var a := FakeTarget.new(Vector2(10, 0), 14.0)
+	var targets := [a]
+	var i := _spawn_full(Vector2.ZERO, Vector2.RIGHT, 400.0, 0, 1)
+	field.tick(0.016, _hash_of(targets), 14.0, targets, rng)
+	assert_eq(a.hit_count(), 1)
+	assert_eq(field.active_count(), 2, "分裂应产生两发新弹（本体消亡）")
+	assert_false(field.is_alive(i), "分裂本体应消亡")
+	# 两发分裂弹：fork 次数耗尽，弹道各偏 ±35°（速度方向都不再朝右）
+	var dirs := []
+	for j in field.capacity:
+		if field.is_alive(j):
+			assert_eq(field.fork[j], 0, "分裂弹不应再带分层次数")
+			assert_eq(field.chain[j], 0)
+			dirs.append(Vector2(field.vx[j], field.vy[j]).normalized().angle())
+	assert_eq(dirs.size(), 2)
+	assert_ne(absf(dirs[0] - dirs[1]), 0.0, "两发分裂弹方向应不同")
+	assert_lt(absf(absf(dirs[0] - dirs[1]) - deg_to_rad(70.0)), 0.01,
+			"两发分裂弹夹角应为 70°（±35°）")
+
+
+func test_pf22_no_chain_fork_defaults_unchanged() -> void:
+	# 旧调用点（不传尾参）行为必须逐位不变：命中即消亡、chain/fork 为 0
+	var a := FakeTarget.new(Vector2(10, 0), 14.0)
+	var targets := [a]
+	var i := _spawn(Vector2.ZERO, Vector2.RIGHT, 0.0, 5.0, 8.0, 0)
+	assert_eq(field.chain[i], 0)
+	assert_eq(field.fork[i], 0)
+	field.tick(0.016, _hash_of(targets), 14.0, targets, rng)
+	assert_eq(a.hit_count(), 1)
+	assert_eq(field.active_count(), 0, "默认参数下命中即消亡（零回归）")
+
+
+# ---------------- 环绕轨迹（D-36） ----------------
+
+func test_pf23_orbit_position_stays_on_circle() -> void:
+	var i := _spawn_full(Vector2(90, 0), Vector2(0, 1), 375.0, 0, 0)
+	field.configure_orbit(i, 90.0, false, 0.0)   # 静态锚点在原点，初相 0
+	assert_almost_eq(field.px[i], 90.0, 0.001, "开启环绕后应立即落位到环上")
+	# 推进 0.5s：角速度 = 375/90 ≈ 4.17 rad/s → 相位前进 ~2.08 rad，仍在半径 90 的圆上
+	field.tick(0.5, null, 24.0, [], rng)
+	var pos := Vector2(field.px[i], field.py[i])
+	assert_almost_eq(pos.length(), 90.0, 0.01, "任意时刻都应留在环上")
+	assert_gt(absf(pos.angle()), 1.5, "0.5s 应转过约 2 弧度（转速随 speed 走）")
+	# 切向速度：模长不变
+	assert_almost_eq(Vector2(field.vx[i], field.vy[i]).length(), 375.0, 0.001,
+			"环绕不得改变弹速真源")
+
+
+func test_pf24_orbit_follows_attacker() -> void:
+	var attacker := FakeTarget.new(Vector2(1000, 0), 12.0)   # 借用假体当"可移动发射者"
+	var i := field.spawn(Vector2(1090, 0), Vector2(0, 1), 375.0, 5.0, 8.0, 0,
+			_packet(), attacker, StatsComponent.new())
+	field.configure_orbit(i, 90.0, true, 0.0)
+	# 发射者移动后，环绕中心应跟着走（手雷跟人语义）
+	attacker.global_position = Vector2(2000, 0)
+	field.tick(0.016, null, 24.0, [], rng)
+	var pos := Vector2(field.px[i], field.py[i])
+	assert_almost_eq((pos - Vector2(2000, 0)).length(), 90.0, 0.01,
+			"环绕中心应跟随发射者当前位置")
+
+
+func test_pf25_orbit_survives_hits_and_skips_chain() -> void:
+	var a := FakeTarget.new(Vector2(90, 0), 14.0)
+	var targets := [a]
+	var i := _spawn_full(Vector2(90, 0), Vector2(0, 1), 375.0, 1, 0)   # 带连锁 1
+	field.configure_orbit(i, 90.0, false, 0.0)
+	field.tick(0.016, _hash_of(targets), 14.0, targets, rng)
+	assert_eq(a.hit_count(), 1, "环绕弹扫过目标应命中")
+	assert_true(field.is_alive(i), "环绕弹命中不消亡（寿命到期才回收）")
+	assert_eq(field.chain[i], 1, "环绕弹不吃连锁（运动积分互斥）")

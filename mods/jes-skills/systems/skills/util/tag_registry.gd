@@ -37,6 +37,8 @@ const DEFS := {
 	&"movement": {&"kind": &"form"},
 	&"summon": {&"kind": &"form"},
 	&"buff": {&"kind": &"form"},
+	# 预留：陷阱/预埋类（D-25 注册，尚无内容使用；契约参数 delay / zone_duration，启用前先过制作人裁定）
+	&"trap": {&"kind": &"form"},
 }
 
 

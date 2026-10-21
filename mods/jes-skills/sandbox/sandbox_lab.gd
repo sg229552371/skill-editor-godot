@@ -1,7 +1,8 @@
 # 装配实验台（S4 UI 层）：技能下拉 × 辅助宝石多选，实时展示「是否生效 + 具体效果」。
 # 硬门禁：不出现 gem_id / support_id 逻辑分支 —— 下拉项与勾选项全部来自 GEMS 数据表，
 #         预览走 SocketGraph.assemble / SkillExecutor.cast 同一条通用管线。
-# 交互：勾选即写入槽 0（SandboxMain.apply_lab_loadout），按 1 / Q 实放当前配置。
+# 交互：勾选即写入槽 0（SandboxMain.apply_lab_loadout），Q 实放当前配置；
+#       默认勾选自动施法，持续开火（D-33 用户裁定：不再设 1~9 槽位键）。
 class_name SandboxLab
 extends Control
 
@@ -104,7 +105,7 @@ func _build_ui() -> void:
 
 	_auto_cast_check = CheckBox.new()
 	_auto_cast_check.text = "每秒自动放技能"
-	_auto_cast_check.tooltip_text = "每 %.0f 秒自动施放槽 0 当前配置（仍走冷却与蓝量门禁）" % SandboxMain.AUTO_CAST_INTERVAL
+	_auto_cast_check.tooltip_text = "每 %.0f 秒自动施放实验台当前配置（仍走冷却与蓝量门禁）" % SandboxMain.AUTO_CAST_INTERVAL
 	_auto_cast_check.add_theme_font_size_override(&"font_size", FONT_SMALL)
 	_auto_cast_check.toggled.connect(_on_auto_cast_toggled)
 	title_row.add_child(_auto_cast_check)
@@ -174,7 +175,7 @@ func _build_ui() -> void:
 	buttons.add_theme_constant_override(&"separation", 6)
 	root.add_child(buttons)
 	var cast_btn := Button.new()
-	cast_btn.text = "施放 (1)"
+	cast_btn.text = "施放 (Q)"
 	cast_btn.pressed.connect(_on_cast_pressed)
 	buttons.add_child(cast_btn)
 	var clear_btn := Button.new()
@@ -540,7 +541,7 @@ func _build_report(gem: SkillData, picked: Array) -> String:
 				ms.append("%s%s%s" % [String(m.stat), _op_text(m.op), _num(m.value)])
 			lines.append("词缀 " + " · ".join(ms))
 
-	lines.append("[color=#6f7c8c]已写入槽 0 —— 按 1 / Q 实放；不可镶嵌的辅助已置灰（PoE2 前置拦截）[/color]")
+	lines.append("[color=#6f7c8c]已写入槽 0 —— 按 Q 实放 / 勾选自动施法持续开火；不可镶嵌的辅助已置灰（PoE2 前置拦截）[/color]")
 	return "\n".join(lines)
 
 

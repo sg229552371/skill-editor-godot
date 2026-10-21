@@ -1,4 +1,4 @@
-# SkillSlotBar（规格 §5.3）：技能栏 1~8 键，每键绑定一个 SkillSlot。
+# SkillSlotBar（规格 §5.3）：技能栏 1~9 键，每键绑定一个 SkillSlot。
 # 同一时刻一个 SkillSlot 派生一个 SkillInstance（§5.1 / §13.1 第 5 条）。
 ##
 ## 硬门禁：纯数据容器无演出逻辑；越界操作安全返回（null / false）。
@@ -6,7 +6,8 @@
 class_name SkillSlotBar
 extends RefCounted
 
-const MAX_SLOTS := 8
+# 槽 8 = 落烬环（FLY·RING·ZONE 首格，D-31）：原上限 8 与沙盒 ACTIVE_SLOT_COUNT 同步扩到 9。
+const MAX_SLOTS := 9
 
 var slot_count: int = MAX_SLOTS
 var _slots: Array = []
