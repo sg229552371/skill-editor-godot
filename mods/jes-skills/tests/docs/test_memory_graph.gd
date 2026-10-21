@@ -13,8 +13,8 @@ const DOCS_DIR := "res://mods/jes-skills/docs"
 ## R20：docs/ 重排为三个顶层文件夹后，两份真源都进了 `_AI开发与文档/`。
 ## 这两个常量硬编码路径，目录一动门禁立即红——这是**设计意图**，不是脆弱：
 ## 图谱与台账是证据链的两端，位置变更必须让人显式确认，不能靠"文件还在某处"蒙过去。
-const GRAPH_PATH := "res://mods/jes-skills/docs/_AI开发与文档/项目记忆图谱与证据链_v1.md"
-const LEDGER_PATH := "res://mods/jes-skills/docs/_AI开发与文档/踩坑与决策台账.md"
+const GRAPH_PATH := "res://mods/jes-skills/docs/_AI开发与文档/03_查规则/项目记忆图谱与证据链_v1.md"
+const LEDGER_PATH := "res://mods/jes-skills/docs/_AI开发与文档/03_查规则/踩坑与决策台账.md"
 
 ## 图谱至少要有这么多节点；只增不减，删节点等于删历史。
 const MIN_NODES := 9
