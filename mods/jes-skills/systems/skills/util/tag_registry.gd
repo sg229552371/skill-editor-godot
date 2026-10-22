@@ -52,10 +52,14 @@ const DEFS := {
 	]},
 	&"movement": {&"kind": &"form", &"promises": [
 		&"distance", &"speed", &"path_width", &"path_zone_duration",
+		&"tick_interval", &"hit_count",
+		# D-56 合并键批次：冲刺路径多段判定（DASH·LINE·TICK / DASH·CIRC·TICK 解锁）
 	]},
 	&"summon": {&"kind": &"form", &"promises": [
 		&"max_count", &"scene", &"lifetime",
 		&"formation", &"per_cast", &"formation_radius", &"formation_spacing",
+		&"point_count", &"point_spacing", &"delay",
+		# D-56 合并键批次：formation 补 circ/multi 值 + 多点键（SUMN·CIRC·S1 / SUMN·MULTI·S1 / SUMN·MULTI·DLY 解锁）
 	]},
 	&"buff": {&"kind": &"form", &"promises": [&"duration", &"buff_mods"]},
 	# 预留：陷阱/预埋类（D-25 注册，尚无内容使用；启用前先过制作人裁定）

@@ -228,6 +228,89 @@ func test_tag_promises_covered_by_produced_params() -> void:
 # ---------- 补充：封闭枚举守卫 ----------
 func test_shape_enum_is_closed() -> void:
 	assert_eq(ShapeHit.SHAPES.size(), 7, "七种形状，加值=口径变更")
+
+
+# ================= D-56 合并键批次（冲刺多段键 + 阵型键） =================
+
+# ---------- D56-1a：冲刺路径多段键声明即生效 ----------
+func test_dash_multi_hit_keys() -> void:
+	var data := _skill(&"bhv_dash", {
+		&"distance": 400.0, &"speed": 800.0,
+		&"hit_count": 4, &"tick_interval": 0.2,
+	})
+	var d := BhvDash.plan_to_dash(SkillExecutor.cast(data, 1, _make_stats())[0])
+	assert_eq(int(d[&"hit_count"]), 4, "路径判定 4 段")
+	assert_almost_eq(float(d[&"tick_interval"]), 0.2, 0.0001, "段间隔 0.2s")
+
+
+# ---------- D56-1b：冲刺默认零回归（单段、零间隔 = 现状语义） ----------
+func test_dash_multi_hit_defaults() -> void:
+	var data := _skill(&"bhv_dash", {&"distance": 300.0, &"speed": 1500.0})
+	var d := BhvDash.plan_to_dash(SkillExecutor.cast(data, 1, _make_stats())[0])
+	assert_eq(int(d[&"hit_count"]), 1, "默认 1 段 = 现状单段判定")
+	assert_almost_eq(float(d[&"tick_interval"]), 0.0, 0.0001, "默认零间隔")
+
+
+# ---------- D56-2a：circ 散布阵——向日葵螺旋均布，落点全部落在阵型半径内且确定可测 ----------
+func test_summon_circ_formation_scatter() -> void:
+	var data := _skill(&"bhv_summon", {
+		&"max_count": 6, &"lifetime": 10.0,
+		&"formation": &"circ", &"per_cast": 6, &"formation_radius": 100.0,
+	})
+	var sm := BhvSummon.plan_to_summon(SkillExecutor.cast(data, 1, _make_stats())[0])
+	var offsets: Array = sm[&"spawn_offsets"]
+	assert_eq(offsets.size(), 6, "一次召 6 只 = 6 个落点")
+	for off in offsets:
+		assert_true(float((off as Vector2).length()) <= 100.0 + 0.001,
+			"落点必须在阵型半径 100 内")
+	# 确定性：第一只位于半径一半处（sqrt(0.5/6)×100），golden angle 初相
+	var first := offsets[0] as Vector2
+	assert_almost_eq(first.length(), 100.0 * sqrt(0.5 / 6.0), 0.001, "螺旋首点半径确定")
+	# 最内与最外点不应重合（覆盖圆盘而非挤在原点）
+	assert_true((offsets[0] as Vector2).length() < (offsets[5] as Vector2).length(),
+		"螺旋由内向外展开")
+
+
+# ---------- D56-2b：multi 多点阵——沿朝向 point_count 个点、点距 point_spacing ----------
+func test_summon_multi_formation_points() -> void:
+	var data := _skill(&"bhv_summon", {
+		&"max_count": 3, &"lifetime": 8.0,
+		&"formation": &"multi", &"per_cast": 3,
+		&"point_count": 3, &"point_spacing": 60.0,
+	})
+	var sm := BhvSummon.plan_to_summon(SkillExecutor.cast(data, 1, _make_stats())[0])
+	var offsets: Array = sm[&"spawn_offsets"]
+	assert_eq(offsets.size(), 3, "3 个点各一只")
+	assert_almost_eq(float((offsets[0] as Vector2).x), -60.0, 0.001, "首点 -60（对称展开）")
+	assert_almost_eq(float((offsets[1] as Vector2).x), 0.0, 0.001, "中点在施法者位置")
+	assert_almost_eq(float((offsets[2] as Vector2).x), 60.0, 0.001, "末点 +60")
+
+
+# ---------- D56-2c：multi 的 point_spacing 吃 area_size（长度量纲） ----------
+func test_summon_multi_spacing_scales_with_area() -> void:
+	var sc := _make_stats()
+	sc.add_modifier(_area_mod(50.0))
+	var data := _skill(&"bhv_summon", {
+		&"max_count": 3, &"lifetime": 8.0,
+		&"formation": &"multi", &"per_cast": 3,
+		&"point_count": 3, &"point_spacing": 60.0,
+	})
+	var sm := BhvSummon.plan_to_summon(SkillExecutor.cast(data, 1, sc)[0])
+	assert_almost_eq(float(sm[&"point_spacing"]), 90.0, 0.001, "60 × 1.5 = 90")
+
+
+# ---------- D56-2d：delay 透传（多点陷阱阵 SUMN·MULTI·DLY 的预埋延迟） ----------
+func test_summon_delay_passthrough() -> void:
+	var data := _skill(&"bhv_summon", {
+		&"max_count": 3, &"lifetime": 8.0,
+		&"formation": &"multi", &"point_count": 3, &"point_spacing": 60.0,
+		&"delay": 0.5,
+	})
+	var sm := BhvSummon.plan_to_summon(SkillExecutor.cast(data, 1, _make_stats())[0])
+	assert_almost_eq(float(sm[&"delay"]), 0.5, 0.0001, "预埋延迟整组透传")
+	var plain := _skill(&"bhv_summon", {&"max_count": 1, &"lifetime": 5.0})
+	var sm2 := BhvSummon.plan_to_summon(SkillExecutor.cast(plain, 1, _make_stats())[0])
+	assert_almost_eq(float(sm2[&"delay"]), 0.0, 0.0001, "默认零延迟 = 现状")
 	for s in ShapeHit.SHAPES:
 		assert_true(ShapeHit.is_valid(s), "枚举内形状必须合法")
 	assert_false(ShapeHit.is_valid(&"cone"), "枚举外形状拒绝（cone 须走口径变更流程）")

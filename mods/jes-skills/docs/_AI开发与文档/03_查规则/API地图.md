@@ -21,7 +21,7 @@
 - consumed_stats（消费属性）: `duration`, `area_size`
 
 ### BhvDash（`systems/skills/behavior/bhv_dash.gd`）
-- produced_params（参数键承诺）: `distance`, `speed`, `path_damage`, `path_width`, `path_zone_duration`
+- produced_params（参数键承诺）: `distance`, `speed`, `path_damage`, `path_width`, `path_zone_duration`, `hit_count`, `tick_interval`
 - consumed_stats（消费属性）: —
 
 ### BhvMeleeSwing（`systems/skills/behavior/bhv_melee_swing.gd`）
@@ -33,7 +33,7 @@
 - consumed_stats（消费属性）: `area_size`
 
 ### BhvSummon（`systems/skills/behavior/bhv_summon.gd`）
-- produced_params（参数键承诺）: `max_count`, `scene`, `lifetime`, `formation`, `per_cast`, `formation_radius`, `formation_spacing`
+- produced_params（参数键承诺）: `max_count`, `scene`, `lifetime`, `formation`, `per_cast`, `formation_radius`, `formation_spacing`, `point_count`, `point_spacing`, `delay`
 - consumed_stats（消费属性）: `duration`, `area_size`
 
 ## 二、标签承诺面（util/tag_registry.gd）
@@ -43,8 +43,8 @@
 | `channel` | form | `shape`, `arc_deg`, `range`, `tick_interval`, `max_channel_time` |
 | `trap` | form | `delay` |
 | `buff` | form | `duration`, `buff_mods` |
-| `summon` | form | `max_count`, `scene`, `lifetime`, `formation`, `per_cast`, `formation_radius`, `formation_spacing` |
-| `movement` | form | `distance`, `speed`, `path_width`, `path_zone_duration` |
+| `summon` | form | `max_count`, `scene`, `lifetime`, `formation`, `per_cast`, `formation_radius`, `formation_spacing`, `point_count`, `point_spacing`, `delay` |
+| `movement` | form | `distance`, `speed`, `path_width`, `path_zone_duration`, `tick_interval`, `hit_count` |
 | `aoe` | form | `shape`, `radius`, `inner_radius`, `delay`, `hit_count`, `hit_interval`, `arc_deg`, `range`, `length`, `width`, `point_count`, `point_spacing` |
 | `projectile` | form | `projectile_count`, `speed`, `radius`, `pierce`, `fork_count`, `chain_count`, `motion`, `orbit_radius`, `lifetime`, `spread_deg` |
 | `melee` | form | `shape`, `arc_deg`, `range`, `angle_deg` |
