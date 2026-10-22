@@ -17,7 +17,10 @@ Thumbs.db
 .DS_Store
 
 # Local agent memory / workspace data
-.workbuddy/
+# 注意：.workbuddy/skills/ 是**要入库的**（项目级 skill，换设备要跟着走），
+# 所以不能整个 .workbuddy/ 一刀切；memory/ 与 tmp/ 仍留在本机不入库。
+.workbuddy/*
+!.workbuddy/skills/
 
 # 本机 Godot 版本固定（GodotHub 生成，机器相关）
 .godotrc
