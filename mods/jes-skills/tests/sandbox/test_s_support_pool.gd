@@ -166,6 +166,21 @@ func test_lab12_socket_check_respects_capacity() -> void:
 	assert_false(chk.ok, "孔位已满时不得镶嵌")
 	assert_eq(chk.error_code, AssemblyResult.ErrorCode.ERR_NO_SOCKET)
 
+
+## P-26 配套：范围扩大禁止移动类（位移距离不吃范围，D-40）——三个冲刺技能全部拒绝装配
+func test_lab15_area_support_rejects_movement_skills() -> void:
+	for id in [&"shadow_dash", &"rift_step", &"breach_roll"]:
+		var slot := SkillSlot.new()
+		slot.active_gem = GemRegistry.skill(id)
+		var chk := SocketGraph.socket_check(slot, GemRegistry.support(&"support_area"))
+		assert_false(chk.ok, "范围扩大应拒绝移动类技能 %s" % id)
+		assert_eq(chk.error_code, AssemblyResult.ErrorCode.ERR_INCOMPATIBLE_SUPPORT)
+	# 反向：非移动类仍可装配（霜矛）
+	var ok_slot := SkillSlot.new()
+	ok_slot.active_gem = GemRegistry.skill(&"frost_shard")
+	var ok_chk := SocketGraph.socket_check(ok_slot, GemRegistry.support(&"support_area"))
+	assert_true(ok_chk.ok, "非移动类技能（霜矛）装配范围扩大不受影响")
+
 ## G7 保留：绕过 UI 直接构造非法配置，assemble 仍必须 fail-fast 并给错误码
 func test_lab13_g7_still_fails_on_illegal_config() -> void:
 	var slot := SkillSlot.new()

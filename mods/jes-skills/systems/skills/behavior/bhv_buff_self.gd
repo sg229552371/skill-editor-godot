@@ -22,3 +22,13 @@ static func plan_to_buff(plan: Dictionary) -> Dictionary:
 static func _scaled_duration(base: float, plan: Dictionary) -> float:
 	var duration_mult: float = plan.get(&"duration_mult", 1.0)
 	return base * duration_mult
+
+
+## D-42 标签承诺契约：本行为产出的参数键面（与 TagRegistry 的 buff 承诺对账）。
+static func produced_params() -> Array:
+	return [&"duration", &"buff_mods"]
+
+
+## D-42：本行为消费的倍率型 stat。
+static func consumed_stats() -> Array:
+	return [&"duration"]

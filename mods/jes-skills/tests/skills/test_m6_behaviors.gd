@@ -211,6 +211,33 @@ func test_unknown_behavior_still_skipped() -> void:
 	var plans := SkillExecutor.cast(data, 1, _make_stats())
 	assert_eq(plans.size(), 0)
 
+
+# ---------- P-26：范围扩大对投射物/近战生效（长度量纲缩放，角度量纲不动） ----------
+func test_area_size_scales_projectile_lengths() -> void:
+	# area_size +30% → mult 1.3：弹体碰撞盒 20→26、环绕半径 90→117；速度/寿命不动
+	var stats := _make_stats()
+	stats.add_modifier(_mod(&"area_size", StatModifier.Op.INCREASED, 30.0))
+	var data := _skill(&"bhv_projectile", {
+		&"count_base": 1.0, &"speed": 600.0, &"lifetime": 2.0,
+		&"radius": 20.0, &"motion": &"orbit", &"orbit_radius": 90.0,
+	})
+	var plans := SkillExecutor.cast(data, 1, stats)
+	var launch := BhvProjectile.plan_to_launch(plans[0])
+	assert_almost_eq(float(launch[&"radius"]), 26.0, 0.001, "弹体碰撞盒应吃面积倍率")
+	assert_almost_eq(float(launch[&"orbit_radius"]), 117.0, 0.001, "环绕半径应吃面积倍率（P-26）")
+	assert_almost_eq(float(launch[&"speed"]), 600.0, 0.001, "速度不受范围影响")
+
+
+func test_area_size_scales_melee_range_not_arc() -> void:
+	# area_size +30% → 挥砍距离 130→169；扇角 90° 是角度量纲，不变宽
+	var stats := _make_stats()
+	stats.add_modifier(_mod(&"area_size", StatModifier.Op.INCREASED, 30.0))
+	var data := _skill(&"bhv_melee_swing", {&"arc_deg": 90.0, &"range": 130.0})
+	var plans := SkillExecutor.cast(data, 1, stats)
+	var swing := BhvMeleeSwing.plan_to_swing(plans[0])
+	assert_almost_eq(float(swing[&"range"]), 169.0, 0.001, "挥砍距离应吃面积倍率（P-26）")
+	assert_almost_eq(float(swing[&"arc_deg"]), 90.0, 0.001, "扇角是角度量纲，不得被范围放大")
+
 # ---------- 环绕轨迹（D-36）：计划层均布初相 + set 覆盖 ----------
 
 func test_executor_orbit_plans_even_ring() -> void:
@@ -226,6 +253,23 @@ func test_executor_orbit_plans_even_ring() -> void:
 		angles.append(float(p[&"angle_deg"]))
 	assert_almost_eq(float(angles[0]), 0.0, 0.001)
 	assert_almost_eq(float(angles[1]), 120.0, 0.001, "环绕初相应按圈均布")
+	assert_almost_eq(float(angles[2]), 240.0, 0.001)
+
+
+func test_executor_orbit_beats_builtin_spread() -> void:
+	# P-25 回归：自带散角的技能（如霜矛 spread 6°）装环绕转化 + 多重投射后，
+	# 必须按圈均布——散角分支曾抢在环绕分支前，把 3 发挤进 6° 扇缝
+	var data := _skill(&"bhv_projectile", {
+		&"count_base": 3.0, &"speed": 600.0, &"lifetime": 2.0,
+		&"spread_deg": 6.0, &"motion": &"orbit", &"orbit_radius": 90.0,
+	})
+	var plans := SkillExecutor.cast(data, 1, _make_stats())
+	assert_eq(plans.size(), 3)
+	var angles := []
+	for p in plans:
+		angles.append(float(p[&"angle_deg"]))
+	assert_almost_eq(float(angles[0]), 0.0, 0.001)
+	assert_almost_eq(float(angles[1]), 120.0, 0.001, "自带散角不得抢环绕均布（P-25）")
 	assert_almost_eq(float(angles[2]), 240.0, 0.001)
 
 

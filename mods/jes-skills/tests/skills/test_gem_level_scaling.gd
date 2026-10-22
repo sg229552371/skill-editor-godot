@@ -101,7 +101,15 @@ func test_is_segmented_flag() -> void:
 # 改内容就必须同步改断言并写明依据（台账 P-23），不要改成 `>= 1` 糊过去。
 ## 首批使用两段曲线的技能（D-31）：落烬环走「前期弱、10 级后爆发」成型型曲线。
 ## 名单制而非放过全部分段内容——新增分段技能必须显式登记，否则本条仍会红。
-const SEGMENTED_BY_DESIGN := [&"ring_of_cinders"]
+## 第 2 批 12 技能（D-38 拍板后按规划稿 §9 第 2 步落地）四种曲线：
+##   开荒型 16%/8级/+4%：贯空箭；成型型 4%/10级/+20%：熔核引爆/星屑连射/猎杀号令/长明烛火；
+##   防御封顶 12%/10级/0：磐石架势/元素壁障/影缝闪避/破阵翻滚；
+##   平滑 10% 不分段：裂石重击/裂地余震/战地工事（规划稿遗漏 T3 曲线，按与 T1 同类的平滑落地）。
+const SEGMENTED_BY_DESIGN := [
+	&"ring_of_cinders",
+	&"piercing_bolt", &"core_detonate", &"stardust_volley", &"hunt_call", &"everflame_warden",
+	&"stone_stance", &"elemental_ward", &"rift_step", &"breach_roll",
+]
 
 
 func test_existing_content_stays_on_linear_branch() -> void:

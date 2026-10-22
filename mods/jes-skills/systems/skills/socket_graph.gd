@@ -188,10 +188,21 @@ static func _assemble_group(slot: SkillSlot, group: Array) -> AssemblyResult:
 	return res
 
 
-## 兼容判定（六步 1）：require 全具备 + exclude 不命中 + 主动石 allowed 白名单
+## 兼容判定（六步 1）：require 全具备 + require_any 任一 + exclude 不命中 + 主动石 allowed 白名单
 static func _compatible(gem: SkillData, g: SupportGemData, effective_tags: Array[StringName]) -> bool:
 	for t in g.require_tags:
 		if not effective_tags.has(t):
+			return false
+	# D-42 require_any_tags：任一命中即过（空数组 = 不限制）。
+	# 用途：属性型辅助（如范围扩大 → area_size）要求目标技能至少有一个
+	# 能消费该属性的形态，杜绝「装上静默无效」。
+	if not g.require_any_tags.is_empty():
+		var any_ok := false
+		for t in g.require_any_tags:
+			if effective_tags.has(t):
+				any_ok = true
+				break
+		if not any_ok:
 			return false
 	for t in g.exclude_tags:
 		if effective_tags.has(t):
@@ -204,7 +215,12 @@ static func _compatible(gem: SkillData, g: SupportGemData, effective_tags: Array
 				allowed = true
 				break
 		if not allowed:
-			return false
+			for t in g.require_any_tags:
+				if gem.allowed_support_tags.has(t):
+					allowed = true
+					break
+			if not allowed:
+				return false
 	return true
 
 

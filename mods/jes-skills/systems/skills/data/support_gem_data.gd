@@ -8,6 +8,7 @@ extends Resource
 @export var support_id: StringName = &""
 @export var display_name: String = ""
 @export var require_tags: Array[StringName] = []       # 必须全部具备
+@export var require_any_tags: Array[StringName] = []   # 任一具备即可（D-42：属性契约要求「至少一个部件消费目标属性」时用）
 @export var add_tags: Array[StringName] = []           # 给技能追加标签（多轮收敛）
 @export var exclude_tags: Array[StringName] = []       # 命中任一即不兼容
 @export var cost_multiplier: float = 1.0

@@ -9,6 +9,13 @@
 #   cast_type    施法类型（attack / spell）
 #   form         形态与行为特征（melee / projectile / aoe / channel / movement / summon / buff）
 #
+# promises（D-42 标签承诺契约）：
+#   form 标签承诺一份「参数面」——部件只要声明了该标签，其行为就必须产出这些参数键。
+#   装了标签但行为不产出承诺参数 = 数据错误（内容校验测试把这类错误挡在 CI）。
+#   该契约的直接教训：P-26「范围扩大装在投射物上静默失效」——area 标签承诺了
+#   半径参数，但投射物行为当年不产出它。承诺面必须与行为参数面逐键对账。
+#   damage_type / cast_type 承诺的是「参与伤害管线」，不是参数键，故无 promises。
+#
 # 硬规则：新增标签必须在这里注册，否则 `unknown_in()` 会把内容里的标签报出来。
 class_name TagRegistry
 extends RefCounted
@@ -29,16 +36,30 @@ const DEFS := {
 	&"attack": {&"kind": &"cast_type"},
 	&"spell": {&"kind": &"cast_type"},
 
-	# ---- 形态与行为特征 ----
-	&"melee": {&"kind": &"form"},
-	&"projectile": {&"kind": &"form"},
-	&"aoe": {&"kind": &"form"},
-	&"channel": {&"kind": &"form"},
-	&"movement": {&"kind": &"form"},
-	&"summon": {&"kind": &"form"},
-	&"buff": {&"kind": &"form"},
-	# 预留：陷阱/预埋类（D-25 注册，尚无内容使用；契约参数 delay / zone_duration，启用前先过制作人裁定）
-	&"trap": {&"kind": &"form"},
+	# ---- 形态与行为特征（承诺参数面 = 该形态家族的全部参数键）----
+	# 批次 A 判定形状化（D-43）：aoe/melee/channel/movement/summon 承诺面扩形状键。
+	&"melee": {&"kind": &"form", &"promises": [&"shape", &"arc_deg", &"range", &"angle_deg"]},
+	&"projectile": {&"kind": &"form", &"promises": [
+		&"projectile_count", &"speed", &"radius", &"pierce", &"fork_count",
+		&"chain_count", &"motion", &"orbit_radius", &"lifetime", &"spread_deg",
+	]},
+	&"aoe": {&"kind": &"form", &"promises": [
+		&"shape", &"radius", &"inner_radius", &"delay", &"hit_count", &"hit_interval",
+		&"arc_deg", &"range", &"length", &"width", &"point_count", &"point_spacing",
+	]},
+	&"channel": {&"kind": &"form", &"promises": [
+		&"shape", &"arc_deg", &"range", &"tick_interval", &"max_channel_time",
+	]},
+	&"movement": {&"kind": &"form", &"promises": [
+		&"distance", &"speed", &"path_width", &"path_zone_duration",
+	]},
+	&"summon": {&"kind": &"form", &"promises": [
+		&"max_count", &"scene", &"lifetime",
+		&"formation", &"per_cast", &"formation_radius", &"formation_spacing",
+	]},
+	&"buff": {&"kind": &"form", &"promises": [&"duration", &"buff_mods"]},
+	# 预留：陷阱/预埋类（D-25 注册，尚无内容使用；启用前先过制作人裁定）
+	&"trap": {&"kind": &"form", &"promises": [&"delay"]},
 }
 
 
@@ -72,4 +93,21 @@ static func unknown_in(tags: Array) -> Array:
 		var key := StringName(t)
 		if not DEFS.has(key) and not out.has(key):
 			out.append(key)
+	return out
+
+
+## D-42 标签承诺契约：单个标签承诺的参数键（非 form 标签 = 空）
+static func promises_of(tag: StringName) -> Array:
+	if not DEFS.has(tag):
+		return []
+	return DEFS[tag].get(&"promises", [])
+
+
+## D-42 标签承诺契约：一组标签承诺参数键的并集（去重）
+static func promises_union(tags: Array) -> Array:
+	var out: Array = []
+	for t in tags:
+		for p in promises_of(StringName(t)):
+			if not out.has(p):
+				out.append(p)
 	return out

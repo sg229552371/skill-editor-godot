@@ -16,6 +16,20 @@ const BEHAVIORS := {
 	&"bhv_buff_self": "res://mods/jes-skills/systems/skills/behavior/bhv_buff_self.gd",
 }
 
+## D-42 标签承诺契约：behavior_id -> 该行为必须携带的形态标签。
+## 内容校验测试用两条规则对账：
+##   T0 正向：每个部件必须携带其行为对应的形态标签（辅助过滤依赖它）；
+##   T1 反向：技能标签里每个 form 标签承诺的参数键，必须被该技能至少一个部件产出。
+const BEHAVIOR_FORM_TAG := {
+	&"bhv_projectile": &"projectile",
+	&"bhv_melee_swing": &"melee",
+	&"bhv_aoe_burst": &"aoe",
+	&"bhv_channel": &"channel",
+	&"bhv_summon": &"summon",
+	&"bhv_dash": &"movement",
+	&"bhv_buff_self": &"buff",
+}
+
 ## 整数型 stat（规格 §3.5）：真源在 StatRegistry.INT_STATS，这里不再另写一份。
 ## 管线末端统一 floor 一次，中途不取整。
 
@@ -88,11 +102,14 @@ static func cast(
 				&"tags": skill.tags,
 				&"params": params,
 			}
-			if count > 1 and spread > 0.0:
-				plan[&"angle_deg"] = -spread / 2.0 + spread * float(i) / float(count - 1)
-			elif count > 1 and String(params.get(&"motion", &"linear")) == &"orbit":
+			# P-25 修：环绕分支必须排在散角分支之前——自带 spread_deg 的技能（霜矛 6°）
+			# 装环绕转化 + 多重投射时，散角分支抢先把 N 发挤进 spread 扇缝，
+			# 与 D-36 口径「多发环绕按圈均布、散角不参与」相悖。环绕语义下散角整体失效。
+			if count > 1 and String(params.get(&"motion", &"linear")) == &"orbit":
 				# D-36：环绕弹按圈均布初相（多重投射 = 刀变多且均匀分布），散角不参与
 				plan[&"angle_deg"] = 360.0 * float(i) / float(count)
+			elif count > 1 and spread > 0.0:
+				plan[&"angle_deg"] = -spread / 2.0 + spread * float(i) / float(count - 1)
 			else:
 				plan[&"angle_deg"] = 0.0
 			if params.has(&"arc_deg"):
