@@ -37,6 +37,37 @@ const PARAM_NAMES := {
 # 内部规范化键（projectile_count 的 base 载体）：报告里只显示 projectile_count
 const HIDDEN_PARAMS := [&"count_base"]
 
+# ---------------- 三维筛选（四轴模型前三轴，00_总纲 §2；轴值运行时推导，不碰数据文件） ----------------
+# 投送轴：behavior_id → 轴值（与契约测试同源推导；aoe_burst 属瞬时点发）
+const BEHAVIOR_DELIVERY := {
+	&"bhv_projectile": "飞行",
+	&"bhv_melee_swing": "瞬时",
+	&"bhv_aoe_burst": "瞬时",
+	&"bhv_channel": "引导",
+	&"bhv_dash": "位移",
+	&"bhv_buff_self": "自身",
+	&"bhv_summon": "召唤",
+}
+# 形状轴：behavior_params.shape 缺省时各行为的默认形状。
+# aoe/melee/channel 来自 00_总纲 §3 形状通用行（= 代码默认值）；
+# projectile→点 / dash→线 来自运行时事实：弹体走碰撞体（点判定）、冲刺走路径半带宽（线状）；
+# buff_self / summon 无判定形状，形状集合留空（不被形状轴筛中）。
+const BEHAVIOR_SHAPE_DEFAULT := {
+	&"bhv_aoe_burst": "圆",
+	&"bhv_melee_swing": "扇",
+	&"bhv_channel": "线",
+	&"bhv_projectile": "点",
+	&"bhv_dash": "线",
+}
+const SHAPE_NAMES := {
+	&"pt": "点", &"circ": "圆", &"ring": "环", &"sec": "扇",
+	&"line": "线", &"multi": "多点", &"rect": "矩形",
+}
+const SHAPE_ORDER := ["点", "圆", "环", "扇", "线", "多点", "矩形"]
+const DELIVERY_ORDER := ["飞行", "瞬时", "引导", "位移", "自身", "召唤"]
+const TIMING_ORDER := ["单段", "多段", "延迟", "区域"]
+const FILTER_ALL := "全部"
+
 var main: SandboxMain = null
 var _skills: Array = []        # Array[SkillData]
 var _supports: Array = []      # Array[SupportGemData]
@@ -47,6 +78,13 @@ var _report: RichTextLabel = null
 var _auto_cast_check: CheckBox = null
 var _applying := false
 var _notice := ""              # 一次性的操作提示（镶嵌被拒 / 换技能自动卸下）
+
+# 三维筛选状态：_visible_skills 是当前过滤后的技能列表（_picker 的下标以它为准）
+var _visible_skills: Array = []
+var _filter_all: CheckBox = null
+var _f_delivery: OptionButton = null
+var _f_shape: OptionButton = null
+var _f_timing: OptionButton = null
 
 
 func _ready() -> void:
@@ -110,6 +148,21 @@ func _build_ui() -> void:
 	_auto_cast_check.toggled.connect(_on_auto_cast_toggled)
 	title_row.add_child(_auto_cast_check)
 
+	# 三维筛选行：全部勾选框 + 投送/形状/时序三个下拉（交集过滤）
+	var filter_row := HBoxContainer.new()
+	filter_row.add_theme_constant_override(&"separation", 4)
+	root.add_child(filter_row)
+	_filter_all = CheckBox.new()
+	_filter_all.text = "全部"
+	_filter_all.button_pressed = true
+	_filter_all.add_theme_font_size_override(&"font_size", FONT_SMALL)
+	_filter_all.tooltip_text = "勾上 = 不过滤（三个下拉复位为全部）；任一下拉选了具体轴值会自动取消勾选"
+	_filter_all.toggled.connect(_on_filter_all_toggled)
+	filter_row.add_child(_filter_all)
+	_f_delivery = _make_axis_filter(filter_row, "投送", DELIVERY_ORDER)
+	_f_shape = _make_axis_filter(filter_row, "形状", SHAPE_ORDER)
+	_f_timing = _make_axis_filter(filter_row, "时序", TIMING_ORDER)
+
 	# 技能下拉
 	var skill_row := HBoxContainer.new()
 	root.add_child(skill_row)
@@ -120,11 +173,9 @@ func _build_ui() -> void:
 	_picker = OptionButton.new()
 	_picker.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_picker.add_theme_font_size_override(&"font_size", FONT_SMALL)
-	for i in _skills.size():
-		var sk: SkillData = _skills[i]
-		_picker.add_item("%d  %s" % [i + 1, sk.display_name], i)
 	_picker.item_selected.connect(_on_skill_selected)
 	skill_row.add_child(_picker)
+	_rebuild_picker()
 
 	# 辅助宝石池（多选）
 	var pool_title := Label.new()
@@ -191,6 +242,164 @@ func _panel_style() -> StyleBoxFlat:
 	sb.set_border_width_all(1)
 	sb.border_color = Color(1.0, 1.0, 1.0, 0.12)
 	return sb
+
+
+# ---------------- 三维筛选（交集：各轴同时满足才显示） ----------------
+
+func _make_axis_filter(row: HBoxContainer, label_text: String, values: Array) -> OptionButton:
+	var lb := Label.new()
+	lb.text = label_text
+	lb.add_theme_font_size_override(&"font_size", FONT_SMALL)
+	row.add_child(lb)
+	var ob := OptionButton.new()
+	ob.add_theme_font_size_override(&"font_size", FONT_SMALL)
+	ob.add_item(FILTER_ALL, 0)
+	for i in values.size():
+		ob.add_item(String(values[i]), i + 1)
+	ob.item_selected.connect(_on_axis_filter_changed)
+	row.add_child(ob)
+	return ob
+
+
+## 勾上「全部」= 三个下拉复位为「全部」；取消勾选不改动下拉（由下拉自身变化触发）
+func _on_filter_all_toggled(pressed: bool) -> void:
+	if not pressed:
+		return
+	_applying = true
+	_f_delivery.selected = 0
+	_f_shape.selected = 0
+	_f_timing.selected = 0
+	_applying = false
+	_rebuild_picker()
+
+
+## 任一轴选了具体轴值 → 「全部」勾选框自动取消；三轴交集过滤
+func _on_axis_filter_changed(_index: int) -> void:
+	if _applying:
+		return
+	if _filter_all.button_pressed:
+		_filter_all.set_pressed_no_signal(false)
+	elif _f_delivery.selected == 0 and _f_shape.selected == 0 and _f_timing.selected == 0:
+		_filter_all.set_pressed_no_signal(true)
+	_rebuild_picker()
+
+
+## 轴值运行时推导（与契约测试同源，不碰数据文件）。
+## 关键：聚合技能**全部伤害段**——多段技能（如 飞行弹+落点爆发）的形状/时序
+## 往往在第二段上，只读第一段会把大片轴值错判为无。返回各轴的轴值集合。
+func _axis_sets(sk: SkillData) -> Dictionary:
+	var delivery := {}
+	var shape := {}
+	var timing := {}
+	for part in sk.parts:
+		var p: SkillPart = part
+		var d := String(BEHAVIOR_DELIVERY.get(p.behavior_id, ""))
+		if d != "":
+			delivery[d] = true
+		var shape_key: StringName = p.behavior_params.get(&"shape", &"")
+		var s := String(SHAPE_NAMES.get(shape_key,
+			BEHAVIOR_SHAPE_DEFAULT.get(p.behavior_id, "")))
+		if s != "":
+			shape[s] = true
+		timing[_timing_of(p)] = true
+	return {&"delivery": delivery, &"shape": shape, &"timing": timing}
+
+
+## 时序轴推导：延迟 > 多段 > 区域 > 单段（优先取更特殊的时序特征）
+func _timing_of(part: SkillPart) -> String:
+	var p: Dictionary = part.behavior_params
+	if float(p.get(&"delay", 0.0)) > 0.0:
+		return "延迟"
+	if int(p.get(&"hit_count", 1)) > 1 or p.has(&"tick_interval"):
+		return "多段"
+	if p.has(&"zone_duration") or p.has(&"path_zone_duration"):
+		return "区域"
+	return "单段"
+
+
+func _passes_filter(sk: SkillData, skip_axis: StringName = &"", skip_val: String = "") -> bool:
+	var ax := _axis_sets(sk)
+	if not _axis_match(ax[&"delivery"], _f_delivery, skip_axis, &"delivery", skip_val):
+		return false
+	if not _axis_match(ax[&"shape"], _f_shape, skip_axis, &"shape", skip_val):
+		return false
+	if not _axis_match(ax[&"timing"], _f_timing, skip_axis, &"timing", skip_val):
+		return false
+	return true
+
+
+## 单轴匹配：技能轴值集合命中下拉选项即算匹配；
+## skip_axis 非空时用 skip_val 替代该轴的当前选择（用于统计「选它会剩几个」）
+func _axis_match(ax_set: Dictionary, ob: OptionButton, skip_axis: StringName, axis: StringName, skip_val: String) -> bool:
+	if skip_axis == axis:
+		return skip_val == "" or ax_set.has(skip_val)
+	if ob.selected > 0 and not ax_set.has(ob.get_item_text(ob.selected)):
+		return false
+	return true
+
+
+## 轴值预检：选了必空的轴值直接置灰（与辅助池「不可镶嵌即置灰」同一语义）；
+## 当前已选中的项永不置灰，保证能改选
+func _refresh_axis_options() -> void:
+	_grey_empty_axis(_f_delivery, &"delivery")
+	_grey_empty_axis(_f_shape, &"shape")
+	_grey_empty_axis(_f_timing, &"timing")
+
+
+func _grey_empty_axis(ob: OptionButton, axis: StringName) -> void:
+	for i in ob.item_count:
+		if i == 0 or i == ob.selected:
+			ob.set_item_disabled(i, false)
+			continue
+		var n := 0
+		for sk in _skills:
+			if _passes_filter(sk as SkillData, axis, ob.get_item_text(i)):
+				n += 1
+		ob.set_item_disabled(i, n == 0)
+
+
+## 按当前筛选重建技能下拉；尽量保住原选择，丢了则落到第一项并写回槽 0
+func _rebuild_picker() -> void:
+	_refresh_axis_options()
+	var keep := _current_gem()
+	_visible_skills.clear()
+	for sk in _skills:
+		if _passes_filter(sk as SkillData):
+			_visible_skills.append(sk)
+	_picker.clear()
+	for i in _visible_skills.size():
+		var sk: SkillData = _visible_skills[i]
+		_picker.add_item("%d  %s" % [i + 1, sk.display_name], i)
+	if keep != null:
+		for i in _visible_skills.size():
+			if (_visible_skills[i] as SkillData).gem_id == keep.gem_id:
+				_picker.selected = i
+				return
+	if _visible_skills.is_empty():
+		# 交集无匹配：不清空配置——下拉显示置灰占位，槽 0 保持原技能可继续施放
+		_picker.clear()
+		_picker.add_item("(无匹配 · 放宽筛选)")
+		_picker.set_item_disabled(0, true)
+		_picker.selected = 0
+		if keep != null:
+			_notice = "[color=#d8b45a]筛选无匹配，槽 0 仍为 %s（Q 可继续施放）[/color]" % keep.display_name
+			if main != null:
+				_report.text = _build_report(keep, _checked_supports())
+		return
+	_picker.selected = 0
+	# 原选择被过滤掉：配置已变为新第一项，需写回槽 0
+	if keep != null:
+		_notice = "[color=#d8b45a]当前技能不在筛选结果内，已切换到 %s[/color]" % (_visible_skills[0] as SkillData).display_name
+		_apply()
+
+
+func _reset_filters() -> void:
+	_applying = true
+	_filter_all.set_pressed_no_signal(true)
+	_f_delivery.selected = 0
+	_f_shape.selected = 0
+	_f_timing.selected = 0
+	_applying = false
 
 
 func _support_label(sp: SupportGemData, suffix: String = "") -> String:
@@ -295,8 +504,10 @@ func _on_cast_pressed() -> void:
 
 
 func _current_gem() -> SkillData:
-	var idx := maxi(_picker.selected, 0)
-	return _skills[idx] if idx < _skills.size() else null
+	var idx := _picker.selected
+	if idx < 0 or idx >= _visible_skills.size():
+		return null
+	return _visible_skills[idx]
 
 
 func _checked_supports() -> Array:
@@ -388,10 +599,22 @@ func _sync_from_slot() -> void:
 	if slot == null or slot.active_gem == null:
 		return
 	_applying = true
-	for i in _skills.size():
-		if (_skills[i] as SkillData).gem_id == slot.active_gem.gem_id:
-			_picker.selected = i
+	var gem_id: StringName = slot.active_gem.gem_id
+	var found := -1
+	for i in _visible_skills.size():
+		if (_visible_skills[i] as SkillData).gem_id == gem_id:
+			found = i
 			break
+	_applying = false
+	if found < 0:
+		# 目标技能被筛选掉了：复位筛选后再找一次（必然命中）
+		_reset_filters()
+		_rebuild_picker()
+		for i in _visible_skills.size():
+			if (_visible_skills[i] as SkillData).gem_id == gem_id:
+				found = i
+				break
+	_picker.selected = found
 	for i in _supports.size():
 		var sid: StringName = (_supports[i] as SupportGemData).support_id
 		var on := false
