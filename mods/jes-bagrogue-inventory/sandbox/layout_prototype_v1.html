@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>背包肉鸽 · 背包布局原型 v1.2（竖屏 390×844）</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    background: #1c1f26; color: #d8dce4;
+    font-family: "Microsoft YaHei", system-ui, sans-serif;
+    display: flex; justify-content: center; min-height: 100vh;
+  }
+  #stage {
+    width: 390px; height: 844px; background: #23272f;
+    position: relative; overflow: hidden; flex-shrink: 0;
+    border-left: 1px solid #3a3f4a; border-right: 1px solid #3a3f4a;
+    touch-action: none; user-select: none;
+  }
+  #heroPanel {
+    position: absolute; left: 8px; right: 8px; top: 8px; height: 96px;
+    background: #2b303b; border: 1px solid #4a5060; border-radius: 8px;
+    display: flex; padding: 8px; gap: 8px;
+  }
+  #heroAvatar {
+    width: 80px; height: 80px; background: #3a4150; border: 1px solid #565e70;
+    border-radius: 6px; display: flex; align-items: center; justify-content: center;
+    font-size: 34px; flex-shrink: 0;
+  }
+  #heroInfo { flex: 1; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  #heroNameRow { display: flex; justify-content: space-between; align-items: baseline; }
+  #heroName { font-size: 14px; font-weight: bold; color: #f0f2f6; }
+  #heroLevel { font-size: 11px; color: #8b93a3; }
+  #hpBarOuter { height: 12px; background: #1a1d24; border: 1px solid #4a5060; border-radius: 3px; overflow: hidden; }
+  #hpBarInner { height: 100%; background: #c05050; width: 100%; transition: width .2s; }
+  #hpText { font-size: 10px; color: #a8afc0; }
+  #statGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px 10px; font-size: 11px; }
+  .statLine { display: flex; justify-content: space-between; }
+  .statLine .v { color: #e8c86a; font-weight: bold; }
+  .statLine .v.buffed { color: #6ecf6e; }
+  .statLine .v.debuffed { color: #e06c6c; }
+
+  .bagBox {
+    position: absolute; left: 8px; right: 8px;
+    background: #2b303b; border: 1px solid #4a5060; border-radius: 8px;
+    padding: 6px 8px 8px;
+  }
+  #bagA { top: 112px; }
+  #bagB { top: 528px; }
+  .bagTitle {
+    font-size: 12px; color: #9aa2b2; margin-bottom: 5px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .bagTitle .tag { font-size: 10px; padding: 1px 6px; border-radius: 3px; border: 1px solid; }
+  .tag.active   { color: #6ecf6e; border-color: #4a8a4a; }
+  .tag.inactive { color: #8b93a3; border-color: #4a5060; }
+
+  .grid { display: grid; gap: 4px; }
+  #gridA { grid-template-columns: repeat(7, 44px); grid-template-rows: repeat(5, 44px); }
+  #gridB { grid-template-columns: repeat(6, 44px); grid-template-rows: repeat(5, 44px); }
+
+  .cell {
+    width: 44px; height: 44px; background: #22262e;
+    border: 1px solid #383e4a; border-radius: 4px;
+  }
+  .cell.highlightOk { background: #2c3a2c; border-color: #5a9a5a; }
+  .cell.highlightBad { background: #3a2c2c; border-color: #9a5a5a; }
+
+  .item {
+    position: absolute; border-radius: 4px;
+    border: 1px solid; display: flex; align-items: center; justify-content: center;
+    font-size: 20px; cursor: grab; z-index: 10;
+    box-shadow: inset 0 0 0 2px rgba(255,255,255,.06);
+  }
+  .item.dragging { z-index: 50; opacity: .85; cursor: grabbing; box-shadow: 0 4px 14px rgba(0,0,0,.6); }
+  .r-common   { background: #3a3f4a; border-color: #565e70; }
+  .r-rare     { background: #2e4356; border-color: #4a7fa0; }
+  .r-epic     { background: #452e56; border-color: #8a5ab0; }
+  .r-legend   { background: #54452a; border-color: #c0a040; }
+  .item .liveDot {
+    position: absolute; left: 2px; top: 2px; width: 6px; height: 6px;
+    border-radius: 50%; background: #6ecf6e;
+  }
+
+  #tips {
+    position: absolute; width: 220px; background: #14161c; border: 1px solid #565e70;
+    border-radius: 6px; padding: 8px 10px; z-index: 100; display: none;
+    pointer-events: none; font-size: 11px; line-height: 1.5;
+    box-shadow: 0 4px 16px rgba(0,0,0,.7);
+  }
+  #tips .tName { font-size: 13px; font-weight: bold; margin-bottom: 2px; }
+  #tips .tRarity { font-size: 10px; margin-bottom: 5px; }
+  #tips .tStat { color: #b8e0b8; }
+  #tips .tDesc { color: #8b93a3; margin-top: 4px; }
+  #tips .tZone { margin-top: 5px; font-size: 10px; }
+  #tips .tZone.on  { color: #6ecf6e; }
+  #tips .tZone.off { color: #8b93a3; }
+
+  #hintBar {
+    position: absolute; left: 8px; right: 8px; bottom: 8px; height: 40px;
+    background: #2b303b; border: 1px solid #4a5060; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; color: #8b93a3;
+  }
+  #hintBar b { color: #c8cdd8; font-weight: normal; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="heroPanel">
+    <div id="heroAvatar">🧙</div>
+    <div id="heroInfo">
+      <div id="heroNameRow"><span id="heroName">流浪者</span><span id="heroLevel">Lv.1</span></div>
+      <div id="hpBarOuter"><div id="hpBarInner"></div></div>
+      <div id="hpText">HP 100/100</div>
+      <div id="statGrid">
+        <div class="statLine"><span>攻击</span><span class="v" id="stAtk">10</span></div>
+        <div class="statLine"><span>攻速</span><span class="v" id="stSpd">1.00</span></div>
+        <div class="statLine"><span>暴击</span><span class="v" id="stCrit">5%</span></div>
+        <div class="statLine"><span>移速</span><span class="v" id="stMove">100</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="bagBox" id="bagA">
+    <div class="bagTitle"><span>武器背包</span><span class="tag active">生效中 · 5×7</span></div>
+    <div class="grid" id="gridA"></div>
+  </div>
+
+  <div class="bagBox" id="bagB">
+    <div class="bagTitle"><span>临时仓库</span><span class="tag inactive">不生效 · 5×6</span></div>
+    <div class="grid" id="gridB"></div>
+  </div>
+
+  <div id="hintBar">拖动道具换位 / 跨包搬运 · 点按或长按看详情 · <b>只有武器背包里的道具生效</b></div>
+  <div id="tips"></div>
+</div>
+
+<!-- 核心逻辑（纯数据，与 tests/test_bag_core.mjs 共用同一份，10 用例守护） -->
+<script src="bag_core.js"></script>
+<script>
+"use strict";
+/* ============================================================
+   背包肉鸽 · 布局原型 v1.2
+   v1.2 修复（制作人截图反馈）：
+   - 坐标系 bug：道具挂 bagBox（容器坐标），拖动却写舞台坐标
+     → 不跟手 / 越框。修复：拖起瞬间把道具重新挂到舞台层，
+       落定后整体重渲染回各 bagBox。
+   - 逻辑层抽到 bag_core.js（TDD：tests/test_bag_core.mjs 10 用例）
+   本文件只留：渲染 + 输入 + TIPS。
+   ============================================================ */
+const CFG = {
+  A: { cols: 7, rows: 5 },   // 武器背包 5行×7列
+  B: { cols: 6, rows: 5 },   // 临时仓库 5行×6列
+  CELL: 44, GAP: 4, DRAG_THRESHOLD: 3,
+  BASE_STATS: { atk: 10, spd: 1.00, crit: 5, move: 100, hp: 100 },
+  ITEMS: [
+    { id:"w01", name:"铁剑",       icon:"🗡️", rarity:"common", w:1, h:2, stats:{atk:8},                 desc:"最普通的铁剑，聊胜于无。" },
+    { id:"w02", name:"猎弓",       icon:"🏹", rarity:"rare",   w:1, h:3, stats:{atk:5, crit:8},         desc:"远距离 QUIET 一击。" },
+    { id:"w03", name:"巨锤",       icon:"🔨", rarity:"epic",   w:2, h:2, stats:{atk:20, move:-10},      desc:"很重，但砸下去很痛快。" },
+    { id:"w04", name:"匕首",       icon:"🔪", rarity:"common", w:1, h:1, stats:{atk:3, spd:0.15},       desc:"快，但不深。" },
+    { id:"w05", name:"烈焰法杖",   icon:"🔥", rarity:"legend", w:2, h:3, stats:{atk:15, crit:5, spd:-0.2}, desc:"持有者能闻到自己的眉毛味。" },
+    { id:"w06", name:"护腕",       icon:"🛡️", rarity:"rare",   w:1, h:1, stats:{hp:20},                 desc:"护住要害的旧护腕。" },
+    { id:"w07", name:"疾风之靴",   icon:"👟", rarity:"rare",   w:1, h:2, stats:{move:15},               desc:"跑得快是活下来的第一要义。" },
+    { id:"w08", name:"破戒",       icon:"💀", rarity:"epic",   w:1, h:1, stats:{atk:12, hp:-15},        desc:"力量是有代价的。" },
+  ],
+  LAYOUT: [
+    { item:"w01", bag:"A", x:0, y:0 },
+    { item:"w04", bag:"A", x:3, y:1 },
+    { item:"w06", bag:"A", x:5, y:3 },
+    { item:"w02", bag:"B", x:0, y:0 },
+    { item:"w07", bag:"B", x:2, y:2 },
+    { item:"w03", bag:"B", x:4, y:3 },
+  ],
+};
+
+const $ = s => document.querySelector(s);
+const stage = $("#stage");
+const itemMap = {};   // id -> 视图缓存（DOM 元素）
+const model = BagCore.createModel(
+  CFG,
+  CFG.LAYOUT.map(L => ({ def: CFG.ITEMS.find(i => i.id === L.item), bag: L.bag, x: L.x, y: L.y }))
+);
+
+/* ---------------- 建格子 ---------------- */
+function buildGrid(el, cfg) {
+  for (let y = 0; y < cfg.rows; y++)
+    for (let x = 0; x < cfg.cols; x++) {
+      const c = document.createElement("div");
+      c.className = "cell"; c.dataset.x = x; c.dataset.y = y;
+      el.appendChild(c);
+    }
+}
+buildGrid($("#gridA"), CFG.A);
+buildGrid($("#gridB"), CFG.B);
+
+/* ---------------- 渲染 ---------------- */
+function placeItem(id) {
+  const it = model.itemMap[id], el = itemMap[id].el;
+  const grid = it.bag === "A" ? $("#gridA") : $("#gridB");
+  el.style.left = (grid.offsetLeft + it.x * (CFG.CELL + CFG.GAP)) + "px";
+  el.style.top  = (grid.offsetTop  + it.y * (CFG.CELL + CFG.GAP)) + "px";
+}
+function renderItem(id) {
+  const it = model.itemMap[id], def = it.def;
+  if (itemMap[id].el) itemMap[id].el.remove();
+  const el = document.createElement("div");
+  el.className = "item r-" + def.rarity;
+  el.style.width  = def.w * CFG.CELL + (def.w - 1) * CFG.GAP + "px";
+  el.style.height = def.h * CFG.CELL + (def.h - 1) * CFG.GAP + "px";
+  el.textContent = def.icon;
+  el.dataset.id = id;
+  const dot = document.createElement("div");
+  dot.className = "liveDot";
+  dot.style.display = it.bag === "A" ? "block" : "none";
+  el.appendChild(dot);
+  itemMap[id].el = el;
+  stage.querySelector("#bag" + it.bag).appendChild(el);
+  placeItem(id);
+}
+function rerenderAll() { for (const id in model.itemMap) renderItem(id); }
+
+for (const id in model.itemMap) itemMap[id] = { el: null };
+rerenderAll();
+
+/* ---------------- 属性面板 ---------------- */
+let shownStats = { ...CFG.BASE_STATS };
+function recalc() {
+  const s = BagCore.stats(model, CFG.BASE_STATS);
+  const fmt = {
+    atk: v => Math.round(v), spd: v => v.toFixed(2),
+    crit: v => Math.round(v) + "%", move: v => Math.round(v),
+  };
+  for (const [k, sel] of [["atk","#stAtk"],["spd","#stSpd"],["crit","#stCrit"],["move","#stMove"]]) {
+    const el = $(sel);
+    el.textContent = fmt[k](s[k]);
+    el.classList.remove("buffed","debuffed");
+    if (s[k] > shownStats[k]) el.classList.add("buffed");
+    if (s[k] < shownStats[k]) el.classList.add("debuffed");
+  }
+  $("#hpText").textContent = "HP " + Math.max(1, Math.round(s.hp)) + "/" + Math.max(1, Math.round(s.hp));
+  $("#hpBarInner").style.width = "100%";
+  shownStats = s;
+}
+recalc();
+
+/* ---------------- 拖动 / 互换（v1.2 统一坐标系） ---------------- */
+let drag = null;
+let pressTimer = null;
+
+function cellsUnder(bag, x, y, w, h) {
+  const cfg = CFG[bag], out = [], grid = bag === "A" ? $("#gridA") : $("#gridB");
+  for (let iy = y; iy < y + h; iy++)
+    for (let ix = x; ix < x + w; ix++)
+      if (ix >= 0 && iy >= 0 && ix < cfg.cols && iy < cfg.rows) {
+        const c = grid.children[iy * cfg.cols + ix];
+        if (c) out.push(c);
+      }
+  return out;
+}
+function clearGhost() {
+  document.querySelectorAll(".cell").forEach(c => c.classList.remove("highlightOk","highlightBad"));
+}
+
+function onGrab(e) {
+  if (e.button !== undefined && e.button !== 0) return;
+  const el = e.target.closest(".item");
+  if (!el) { hideTips(); return; }
+  e.preventDefault();
+  const id = el.dataset.id;
+  const rect = el.getBoundingClientRect();
+  drag = {
+    id, el,
+    offX: e.clientX - rect.left, offY: e.clientY - rect.top,
+    startX: e.clientX, startY: e.clientY,
+    moved: false, target: null, gx: 0, gy: 0, valid: false,
+  };
+  clearTimeout(pressTimer);
+  hideTips();
+}
+
+function onMove(e) {
+  if (e.buttons === 0 && e.pointerType === "mouse") return;
+  if (!drag) return;
+  if (!drag.moved) {
+    if (Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) < CFG.DRAG_THRESHOLD) return;
+    drag.moved = true;
+    // 关键修复：道具改挂舞台层，坐标系统一为舞台坐标（原 bagBox 坐标是 bug 根因）
+    const r = drag.el.getBoundingClientRect(), sp = stage.getBoundingClientRect();
+    drag.el.remove();
+    stage.appendChild(drag.el);
+    drag.el.style.left = (r.left - sp.left) + "px";
+    drag.el.style.top  = (r.top  - sp.top) + "px";
+    drag.el.classList.add("dragging");
+  }
+  e.preventDefault();
+  const it = model.itemMap[drag.id];
+  const p = stage.getBoundingClientRect();
+  drag.el.style.left = (e.clientX - p.left - drag.offX) + "px";
+  drag.el.style.top  = (e.clientY - p.top  - drag.offY) + "px";
+
+  // 落点判定：以道具中心定锚（全部用 client 坐标，不掺容器相对坐标）
+  const cx = e.clientX - drag.offX + (it.def.w * CFG.CELL) / 2;
+  const cy = e.clientY - drag.offY + (it.def.h * CFG.CELL) / 2;
+  const gA = $("#gridA").getBoundingClientRect(), gB = $("#gridB").getBoundingClientRect();
+  let target = null, g = null;
+  if (cx >= gA.left && cx < gA.right && cy >= gA.top && cy < gA.bottom) { target = "A"; g = gA; }
+  else if (cx >= gB.left && cx < gB.right && cy >= gB.top && cy < gB.bottom) { target = "B"; g = gB; }
+
+  clearGhost();
+  drag.target = target; drag.valid = false;
+  if (!target) return;
+  const cfgUse = CFG[target];
+  drag.gx = Math.floor((cx - g.left) / (CFG.CELL + CFG.GAP)) - Math.floor((it.def.w - 1) / 2);
+  drag.gy = Math.floor((cy - g.top) / (CFG.CELL + CFG.GAP)) - Math.floor((it.def.h - 1) / 2);
+  const inBounds = drag.gx >= 0 && drag.gy >= 0 &&
+    drag.gx + it.def.w <= cfgUse.cols && drag.gy + it.def.h <= cfgUse.rows;
+  if (!inBounds) {
+    for (const c of cellsUnder(target, drag.gx, drag.gy, it.def.w, it.def.h))
+      c.classList.add("highlightBad");
+    return;
+  }
+  // 空位可放；被单个其他道具占住也视为可放（触发互换，判定在 bag_core.drop）
+  const occ = new Set();
+  for (let iy = drag.gy; iy < drag.gy + it.def.h; iy++)
+    for (let ix = drag.gx; ix < drag.gx + it.def.w; ix++) {
+      const o = model.bags[target][ix + "," + iy];
+      if (o && o !== drag.id) occ.add(o);
+    }
+  drag.valid = occ.size <= 1;
+  for (const c of cellsUnder(target, drag.gx, drag.gy, it.def.w, it.def.h))
+    c.classList.add(drag.valid ? "highlightOk" : "highlightBad");
+}
+
+function onRelease() {
+  if (!drag) return;
+  const d = drag; drag = null;
+  clearGhost();
+  d.el.classList.remove("dragging");
+
+  if (!d.moved) { rerenderAll(); showTips(d.id, itemMap[d.id].el, 2500); return; } // 点按 = TIPS
+  // 落定/弹回统一交给核心逻辑，然后整体重渲染（道具挂回正确容器）
+  BagCore.drop(model, d.id, d.target, d.gx, d.gy);
+  rerenderAll();
+  recalc();
+}
+
+window.addEventListener("pointerdown", onGrab, { passive: false });
+window.addEventListener("pointermove", onMove, { passive: false });
+window.addEventListener("pointerup", onRelease);
+window.addEventListener("pointercancel", onRelease);
+window.addEventListener("contextmenu", e => e.preventDefault());
+
+/* ---------------- TIPS ---------------- */
+const RARITY_NAME = { common:"普通", rare:"稀有", epic:"史诗", legend:"传说" };
+let tipsTimer = null;
+function showTips(id, el, autoHideMs) {
+  const it = model.itemMap[id], def = it.def;
+  const t = $("#tips");
+  const statsHtml = Object.entries(def.stats).map(([k, v]) => {
+    const label = { atk:"攻击", spd:"攻速", crit:"暴击", move:"移速", hp:"生命" }[k];
+    const sign = v > 0 ? "+" : "";
+    return `<div class="tStat">${label} ${sign}${k === "spd" ? v.toFixed(2) : v}${k === "crit" ? "%" : ""}</div>`;
+  }).join("");
+  t.innerHTML =
+    `<div class="tName">${def.icon} ${def.name}</div>` +
+    `<div class="tRarity">${RARITY_NAME[def.rarity]}</div>` + statsHtml +
+    `<div class="tDesc">${def.desc}</div>` +
+    `<div class="tZone ${it.bag === "A" ? "on" : "off"}">${it.bag === "A" ? "✔ 当前生效（武器背包）" : "✖ 不生效（临时仓库）"}</div>`;
+  t.style.display = "block";
+  const p = stage.getBoundingClientRect(), r = el.getBoundingClientRect();
+  let tx = r.left - p.left + r.width / 2 - 110;
+  let ty = r.top - p.top - t.offsetHeight - 6;
+  if (ty < 4) ty = r.top - p.top + r.height + 6;
+  tx = Math.max(4, Math.min(tx, 390 - 224));
+  t.style.left = tx + "px"; t.style.top = ty + "px";
+  clearTimeout(tipsTimer);
+  if (autoHideMs) tipsTimer = setTimeout(hideTips, autoHideMs);
+}
+function hideTips() { $("#tips").style.display = "none"; clearTimeout(tipsTimer); }
+
+document.addEventListener("pointerover", e => {
+  const item = e.target.closest(".item");
+  if (item && !drag) showTips(item.dataset.id, item);
+});
+document.addEventListener("pointerout", e => {
+  if (e.target.closest(".item") && !drag) hideTips();
+});
+</script>
+</body>
+</html>
