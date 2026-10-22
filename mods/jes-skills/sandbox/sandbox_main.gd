@@ -73,6 +73,11 @@ var projectile_pool: ProjectilePool:
 
 # 进行中效果状态
 var _pending_aoe: Array = []    # {fire_at, radius, elements, tags}
+# D-50 FLY 复合落点结算：同一技能里「投射段 → 爆发段」相邻两条 plan，
+# 投射段把自己的弹下标登记在这里，紧随其后的爆发段认领它并改为锚定模式。
+var _pending_launch_idx: int = -1
+## 最近一次范围结算实际使用的中心点（D-50）：演出/测试用它确认「爆心=弹体落点」。
+var last_burst_center: Vector2 = Vector2.ZERO
 var _channel: Dictionary = {}   # {tick_times, next_idx, plan, start_at}
 var _dash: Dictionary = {}      # {remaining, dir, speed, plan, hit_cd}
 var _buffs: Array = []          # {until, mods, source_id}
@@ -289,6 +294,8 @@ func try_cast(slot_index: int) -> bool:
 	player.stats.remove_by_source(source_id)
 
 	# ⑥ 执行计划（演出层）
+	# D-50：先清零「本帧投射段首发的下标」，供紧随其后的爆发段认领（成对施放时两段同帧执行）
+	_pending_launch_idx = -1
 	for plan in plans:
 		_execute_plan(plan)
 	cast_count += 1
@@ -355,6 +362,8 @@ func _exec_projectile(plan: Dictionary) -> void:
 			int(launch[&"fork"]))
 	if is_orbit and idx >= 0:
 		projectile_field.configure_orbit(idx, float(launch[&"orbit_radius"]), true)
+	# D-50：登记本发弹的下标，供同一技能里的爆发段认领（做「飞到落点再爆」）
+	_pending_launch_idx = idx
 
 
 func _exec_melee(plan: Dictionary) -> void:
@@ -382,15 +391,26 @@ func _exec_melee(plan: Dictionary) -> void:
 
 func _exec_aoe(plan: Dictionary) -> void:
 	var burst := BhvAoeBurst.plan_to_burst(plan)
+	# D-50：若紧跟在一发投射物之后（复合技能的爆发段），爆发中心改锚定到「弹体消亡点」，
+	# 而不是像纯瞬时技能那样立刻瞄准最近目标。认领后清空，避免后续段误用。
+	var anchor_idx := _pending_launch_idx
+	_pending_launch_idx = -1
+	var is_anchored := anchor_idx >= 0
+	var center: Vector2 = player.global_position + Vector2.RIGHT.rotated(_aim_angle()) \
+			* player.global_position.distance_to(_nearest_stump_pos())
 	for fire_time in burst[&"hits"]:
-		_pending_aoe.append({
+		var entry := {
 			&"fire_at": _elapsed + float(fire_time),
 			&"radius": float(burst[&"radius"]),
 			&"inner_radius": float(burst.get(&"inner_radius", 0.0)),
-			&"center": player.global_position + Vector2.RIGHT.rotated(_aim_angle()) \
-					* player.global_position.distance_to(_nearest_stump_pos()),
+			&"center": center,
 			&"plan": plan,
-		})
+		}
+		if is_anchored:
+			# 锚定模式：fire_at 无意义（弹可能提前撞爆或飞满寿命），等弹消亡再结算
+			entry[&"anchor_proj"] = anchor_idx
+			entry[&"fire_at"] = INF
+		_pending_aoe.append(entry)
 
 
 func _exec_channel(plan: Dictionary) -> void:
@@ -545,11 +565,23 @@ func _rebuild_target_hash() -> void:
 func _tick_aoe(_dt: float) -> void:
 	var remaining: Array = []
 	for a in _pending_aoe:
-		if _elapsed >= float(a[&"fire_at"]):
+		var center: Vector2 = a[&"center"]
+		var ready := _elapsed >= float(a[&"fire_at"])
+		if a.has(&"anchor_proj"):
+			# D-50 锚定模式：弹还在飞 → 冻结等待（爆发段不提前落地）；
+			# 弹一消亡 → 取其最后位置作为爆发中心，当帧立即结算。
+			var snap := projectile_field.snapshot(int(a[&"anchor_proj"]))
+			if snap[&"alive"]:
+				remaining.append(a)
+				continue
+			center = snap[&"pos"]
+			ready = true
+		if ready:
+			last_burst_center = center   # D-50：记录本次结算中心，供测试断言「爆心=落点」
 			var packet := _make_packet(a[&"plan"])
 			for t in stumps:
 				if not t.is_dead() and BhvAoeBurst.hits_ring(
-						a[&"center"], t.global_position, t.radius(),
+						center, t.global_position, t.radius(),
 						float(a[&"radius"]), float(a[&"inner_radius"])):
 					_strike(packet, t)
 		else:

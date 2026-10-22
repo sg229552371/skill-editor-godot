@@ -196,6 +196,15 @@ func is_alive(i: int) -> bool:
 	return i >= 0 and i < capacity and alive[i] == 1
 
 
+## 只读快照：某发弹的当前位置 + 是否已消亡（D-50 FLY 复合落点结算用）。
+## 演出层拿它决定「爆发段该在哪儿爆」——弹还在飞就挂账，弹没了就在消亡点结算。
+## 注意：已回收的下标仍返回最后一次位置（空间可被复用，调用方必须先查 alive）。
+func snapshot(i: int) -> Dictionary:
+	if i < 0 or i >= capacity:
+		return {&"alive": false, &"pos": Vector2.ZERO}
+	return {&"alive": alive[i] == 1, &"pos": Vector2(px[i], py[i])}
+
+
 ## 推进一帧。targets[tid] 需有 is_dead()/global_position/radius()/hurtbox。
 ## grid 为空时退化为线性扫（仅供无哈希的单测；生产路径必须传 grid）。
 ## 返回本帧命中次数。

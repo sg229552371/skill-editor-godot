@@ -1,0 +1,12 @@
+[gd_resource type="Resource" script_class="ItemData" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://mods/jes-inventory/systems/bag/item_data.gd" id="1_item"]
+
+[resource]
+script = ExtResource("1_item")
+item_id = &"greatsword"
+display_name = "双手大剑"
+grid_w = 2
+grid_h = 3
+max_stack = 1
+tags = Array[StringName]([&"weapon", &"two_handed"])
