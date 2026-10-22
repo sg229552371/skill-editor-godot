@@ -1,0 +1,6 @@
+# 自动生成、被测试门禁逐字节比对的文件：钉死 LF。
+# 原因：Windows 默认 core.autocrlf=true 会在 checkout 时把 LF 转 CRLF，
+# 导致生成器输出与磁盘文件逐字节不一致、门禁假红（2026-10-22 首次踩坑，P-27 待入台账）。
+# 涉及文件若重新生成，重跑对应生成器即可，本配置保证 checkout 后内容不变。
+mods/jes-skills/docs/_AI开发与文档/03_查规则/API地图.md text eol=lf
+mods/jes-skills/tests/skills/content_snapshot.json text eol=lf
