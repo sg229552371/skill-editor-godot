@@ -17,7 +17,7 @@
 - consumed_stats（消费属性）: `duration`
 
 ### BhvChannel（`systems/skills/behavior/bhv_channel.gd`）
-- produced_params（参数键承诺）: `shape`, `arc_deg`, `range`, `tick_interval`, `max_channel_time`
+- produced_params（参数键承诺）: `shape`, `arc_deg`, `range`, `radius`, `tick_interval`, `max_channel_time`
 - consumed_stats（消费属性）: `duration`, `area_size`
 
 ### BhvDash（`systems/skills/behavior/bhv_dash.gd`）
@@ -40,7 +40,7 @@
 
 | 标签 | 类别 | 承诺参数面 |
 |---|---|---|
-| `channel` | form | `shape`, `arc_deg`, `range`, `tick_interval`, `max_channel_time` |
+| `channel` | form | `shape`, `arc_deg`, `range`, `radius`, `tick_interval`, `max_channel_time` |
 | `trap` | form | `delay` |
 | `buff` | form | `duration`, `buff_mods` |
 | `summon` | form | `max_count`, `scene`, `lifetime`, `formation`, `per_cast`, `formation_radius`, `formation_spacing`, `point_count`, `point_spacing`, `delay` |

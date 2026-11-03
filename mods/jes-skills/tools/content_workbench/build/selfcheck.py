@@ -24,12 +24,13 @@ W3 自检 · 交付物 C：不依赖 W2 的产物，自己用 openpyxl 构造最
 
 契约 v1.4 增量（三期 P7-B 读侧：新行 → 新技能）：
   · 全预留行不填（②④ 代号列只有中文占位说明、③ 全空）→ 正常通过、仍是 67/95/13、无多余条目；
-  · 新技能卡 + 1 段效果段（代号留空）→ 按 id_rule.new 自动生成 skill_001、效果段正确归并、
-    命中数量守卫（新会打破 67，须上级 AI 裁定）且未生成中间 JSON；
+  · 新技能卡 + 1 段效果段（代号留空）→ 按 id_rule.new 自动生成 skill_001、效果段正确归并；
+    契约 v1.7 起数量口径改为「目录驱动」：不再拦截，中文汇报『新增 1 条，测试断言已随
+    目录自动对齐』且照常生成中间 JSON（v1.4 旧口径「命中数量守卫、未生成 JSON」已废止）；
   · 新技能卡缺效果段 → 中文报错定位「② 技能卡 第 N 行 · 效果段」；
   · 新技能代号写成既有代号 → 中文报错「代号重复」；写成非法文件名 / skill_001 撞基线 → 中文报错；
   · 代号留空自动生成规则（从 001 起、取最小未占用号、同一批不重号、新角色从 001 重开）；
-  · 新辅助石代号留空 → support_001 + 数量守卫；同批新技能 + 新辅助石 → 代号互不冲突。
+  · 新辅助石代号留空 → support_001 + 目录驱动数量汇报；同批新技能 + 新辅助石 → 代号互不冲突。
 
 契约 v1.5 增量（四期 P4-2 读侧：图标 / 行为覆盖 显式列回读）：
   · 好表绿：②「图标」填 res:// 路径正常回读；④「行为覆盖」列留空仍走 __extras 兜底；
@@ -47,6 +48,15 @@ W3 自检 · 交付物 C：不依赖 W2 的产物，自己用 openpyxl 构造最
   · 提醒不拦截变体：channel×circ 只填扇形距离仍生成中间 JSON；
   · 夹具同步：ok.xlsx 技能标签补全形态标签（覆盖 引导/增益 变体效果）、
     增量三② 第二颗辅助石补「消耗倍率」（新硬拦要求 >0）。
+
+契约 v1.7 增量（四期收尾读侧）：
+  · shape_keys.line 补 range：读侧没有硬编码 line 键清单（尺寸键并集与按形状查键全部
+    读 schema["shape_keys"]），线形只填「扇形距离」→ 合法尺寸（不再黄提醒、不再因缺
+    长度+宽度报错）；validation_rules.aoe_size_required 口径不动——范围爆发的线形
+    仍要求 半径 或 长度+宽度 或 扇形角度+扇形距离 三组之一（附带变体专门验证区分）；
+  · count_guard 目录驱动：真实表 67/95/13 零错误、无『数量守卫』拦截（保持现状绿）；
+    真实表 + 1 行新技能 → 不再拦截、中文汇报『新增 1 条，测试断言已随目录自动对齐』；
+    删除 1 条既有技能 → 汇报『删除 1 条…』并追加「内容删除不可逆，须制作人拍板」。
 
 全部原始输出保留在 _tmp/selfcheck/logs/，汇总写在 _tmp/selfcheck/selfcheck_summary.txt。
 干跑产物一律落在 _tmp/ 下，绝不写 content/gems/。
@@ -455,6 +465,12 @@ def main():
         data = json.loads(out.read_text(encoding="utf-8")) if out.exists() else None
         report = json.loads(err.read_text(encoding="utf-8")) if err.exists() else {}
         return proc, out, data, report.get("text", "")
+
+    def variant_warnings(tag):
+        """读某变体 errors.json 里的 warnings（契约 v1.7 目录驱动数量汇报走 warnings 通道）。"""
+        p = BASE / ("var_" + tag) / "errors.json"
+        return (json.loads(p.read_text(encoding="utf-8")).get("warnings", [])
+                if p.exists() else [])
 
     # ---------------------------------------------------------- 自检 ① ----
     print("\n########## 自检 ①：A 正常路径能生成中间 JSON ##########")
@@ -996,7 +1012,7 @@ def main():
     # ================= 增量四：契约 v1.4 读侧（三期 P7-B 新行 → 新技能） =================
     # 本段工作簿统一从「真实工作簿副本」构造：先把 ②③④ 的数据区按真实列结构重建
     # （示例行 4/5/4 + 67 技能 + 95 效果段 + 13 辅助石 + 40/90/30 预留行，代号/技能名
-    # 全部取自 content/gems 的 .tres 文件名），让数量守卫的基线（67 技能 / 13 辅助石）
+    # 全部取自 content/gems 的 .tres 文件名），让数量汇报的基线（67 技能 / 13 辅助石）
     # 与真实链路一致；再用真实工作簿里一模一样的中文占位说明填满预留行代号列，
     # 这样「全预留行不填 → 正常通过」测的就是 W2 真实产物的形态。
     print("\n########## 增量四：契约 v1.4 新行 → 新技能（P7-B 读侧）##########")
@@ -1125,20 +1141,26 @@ def main():
                f"退出码={pv14a.returncode}，技能={n_sk}、效果段={n_pt}、辅助石={n_su}，"
                f"错误数={len(t14a.splitlines())}，占位说明进 JSON={leak}")
 
-        # ---- 变体②：新增 1 张技能卡 + 1 段效果段 → 命中数量守卫、未生成 JSON ----
+        # ---- 变体②（契约 v1.7 目录驱动口径）：新增 1 张技能卡 + 1 段效果段 → 不再拦截，
+        # 照常生成中间 JSON，中文汇报『新增 1 条，测试断言已随目录自动对齐』----
         v14_one = real_variant("v14_new_skill", add_skills=[new_skill], add_parts=[new_part])
         pv14b, o14b, d14b, t14b = a_variant("v14_new_skill", v14_one)
-        guard_hit = ("新增会打破数量硬断言，需按台账 P-23 同步改数量断言，须上级 AI 裁定" in t14b)
-        gen_id = "skill_001" in t14b
-        guard_base = f"但内容台账基线是 {len(ledger['skills'])} 条" in t14b
-        ok14b = (pv14b.returncode != 0 and not o14b.exists() and d14b is None
-                 and guard_hit and guard_base and gen_id)
-        record("增量四② 新增 1 张技能卡 + 1 段效果段 → 命中数量守卫且未生成中间 JSON", ok14b,
-               f"退出码={pv14b.returncode}，未生成 JSON={not o14b.exists()}，"
-               f"命中『P-23 须上级 AI 裁定』={guard_hit}，"
-               f"写明基线 {len(ledger['skills'])} 条={guard_base}，自动代号 skill_001 出现={gen_id}")
-        print("  --- 新增技能卡中文报错（原始）---")
-        indent_print(t14b)
+        warn14b = "\n".join(variant_warnings("v14_new_skill"))
+        report_hit = ("新增 1 条" in warn14b and "测试断言已随目录自动对齐" in warn14b)
+        gen_id = "skill_001" in warn14b
+        guard_gone = ("数量守卫" not in t14b and "数量守卫" not in warn14b
+                      and "须上级 AI 裁定" not in warn14b)
+        n_new = len(d14b.get("skills", [])) if d14b else None
+        ok14b = (pv14b.returncode == 0 and o14b.exists() and d14b is not None
+                 and n_new == len(ledger["skills"]) + 1
+                 and report_hit and gen_id and guard_gone)
+        record("增量四② 新增 1 张技能卡 + 1 段效果段 → 不再拦截、汇报『新增 1 条，测试断言已随目录自动对齐』",
+               ok14b,
+               f"退出码={pv14b.returncode}，生成 JSON={o14b.exists()}，技能数={n_new}"
+               f"（台账 {len(ledger['skills'])} + 新增 1），汇报命中『新增 1 条…自动对齐』={report_hit}，"
+               f"自动代号 skill_001 出现={gen_id}，旧『数量守卫』拦截已移除={guard_gone}")
+        print("  --- 新增技能卡目录驱动汇报（原始）---")
+        indent_print(warn14b)
 
         # ---- 变体③：新技能卡缺效果段 → 中文报错定位「② 技能卡 第 N 行 · 效果段」 ----
         v14_nopart = real_variant("v14_no_part", add_skills=[new_skill])
@@ -1186,12 +1208,15 @@ def main():
         v14_id_empty = real_variant("v14_id_empty", add_skills=[dict(new_skill, **{"代号（自动，别填）": None})],
                                     add_parts=[new_part])
         pv14e, o14e, d14e, t14e = a_variant("v14_id_empty", v14_id_empty)
-        gen_empty = "skill_001" in t14e
+        warn_e = "\n".join(variant_warnings("v14_id_empty"))
+        gen_empty = "skill_001" in warn_e
         v14_id_hint = real_variant("v14_id_hint", add_skills=[new_skill], add_parts=[new_part])
         pv14e2, o14e2, d14e2, t14e2 = a_variant("v14_id_hint", v14_id_hint)
-        gen_hint = "skill_001" in t14e2
+        warn_e2 = "\n".join(variant_warnings("v14_id_hint"))
+        gen_hint = "skill_001" in warn_e2
         record("增量四⑤ 代号留空 / 留占位说明 → 都自动生成 skill_001（规则一致）",
-               gen_empty and gen_hint and t14e2.split("skill_")[1][:3] == t14e.split("skill_")[1][:3],
+               gen_empty and gen_hint
+               and warn_e2.split("skill_")[1][:3] == warn_e.split("skill_")[1][:3],
                f"留空→skill_001={gen_empty}，占位说明→skill_001={gen_hint}")
 
         # ⑤-2 多张新卡：2 张新技能卡按行序生成 001 / 002，互不重号
@@ -1201,10 +1226,10 @@ def main():
                                add_skills=[new_skill, new_skill2],
                                add_parts=[new_part, new_part2])
         pv14f, o14f, d14f, t14f = a_variant("v14_two_skills", v14_two)
-        # 两个新代号都只出现在「自动生成代号」黄色提醒里（数量守卫报错只汇总代号），
+        # 两个新代号都出现在「自动生成代号」黄色提醒与目录驱动数量汇报里，
         # 故两者一起在 errors.json 的 text + warnings 里找，并核对落在第一 / 第二个预留行。
-        # 数量守卫命中时不会生成中间 JSON（d14f 为 None），真正的黄色提醒在错误清单
-        # errors.json 的 warnings 字段里 —— 必须从错误清单读，不能只读 payload。
+        # 契约 v1.7 起数量差异走 warnings 汇报、JSON 照常生成 —— 提醒在错误清单
+        # errors.json 的 warnings 字段里，必须从错误清单读，不能只读 payload。
         two_warnings = json.loads((BASE / "var_v14_two_skills" / "errors.json")
                                   .read_text(encoding="utf-8")).get("warnings", [])
         two_text = t14f + "\n" + "\n".join(two_warnings)
@@ -1219,22 +1244,24 @@ def main():
         # ⑤-2b 新号避重：表里既有行显式占用 skill_001（台账里没有这个文件）时，
         # 新技能卡必须越过它、拿到 skill_002 —— 证明「避开既有 80 条」不只看 content/gems，
         # 也看表内其他行已经写死的代号。
+        # 占号行也要有一段效果段：契约 v1.7 起新行不再被数量守卫拦截，但 requires_parts
+        # 仍硬拦 —— 给「自检占号」补一段，让本变体聚焦验证「新号避开表内显式代号」。
+        zhanhao_skill = dict(new_skill, **{"技能名": "自检占号",
+                                            "代号（自动，别填）": "skill_001"})
+        zhanhao_part = dict(new_part, **{"属于哪个技能": "自检占号"})
         v14_avoid = real_variant("v14_id_avoid",
-                                 add_skills=[dict(new_skill, **{"技能名": "自检占号",
-                                                                "代号（自动，别填）": "skill_001"}),
-                                             new_skill],
-                                 add_parts=[new_part])
+                                 add_skills=[zhanhao_skill, new_skill],
+                                 add_parts=[zhanhao_part, new_part])
         pv14i, o14i, d14i, t14i = a_variant("v14_id_avoid", v14_avoid)
-        avoid_warnings = json.loads((BASE / "var_v14_id_avoid" / "errors.json")
-                                    .read_text(encoding="utf-8")).get("warnings", [])
+        avoid_warnings = variant_warnings("v14_id_avoid")
         avoid_text = t14i + "\n" + "\n".join(avoid_warnings)
-        avoid_ok = (pv14i.returncode != 0 and not o14i.exists()
+        avoid_ok = (pv14i.returncode == 0 and o14i.exists() and d14i is not None
                     and f"第 {first_skill_row + 1} 行" in avoid_text
                     and "skill_002" in avoid_text
                     and "代号『skill_001』重复" not in t14i)
         record("增量四⑤附带 新号避开表内既有显式代号（占用 skill_001 → 新卡得 skill_002）",
                avoid_ok,
-               f"退出码={pv14i.returncode}，未生成 JSON={not o14i.exists()}，"
+               f"退出码={pv14i.returncode}，生成 JSON={o14i.exists()}，"
                f"第二个预留行拿到 skill_002={avoid_ok}")
 
         # ⑤-3 新辅助石：代号留空 → support_001 + 数量守卫（辅助石 13→14）
@@ -1248,13 +1275,16 @@ def main():
             "高级数据（工具自动，勿改）": "{}",
         }])
         pv14g, o14g, d14g, t14g = a_variant("v14_new_support", v14_sup)
-        sup_ok = ("support_001" in t14g and "④ 辅助石 第 0 行 · 数量守卫" in t14g
-                  and "需按台账 P-23" in t14g and not o14g.exists())
-        record("增量四⑤附带 新辅助石代号留空 → support_001 + 数量守卫（④ 辅助石）", sup_ok,
-               f"退出码={pv14g.returncode}，未生成 JSON={not o14g.exists()}，"
-               f"报错含 support_001 与④定位={sup_ok}")
-        print("  --- 新辅助石中文报错（原始）---")
-        indent_print(t14g)
+        warn14g = "\n".join(variant_warnings("v14_new_support"))
+        sup_ok = ("support_001" in warn14g and "新增 1 条" in warn14g
+                  and "测试断言已随目录自动对齐" in warn14g
+                  and pv14g.returncode == 0 and o14g.exists())
+        record("增量四⑤附带 新辅助石代号留空 → support_001 + 目录驱动汇报『新增 1 条』（④ 辅助石）",
+               sup_ok,
+               f"退出码={pv14g.returncode}，生成 JSON={o14g.exists()}，"
+               f"汇报含 support_001 与『新增 1 条…自动对齐』={sup_ok}")
+        print("  --- 新辅助石目录驱动汇报（原始）---")
+        indent_print(warn14g)
 
         # ⑤-4 同批新技能 + 新辅助石：两条数量守卫各自命中，代号互不串用
         v14_both = real_variant("v14_both", add_skills=[new_skill], add_parts=[new_part],
@@ -1268,27 +1298,36 @@ def main():
                                     "高级数据（工具自动，勿改）": "{}",
                                 }])
         pv14h, o14h, d14h, t14h = a_variant("v14_both", v14_both)
-        both_ok = ("② 技能卡 第 0 行 · 数量守卫" in t14h
-                   and "④ 辅助石 第 0 行 · 数量守卫" in t14h
-                   and "skill_001" in t14h and "support_001" in t14h)
-        record("增量四⑤附带 同批新技能 + 新辅助石 → 两条数量守卫各自命中", both_ok,
-               f"退出码={pv14h.returncode}，②/④ 数量守卫同时命中={both_ok}")
-        print("  --- 同批新增中文报错（原始）---")
-        indent_print(t14h)
+        warn14h = "\n".join(variant_warnings("v14_both"))
+        both_ok = ("技能数量与内容台账" in warn14h and "辅助石数量与内容台账" in warn14h
+                   and "新增 1 条" in warn14h
+                   and "skill_001" in warn14h and "support_001" in warn14h
+                   and pv14h.returncode == 0 and o14h.exists())
+        record("增量四⑤附带 同批新技能 + 新辅助石 → 两类目录驱动汇报各自命中（代号互不串用）",
+               both_ok,
+               f"退出码={pv14h.returncode}，生成 JSON={o14h.exists()}，"
+               f"②/④ 数量汇报同时命中={both_ok}")
+        print("  --- 同批新增目录驱动汇报（原始）---")
+        indent_print(warn14h)
 
-        # 台账目录缺失（--content 指向不存在的目录）时不做数量守卫：证明守卫由台账驱动、
-        # 不会因目录缺失而误拦正常链路（守卫只由 content/gems 台账驱动，不是写死数字）。
+        # 台账目录缺失（--content 指向不存在的目录）时不做数量汇报：证明汇报由台账驱动、
+        # 不会因目录缺失而误报（契约 v1.7 目录驱动口径只由 content/gems 台账驱动，
+        # 不是写死数字；夹具是真实表 + 1 行新技能，有台账时必出「新增 1 条」汇报）。
         v14_noledger = real_variant("v14_no_ledger", add_skills=[new_skill], add_parts=[new_part])
         nl_dir = BASE / "var_v14_no_ledger"
         nl_out = nl_dir / "build_input.json"
         nl_err = nl_dir / "errors.json"
         pnl, _ = run("变体_v14_no_ledger",
                      a_cmd(v14_noledger, nl_out, nl_err) + ["--content", str(BASE / "no_such_dir")])
-        nl_text = json.loads(nl_err.read_text(encoding="utf-8")).get("text", "") if nl_err.exists() else ""
-        nl_ok = (pnl.returncode == 0 and nl_out.exists() and "P-23" not in nl_text)
-        record("增量四⑤附带 台账目录缺失 → 不做数量守卫（守卫由台账驱动，不误拦）", nl_ok,
+        nl_report = json.loads(nl_err.read_text(encoding="utf-8")) if nl_err.exists() else {}
+        nl_text = nl_report.get("text", "")
+        nl_warn = "\n".join(nl_report.get("warnings", []))
+        nl_ok = (pnl.returncode == 0 and nl_out.exists() and "P-23" not in nl_text
+                 and "测试断言已随目录自动对齐" not in nl_warn
+                 and "数量守卫" not in nl_text)
+        record("增量四⑤附带 台账目录缺失 → 不做数量汇报（汇报由台账驱动，不误报）", nl_ok,
                f"退出码={pnl.returncode}，生成 JSON={nl_out.exists()}，"
-               f"未出现数量守卫提示={'P-23' not in nl_text}")
+               f"未出现数量汇报/旧守卫={'测试断言已随目录自动对齐' not in nl_warn and 'P-23' not in nl_text}")
 
 
     # ========= 增量五：契约 v1.5 读侧（四期 P4-2：图标 / 行为覆盖 显式列回读） =========
@@ -1488,7 +1527,7 @@ def main():
         # ---- ① 好表绿：真实表原样 → 0 错误 + 恰好 3 条 channel×circ 黄色提醒 ----
         p16a, o16a, d16a, t16a = a_variant("v16_real_ok", real_wb_path)
         warns16 = d16a.get("warnings", []) if d16a else []
-        hint_warns = [w for w in warns16 if "引导+圆" in w and "已登记待裁定" in w]
+        hint_warns = [w for w in warns16 if "引导+圆" in w and "判定半径" in w]  # v1.8：文案随契约更新（兑现后仍提醒等价于填了半径）
         ok16a = (p16a.returncode == 0 and d16a is not None and not t16a
                  and len(d16a.get("skills", [])) == 67 and len(d16a.get("supports", [])) == 13
                  and sum(len(s.get("parts", [])) for s in d16a.get("skills", [])) == 95
@@ -1571,10 +1610,147 @@ def main():
     p16f, o16f, d16f, t16f = a_variant("v16_hint_not_block", v16f)
     f16_warn = " ".join(d16f.get("warnings", [])) if d16f else ""
     ok16f = (p16f.returncode == 0 and d16f is not None
-             and "引导+圆" in f16_warn and "已登记待裁定" in f16_warn)
+             and "引导+圆" in f16_warn and "判定半径" in f16_warn)  # v1.8：文案随契约更新
     record("增量六⑥ 提醒不拦截：channel×circ 只填扇形距离 → 仍生成中间 JSON 且带契约文案提醒",
            ok16f,
            f"退出码={p16f.returncode}，生成 JSON={o16f.exists()}，提醒命中契约文案={'引导+圆' in f16_warn}")
+
+    # ========= 增量七：契约 v1.7 读侧（四期收尾：line 补 range + count_guard 目录驱动） =========
+    print("\n########## 增量七：契约 v1.7 收尾（shape_keys.line 补 range + 数量守卫改目录驱动汇报）##########")
+
+    real_wb_path = MODULE / "content_src" / "技能配置表.xlsx"
+    ledger17 = load_ledger()
+    v14_fixture_ready = "real_variant" in dir() and ledger17 is not None
+    if not real_wb_path.exists() or not v14_fixture_ready:
+        record("增量七 前置（真实工作簿 + 内容台账 + 增量四夹具可用）", False,
+               f"真实工作簿={real_wb_path.exists()}，台账可用={ledger17 is not None}，"
+               f"增量四夹具可用={'real_variant' in dir()}")
+    else:
+        # ---- ① 真实表 67/95/13 零错误、无『数量守卫』拦截（保持现状绿）----
+        p17a, o17a, d17a, t17a = a_variant("v17_real_ok", real_wb_path)
+        warn17a = d17a.get("warnings", []) if d17a else []
+        n_sk17 = len(d17a.get("skills", [])) if d17a else None
+        n_pt17 = sum(len(s.get("parts", [])) for s in d17a.get("skills", [])) if d17a else None
+        n_su17 = len(d17a.get("supports", [])) if d17a else None
+        no_guard17 = (not any("数量守卫" in w for w in warn17a)
+                      and not any("测试断言已随目录自动对齐" in w for w in warn17a))
+        ok17a = (p17a.returncode == 0 and d17a is not None and not t17a
+                 and n_sk17 == len(ledger17["skills"])
+                 and n_su17 == len(ledger17["supports"])
+                 and no_guard17)
+        record("增量七① 真实表 67/95/13 零错误、无『数量守卫』拦截、无多余数量汇报（保持现状绿）",
+               ok17a,
+               f"退出码={p17a.returncode}，错误数={len(t17a.splitlines())}，"
+               f"技能={n_sk17}（台账 {len(ledger17['skills'])}）、效果段={n_pt17}、"
+               f"辅助石={n_su17}（台账 {len(ledger17['supports'])}），"
+               f"无数量守卫/多余汇报={no_guard17}")
+
+        # ---- ② 夹具加一行新技能（真实表 + 第一个预留行 + 1 段效果段）→ 不再拦截、目录驱动汇报 ----
+        v17_add = real_variant("v17_new_skill_row", add_skills=[new_skill], add_parts=[new_part])
+        p17b, o17b, d17b, t17b = a_variant("v17_new_skill_row", v17_add)
+        warn17b = "\n".join(variant_warnings("v17_new_skill_row"))
+        hit17b = ("新增 1 条" in warn17b and "测试断言已随目录自动对齐" in warn17b)
+        ok17b = (p17b.returncode == 0 and o17b.exists() and d17b is not None
+                 and len(d17b.get("skills", [])) == len(ledger17["skills"]) + 1
+                 and hit17b and "数量守卫" not in t17b and "数量守卫" not in warn17b)
+        record("增量七② 真实表 + 1 行新技能 → 不再拦截、汇报『新增 1 条，测试断言已随目录自动对齐』",
+               ok17b,
+               f"退出码={p17b.returncode}，生成 JSON={o17b.exists()}，"
+               f"技能数={len(d17b.get('skills', [])) if d17b else '无'}"
+               f"（台账 {len(ledger17['skills'])} + 新增 1），汇报命中={hit17b}，"
+               f"旧『数量守卫』拦截已移除={'数量守卫' not in t17b}")
+        print("  --- 新增 1 行技能的目录驱动汇报（原始）---")
+        indent_print(warn17b)
+
+        # ---- ②附带 删除 1 条既有技能（连同其效果段）→ 汇报『删除 1 条』+ 须制作人拍板 ----
+        book_del = load_workbook(BASE / "v14_base.xlsx")
+        ws_s17 = book_del["② 技能卡"]
+        ws_p17 = book_del["③ 效果段"]
+        hdr_s17 = [c.value for c in ws_s17[1]]
+        hdr_p17 = [c.value for c in ws_p17[1]]
+        name_i17 = hdr_s17.index("技能名")
+        target_row17, target_name17 = None, None
+        for r in range(2, ws_s17.max_row + 1):
+            v = ws_s17.cell(row=r, column=name_i17 + 1).value
+            if v and not str(v).startswith("【示例】") and v != "这是例子，照着填":
+                target_row17, target_name17 = r, str(v)
+                break
+        parent_i17 = hdr_p17.index("属于哪个技能")
+        part_rows17 = [r for r in range(2, ws_p17.max_row + 1)
+                       if ws_p17.cell(row=r, column=parent_i17 + 1).value == target_name17]
+        for r in reversed(part_rows17):
+            ws_p17.delete_rows(r)
+        ws_s17.delete_rows(target_row17)
+        v17_del = BASE / "v17_del_skill.xlsx"
+        book_del.save(v17_del)
+        p17c, o17c, d17c, t17c = a_variant("v17_del_skill", v17_del)
+        warn17c = "\n".join(variant_warnings("v17_del_skill"))
+        hit17c = ("删除 1 条" in warn17c and "须制作人拍板" in warn17c
+                  and "测试断言已随目录自动对齐" in warn17c)
+        ok17c = (p17c.returncode == 0 and o17c.exists() and d17c is not None
+                 and len(d17c.get("skills", [])) == len(ledger17["skills"]) - 1
+                 and hit17c and "数量守卫" not in t17c)
+        record("增量七②附带 删除 1 条既有技能（连同其效果段）→ 汇报『删除 1 条』且含『须制作人拍板』",
+               ok17c,
+               f"退出码={p17c.returncode}，生成 JSON={o17c.exists()}，"
+               f"技能数={len(d17c.get('skills', [])) if d17c else '无'}"
+               f"（台账 {len(ledger17['skills'])} - 删除 1），"
+               f"汇报命中『删除 1 条…须制作人拍板』={hit17c}")
+        print("  --- 删除 1 条技能的目录驱动汇报（原始）---")
+        indent_print(warn17c)
+
+    # ---- ③ 线形只填「扇形距离」（range）→ 合法尺寸（契约 v1.7 shape_keys.line 补 range）----
+    # 契约侧前置：schema["shape_keys"]["line"] 已含 range；读侧没有硬编码 line 键清单
+    # （尺寸键并集与按形状查键全部随 schema），故本变体自动生效。夹具：引导×线、
+    # 只填扇形距离 → 退出码 0、无错误、无「未填任何尺寸参数」黄提醒、range 进 behavior_params。
+    line_has_range = "range" in (schema.get("shape_keys", {}).get("line") or [])
+    v17_line = BASE / "v17_line_range.xlsx"
+    mutate(OK_XLSX, v17_line, {"③ 效果段": [
+        (2, "效果", "引导"),
+        (2, "形状", "线"),
+        (2, "半径", None),
+        (2, "长度", None),
+        (2, "宽度", None),
+        (2, "扇形距离", 150),
+        (2, "最大引导时间", 2.0),
+    ]})
+    p17d, o17d, d17d, t17d = a_variant("v17_line_range", v17_line)
+    line_bp = d17d["skills"][0]["parts"][0]["behavior_params"] if d17d else {}
+    warn17d = "\n".join(d17d.get("warnings", [])) if d17d else ""
+    ok17d = (line_has_range and p17d.returncode == 0 and d17d is not None and not t17d
+             and line_bp.get("shape") == "line" and line_bp.get("range") == 150
+             and "未填任何尺寸参数" not in warn17d
+             and "长度" not in t17d and "宽度" not in t17d)
+    record("增量七③ 线形只填『扇形距离』→ 合法尺寸（随 schema 自动生效，无黄提醒、不报错）",
+           ok17d,
+           f"契约 shape_keys.line 含 range={line_has_range}，退出码={p17d.returncode}，"
+           f"生成 JSON={o17d.exists()}，range={line_bp.get('range')}、shape={line_bp.get('shape')}，"
+           f"错误数={len(t17d.splitlines())}，"
+           f"无『未填尺寸』黄提醒={'未填任何尺寸参数' not in warn17d}")
+    if t17d:
+        print("  --- 线形 range 变体中文错误（原始，应为空）---")
+        indent_print(t17d)
+
+    # ---- ③附带 区分验证：validation_rules.aoe_size_required 口径不动 ----
+    # 范围爆发×线、只填扇形距离 → 仍硬拦（半径 / 长度+宽度 / 扇形角度+扇形距离 三组之一）。
+    v17_line_aoe = BASE / "v17_line_aoe.xlsx"
+    mutate(OK_XLSX, v17_line_aoe, {"③ 效果段": [
+        (2, "效果", "范围爆发"),
+        (2, "形状", "线"),
+        (2, "半径", None),
+        (2, "长度", None),
+        (2, "宽度", None),
+        (2, "扇形距离", 150),
+    ]})
+    p17e, o17e, d17e, t17e = a_variant("v17_line_aoe", v17_line_aoe)
+    aoe_keep = ("半径" in t17e and "必须至少填一组尺寸" in t17e)
+    ok17e = (p17e.returncode != 0 and not o17e.exists() and d17e is None and aoe_keep)
+    record("增量七③附带 aoe_size_required 口径不动：范围爆发×线只填扇形距离 → 仍硬拦",
+           ok17e,
+           f"退出码={p17e.returncode}，未生成 JSON={not o17e.exists()}，"
+           f"仍要求至少一组尺寸={aoe_keep}")
+    print("  --- 范围爆发×线只填扇形距离中文报错（原始）---")
+    indent_print(t17e)
 
     # ---------------------------------------------------------- 汇总 ----
     print("\n########## W3 自检汇总 ##########")

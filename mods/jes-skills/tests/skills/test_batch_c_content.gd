@@ -5,7 +5,8 @@
 #   C3 施放层八项显式（手册 §4.1：不靠默认值）
 #   C4 必填参数齐全（按行为×形状分类，形状键必须显式）
 #   C5 数值在手册 §4.2 区间内（白名单见文件头）
-#   C6 67 技能「行为×形状×时序」签名两两不同（B6/P6 泛化到全量）
+#   C6 全量技能（数量现取 content/gems/active 目录实数，当前 67）「行为×形状×时序」签名两两不同
+#     （B6/P6 泛化到全量；数量口径依据：台账 P-23 + 制作人 2026-11-03 批示「一次性完成全部开发」）
 #   C7 批内 DPS 极差 ≤ 2.5（手册 §4.4，伤害从 .tres 数据现算，零伤害内容不计入）
 #   C8 单位化耗资（手册 §4.4 判据 1）批内落在同一带
 #
@@ -41,6 +42,10 @@ const DASH_IDS: Array[StringName] = [
 	&"crash_land_burst", &"end_ring_burst", &"delayed_end_ring", &"path_delay_blast",
 ]
 
+# 数量断言的真源改为内容目录本身（台账 P-23 + 制作人 2026-11-03 批示「一次性完成全部开发」，四期任务书 §2-5）：
+# C6 的全量签名下限不再写死 67，动态取 content/gems/active 目录 .tres 实数（当前 67）。
+const ACTIVE_DIR := "res://mods/jes-skills/content/gems/active"
+
 
 func before_all() -> void:
 	GemRegistry.reload()
@@ -48,6 +53,19 @@ func before_all() -> void:
 
 func _skill(id: StringName) -> SkillData:
 	return GemRegistry.skill(id)
+
+
+## 统计目录下 .tres 实数（遍历写法与 test_content_contract.gd 的 _load_dir 同款）
+func _count_tres(dir_path: String) -> int:
+	var n := 0
+	var d := DirAccess.open(dir_path)
+	assert_not_null(d, "内容目录必须存在：%s" % dir_path)
+	if d == null:
+		return 0
+	for f in d.get_files():
+		if String(f).ends_with(".tres"):
+			n += 1
+	return n
 
 
 # ---------- C1：37 格存在 + 来自磁盘 ----------
@@ -162,7 +180,7 @@ func test_c5_values_within_guardrails() -> void:
 				assert_between(float(p[&"speed"]), 400.0, 900.0, "技能「%s」弹速越区间 400~900" % id)
 
 
-# ---------- C6：67 技能「行为×形状×时序」签名两两不同（泛化到全量） ----------
+# ---------- C6：全量技能（目录 .tres 实数，当前 67）「行为×形状×时序」签名两两不同（泛化到全量） ----------
 func _part_signature(part: SkillPart) -> String:
 	var p: Dictionary = part.behavior_params
 	var shape: String = String(p.get(&"shape", _default_shape(part.behavior_id)))
@@ -195,7 +213,11 @@ func test_c6_no_duplicate_signature_across_all_67() -> void:
 		assert_false(seen.has(sig),
 			"技能「%s」与「%s」的行为×形状×时序签名重复" % [s.gem_id, seen.get(sig)])
 		seen[sig] = s.gem_id
-	assert_gte(seen.size(), 67, "67 个技能应全部签名唯一")
+	# 依据（台账 P-23 + 制作人 2026-11-03 批示「一次性完成全部开发」，四期任务书 §2-5）：
+	# 下限不写死 67，动态取 content/gems/active 目录 .tres 实数（当前 67）。
+	var active_n := _count_tres(ACTIVE_DIR)
+	assert_gte(seen.size(), active_n,
+		"全量 %d 个技能（目录 .tres 实数）应全部签名唯一" % active_n)
 
 
 # ---------- C7：批内 DPS 极差 ≤ 2.5（伤害从数据现算，口径见文件头） ----------

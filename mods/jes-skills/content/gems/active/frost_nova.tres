@@ -1,15 +1,15 @@
 [gd_resource type="Resource" script_class="SkillData" format=3]
 
-[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/gem_level_scaling.gd" id="1_fnova"]
-[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/skill_part.gd" id="2_fnova"]
-[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/skill_data.gd" id="3_fnova"]
+[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/gem_level_scaling.gd" id="1_7tixs"]
+[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/skill_part.gd" id="2_xfyfx"]
+[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/skill_data.gd" id="3_ceirp"]
 
-[sub_resource type="Resource" id="Resource_fnova_scale"]
-script = ExtResource("1_fnova")
+[sub_resource type="Resource" id="Resource_frost_nova_scale"]
+script = ExtResource("1_7tixs")
 per_level = 0.1
 
-[sub_resource type="Resource" id="Resource_fnova_part"]
-script = ExtResource("2_fnova")
+[sub_resource type="Resource" id="Resource_frost_nova_part0"]
+script = ExtResource("2_xfyfx")
 base_damage = {
 &"cold": 140.0
 }
@@ -22,11 +22,11 @@ behavior_params = {
 }
 
 [resource]
-script = ExtResource("3_fnova")
+script = ExtResource("3_ceirp")
 gem_id = &"frost_nova"
 display_name = "霜爆新星"
-parts = Array[ExtResource("2_fnova")]([SubResource("Resource_fnova_part")])
+parts = Array[ExtResource("2_xfyfx")]([SubResource("Resource_frost_nova_part0")])
 tags = Array[StringName]([&"spell", &"aoe", &"cold"])
 base_cost = 12.0
 base_cooldown = 2.5
-level_scaling = SubResource("Resource_fnova_scale")
+level_scaling = SubResource("Resource_frost_nova_scale")

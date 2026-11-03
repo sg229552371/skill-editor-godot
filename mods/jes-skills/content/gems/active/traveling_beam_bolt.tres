@@ -1,18 +1,15 @@
 [gd_resource type="Resource" script_class="SkillData" format=3]
 
-; 格号 FLY·LINE·TICK（展开表 v2 §1.1）· 夜间施工批次 C
-; 行进光束弹：飞行中沿途直线反复判定
+[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/gem_level_scaling.gd" id="1_70pqi"]
+[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/skill_part.gd" id="2_kl0la"]
+[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/skill_data.gd" id="3_3e0cm"]
 
-[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/gem_level_scaling.gd" id="1_tvb"]
-[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/skill_part.gd" id="2_tvb"]
-[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/skill_data.gd" id="3_tvb"]
-
-[sub_resource type="Resource" id="Resource_tvb_scale"]
-script = ExtResource("1_tvb")
+[sub_resource type="Resource" id="Resource_traveling_beam_bolt_scale"]
+script = ExtResource("1_70pqi")
 per_level = 0.1
 
-[sub_resource type="Resource" id="Resource_tvb_p1"]
-script = ExtResource("2_tvb")
+[sub_resource type="Resource" id="Resource_traveling_beam_bolt_part0"]
+script = ExtResource("2_kl0la")
 base_damage = {
 &"lightning": 20.0
 }
@@ -25,32 +22,28 @@ behavior_params = {
 &"spread_deg": 3.0
 }
 
-[sub_resource type="Resource" id="Resource_tvb_p2"]
-script = ExtResource("2_tvb")
+[sub_resource type="Resource" id="Resource_traveling_beam_bolt_part1"]
+script = ExtResource("2_kl0la")
 base_damage = {
 &"lightning": 20.0
 }
 behavior_id = &"bhv_aoe_burst"
 behavior_params = {
-&"shape": &"line",
-&"length": 240.0,
-&"width": 44.0,
 &"delay": 0.0,
 &"hit_count": 4,
-&"hit_interval": 0.25
+&"hit_interval": 0.25,
+&"length": 240.0,
+&"shape": &"line",
+&"width": 44.0
 }
 
 [resource]
-script = ExtResource("3_tvb")
+script = ExtResource("3_3e0cm")
 gem_id = &"traveling_beam_bolt"
 display_name = "行进光束弹"
-parts = Array[ExtResource("2_tvb")]([SubResource("Resource_tvb_p1"), SubResource("Resource_tvb_p2")])
+parts = Array[ExtResource("2_kl0la")]([SubResource("Resource_traveling_beam_bolt_part0"), SubResource("Resource_traveling_beam_bolt_part1")])
 tags = Array[StringName]([&"spell", &"projectile", &"aoe", &"lightning"])
-cast_mode = 0
 base_cast_time = 0.35
-cost_type = 0
 base_cost = 11.0
 base_cooldown = 3.0
-max_charges = 0
-charge_recharge_time = 0.0
-level_scaling = SubResource("Resource_tvb_scale")
+level_scaling = SubResource("Resource_traveling_beam_bolt_scale")

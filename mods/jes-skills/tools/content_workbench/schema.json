@@ -1,7 +1,7 @@
 {
-  "version": "1.6",
+  "version": "1.8",
   "frozen": true,
-  "frozen_by": "上级AI W1（2026-11-02）；v1.1 属性词表、v1.2 集成口径修正同日；v1.3 二期可编辑性增强同日 23:35；v1.4 三期预留行与新增技能闭环 2026-11-03 00:05（上级AI 独占修改）；v1.5 四期补字段覆盖：② 加「图标」、④ 加「行为覆盖」可见列 2026-11-03 11:50（上级AI 独占修改）；v1.6 四期 P4-3 口径统一：新增 3 条非尺寸硬拦 + 1 条 channel×circ 黄色提醒（依据 tests/skills/test_content_contract.gd test_a4/a5/b4，分析见 _tmp/p43_aoe_rules.md）2026-11-03 12:15（上级AI 独占修改）",
+  "frozen_by": "上级AI W1（2026-11-02）；v1.1 属性词表、v1.2 集成口径修正同日；v1.3 二期可编辑性增强同日 23:35；v1.4 三期预留行与新增技能闭环 2026-11-03 00:05（上级AI 独占修改）；v1.5 四期补字段覆盖：② 加「图标」、④ 加「行为覆盖」可见列 2026-11-03 11:50（上级AI 独占修改）；v1.6 四期 P4-3 口径统一：新增 3 条非尺寸硬拦 + 1 条 channel×circ 黄色提醒（依据 tests/skills/test_content_contract.gd test_a4/a5/b4，分析见 _tmp/p43_aoe_rules.md）2026-11-03 12:15（上级AI 独占修改）；v1.7 四期收尾：① shape_keys.line 补 range（依据 shape_hit.gd L17 length 缺省回退 range 承载，代码有实现而契约漏列，本条消除契约与代码缝）；② new_row_policy.count_guard 口径更新为「目录驱动」（制作人 2026-11-03 批示一次性完成全部开发，依据台账 P-23 改数写明依据）2026-11-03 13:50（上级AI 独占修改）；v1.8 四期：channel×circ 盲区兑现（制作人拍板选 A）——引擎 bhv_channel 已把「范围」承载为判定半径（radius 缺省取缩放后 range，显式 radius 优先），黄提醒文案同步改为「等价于填了半径」2026-11-03 14:55（上级AI 独占修改）",
   "note": "本文件是并行期的唯一表结构契约。所有子代理只读；需要变更必须停下报告上级AI，由上级AI统一修改并通知全员。v1.1 为上级AI 跨波次裁定：仅追加 enums.stat_labels（属性中文词表），修正 columns.supports 的 enum:stat_labels 原先无对应词表的缺陷；enums.stat 原英文数组保持不变，属只加不改。 v1.2 为上级AI 守门员 W5 联调打回后的口径修正：① 把 shape_keys 从「必填键」纠正为「该形状可用的参数键」；② 追加 example_row_policy 统一示例行标记；均属追加/澄清，不删既有字段。",
   "workbook": "mods/jes-skills/content_src/技能配置表.xlsx",
   "sheets": [
@@ -427,7 +427,8 @@
     ],
     "line": [
       "length",
-      "width"
+      "width",
+      "range"
     ],
     "rect": [
       "length",
@@ -858,9 +859,9 @@
     "channel_circ_range_hint": {
       "sheet": "parts",
       "level": "warning",
-      "note": "channel×circ 只填 range 时黄色提醒（不拦截）：D-46「引导圆用 range 承载半径」为表侧口径，运行时 bhv_channel 尚未把 range 透传为判定半径（见 _tmp/p43_aoe_rules.md §五-1），是否补运行时承载待制作人裁定。",
+      "note": "channel×circ 只填 range 时的黄色提醒（不拦截）：D-46「引导圆用 range 承载半径」已于 2026-11-03 在运行时兑现（bhv_channel 透传 radius=range，见台账 D-63），只填范围等价于填了半径。显式填半径则优先生效。",
       "when": "behavior=bhv_channel 且 shape=circ 且 radius 为空且 range 非空",
-      "text": "提醒：引导+圆目前只填了「范围」。工具按台账 D-46 把它当判定半径用，但引擎当前实现尚未接入——已登记待裁定，不影响生成。"
+      "text": "提醒：引导+圆只填了「范围」——按台账 D-46 它就是判定半径（引擎已于 2026-11-03 兑现承载，见台账 D-63），等价于填了半径，不影响使用；想更直观也可以直接填「半径」。"
     }
   },
   "column_notes": {
@@ -923,7 +924,7 @@
     "editable_scope": "②③④ 预留行的所有可见数据列 unlocked（白底）；示例行、代号列、高级数据（隐藏列）一律保持 locked。",
     "code_column": "② 代号（自动，别填）：未填时由 W2 填 技能名→新代号 的占位说明；真实代号由 W3 按 id_rule.new 生成并回写提示（本波次允许只做提示，不强制回写）。",
     "requires_parts": "一张新技能卡至少要有一段有效效果段（③ 里『属于哪个技能』指向它），否则 W3 中文报错定位到②行。",
-    "count_guard": "新增会打破 67/13/1 数量硬断言：W3 只做中文提示『需按台账 P-23 同步改数量断言，须上级 AI 裁定』，不自动改测试、不落盘。"
+    "count_guard": "数量断言随内容目录实际数量走（tests 断言改为「与目录实数一致」）：策划新增/删除技能或辅助石后，读侧中文汇报『新增 N 条 / 删除 N 条，测试断言已随目录自动对齐』，无需再人工改测试；删除仍须制作人拍板（内容删除不可逆）。依据：台账 P-23 改数写明依据 + 制作人 2026-11-03 批示。"
   },
   "example_row_policy": {
     "marker": "【示例】",

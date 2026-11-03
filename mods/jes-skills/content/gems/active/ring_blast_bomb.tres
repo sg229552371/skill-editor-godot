@@ -1,18 +1,15 @@
 [gd_resource type="Resource" script_class="SkillData" format=3]
 
-; 格号 FLY·RING·S1（展开表 v2 §1.1）· 夜间施工批次 C
-; 环爆弹：命中点以命中处为心爆出空环（内圈不命中）
+[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/gem_level_scaling.gd" id="1_kymu2"]
+[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/skill_part.gd" id="2_gyifu"]
+[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/skill_data.gd" id="3_8xjcl"]
 
-[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/gem_level_scaling.gd" id="1_rbb"]
-[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/skill_part.gd" id="2_rbb"]
-[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/skill_data.gd" id="3_rbb"]
-
-[sub_resource type="Resource" id="Resource_rbb_scale"]
-script = ExtResource("1_rbb")
+[sub_resource type="Resource" id="Resource_ring_blast_bomb_scale"]
+script = ExtResource("1_kymu2")
 per_level = 0.1
 
-[sub_resource type="Resource" id="Resource_rbb_p1"]
-script = ExtResource("2_rbb")
+[sub_resource type="Resource" id="Resource_ring_blast_bomb_part0"]
+script = ExtResource("2_gyifu")
 base_damage = {
 &"fire": 25.0
 }
@@ -25,32 +22,28 @@ behavior_params = {
 &"spread_deg": 4.0
 }
 
-[sub_resource type="Resource" id="Resource_rbb_p2"]
-script = ExtResource("2_rbb")
+[sub_resource type="Resource" id="Resource_ring_blast_bomb_part1"]
+script = ExtResource("2_gyifu")
 base_damage = {
 &"fire": 90.0
 }
 behavior_id = &"bhv_aoe_burst"
 behavior_params = {
-&"shape": &"ring",
-&"radius": 140.0,
-&"inner_radius": 80.0,
 &"delay": 0.0,
 &"hit_count": 1,
-&"hit_interval": 0.0
+&"hit_interval": 0.0,
+&"inner_radius": 80.0,
+&"radius": 140.0,
+&"shape": &"ring"
 }
 
 [resource]
-script = ExtResource("3_rbb")
+script = ExtResource("3_8xjcl")
 gem_id = &"ring_blast_bomb"
 display_name = "环爆弹"
-parts = Array[ExtResource("2_rbb")]([SubResource("Resource_rbb_p1"), SubResource("Resource_rbb_p2")])
+parts = Array[ExtResource("2_gyifu")]([SubResource("Resource_ring_blast_bomb_part0"), SubResource("Resource_ring_blast_bomb_part1")])
 tags = Array[StringName]([&"spell", &"projectile", &"aoe", &"fire"])
-cast_mode = 0
 base_cast_time = 0.4
-cost_type = 0
 base_cost = 12.0
 base_cooldown = 3.5
-max_charges = 0
-charge_recharge_time = 0.0
-level_scaling = SubResource("Resource_rbb_scale")
+level_scaling = SubResource("Resource_ring_blast_bomb_scale")

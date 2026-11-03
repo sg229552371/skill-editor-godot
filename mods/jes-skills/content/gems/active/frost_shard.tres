@@ -1,15 +1,15 @@
 [gd_resource type="Resource" script_class="SkillData" format=3]
 
-[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/gem_level_scaling.gd" id="1_5j5aq"]
-[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/skill_part.gd" id="2_2gv0f"]
-[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/skill_data.gd" id="3_2ss6b"]
+[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/gem_level_scaling.gd" id="1_aelut"]
+[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/skill_part.gd" id="2_8x08p"]
+[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/skill_data.gd" id="3_ivph4"]
 
-[sub_resource type="Resource" id="Resource_06b7u"]
-script = ExtResource("1_5j5aq")
+[sub_resource type="Resource" id="Resource_frost_shard_scale"]
+script = ExtResource("1_aelut")
 per_level = 0.1
 
-[sub_resource type="Resource" id="Resource_gj05w"]
-script = ExtResource("2_2gv0f")
+[sub_resource type="Resource" id="Resource_frost_shard_part0"]
+script = ExtResource("2_8x08p")
 base_damage = {
 &"cold": 100.0
 }
@@ -23,9 +23,9 @@ behavior_params = {
 }
 
 [resource]
-script = ExtResource("3_2ss6b")
+script = ExtResource("3_ivph4")
 gem_id = &"frost_shard"
 display_name = "霜矛"
-parts = Array[ExtResource("2_2gv0f")]([SubResource("Resource_gj05w")])
+parts = Array[ExtResource("2_8x08p")]([SubResource("Resource_frost_shard_part0")])
 tags = Array[StringName]([&"attack", &"projectile", &"cold"])
-level_scaling = SubResource("Resource_06b7u")
+level_scaling = SubResource("Resource_frost_shard_scale")

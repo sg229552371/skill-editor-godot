@@ -30,9 +30,12 @@ W3 正向生成 · 交付物 A：Excel 工作簿 → 中间 JSON + 分层中文�
     content/gems 下已有资源文件名），同一批内保证唯一；显式填写的合法代号一律尊重；
   · requires_parts：新技能卡至少要有一段有效效果段（③「属于哪个技能」按技能名指向它），
     否则中文报错定位到「② 技能卡 第 N 行 · 效果段」；
-  · count_guard + 有效内容台账（运行时从 content/gems 的 .tres 统计，不硬编码）：
-    真新增（技能数 ≠ 67 或辅助石数 ≠ 13）→ 不生成中间 JSON、不落盘，中文报错写明
-    「新增会打破数量硬断言，需按台账 P-23 同步改数量断言，须上级 AI 裁定」。
+  · count_guard + 有效内容台账（运行时从 content/gems 的 .tres 统计，不硬编码）。
+    契约 v1.7 起口径改为「目录驱动」：策划新增 / 删除技能或辅助石后不再「拦截不生成」，
+    只做中文汇报『新增 N 条 / 删除 N 条，测试断言已随目录自动对齐』（删除类差异另加
+    「内容删除不可逆，须制作人拍板」）；数量断言随内容目录实际数量走，测试断言已随
+    目录自动对齐，无需人工改测试（依据：台账 P-23 改数写明依据 + 制作人 2026-11-03
+    批示）。旧口径「真新增 → 不生成中间 JSON、须上级 AI 裁定」已废止。
 
 契约 v1.6 读侧（四期 P4-3：四条校验规则落地）：
   · active_numeric_sane（硬拦，GUT test_a4 同口径）：② 消耗 >0、前摇 >0、
@@ -55,6 +58,16 @@ W3 正向生成 · 交付物 A：Excel 工作簿 → 中间 JSON + 分层中文�
     防止显式列里删掉的旧覆盖键被 __extras 残值「复活」）；非法 JSON 中文报错、不生成中间 JSON；
   · ② 图标填了但不是 res:// 开头 → 中文报错定位「② 技能卡 第 N 行 · 图标」；
     留空不校验（留空 = 未设置，由 __extras 兜底，旧表零差异）。
+
+契约 v1.7 读侧（四期收尾）：
+  · shape_keys.line 补「range」：本文件对 shape_keys 的全部使用（合法尺寸键并集
+    dimension_keys、按形状查可用键）都直接读 schema["shape_keys"]，没有任何硬编码的
+    line 键清单 —— 契约补 range 后读侧自动生效：线形只填「扇形距离」属合法尺寸
+    （shape_hit.gd 第 17 行 length 缺省回退 range 承载），契约与代码的缝已消除；
+  · new_row_policy.count_guard 改「目录驱动」：见上；数量差异从「硬拦错误」降为
+    「中文汇报（warnings 通道）」，删除类差异追加「内容删除不可逆，须制作人拍板」。
+    validation_rules.aoe_size_required 口径不动：范围爆发的线形仍要求 半径 或
+    长度+宽度 或 扇形角度+扇形距离 三组尺寸之一。
 
 用法：
   python read_workbook.py <工作簿.xlsx> [--schema 路径] [--out 路径] [--errors 路径] [--snapshot 路径]
@@ -118,9 +131,9 @@ ROW_ID_PLACEHOLDERS = (
 NEW_ID_PREFIX = {"skills": "skill_", "supports": "support_"}
 NEW_ID_DIGITS = 3
 
-# new_row_policy.count_guard / 任务书 P7-B：数量硬断言的真源是运行时内容与 GUT 断言
-# （67 技能 / 95 效果段 / 13 辅助石）。读侧不硬编码这组数字，而是运行时清点 content/gems
-# 下「生成资源」目录里的 .tres 作为「有效内容台账」：
+# new_row_policy.count_guard / 任务书 P7-B：数量口径的真源是运行时内容目录本身
+# （契约 v1.7 起 tests 数量断言随目录实数对齐）。读侧不硬编码 67/95/13 这组数字，
+# 而是运行时清点 content/gems 下「生成资源」目录里的 .tres 作为「有效内容台账」：
 #   gems/active/*.tres   → 技能（79 个文件名与 ② 的「代号」逐条同构，故也用于新增代号避重）
 #   gems/supports/*.tres → 辅助石
 # 注意：gems/triggers/（触发器，只有 1 个资源）与技能 / 辅助石无关，绝不能计进技能数，
@@ -129,13 +142,13 @@ NEW_ID_DIGITS = 3
 CONTENT_DIR = MODULE / "content" / "gems"
 LEDGER_SUBDIRS = {"skills": "active", "supports": "supports"}
 
-# count_guard 的适用范围（很重要，别放宽）：
-# 数量硬断言约束的是「正式配置表」——只对「至少覆盖了台账全部既有内容」的工作簿生效。
-# 依据：策划的最小自查工作簿、W3 自检自造的 1 技能 + 1 效果段 + 1 辅助石夹具，都只含
-# 两三条内容；若也拿 67/13 去比，等于把「残缺的小表」判成「新增」，还会让二期所有
-# 既有自检变体集体变红（P7-B 首版实现即踩到此坑）。
-# 判据（结构判定，不写死文件名 / 路径）：表内技能代号覆盖台账技能代号的比例 ≥ 该阈值。
-# 正式表 = 67/67 = 100%；自检夹具 = 1/67 ≈ 1.5%，阈值取 0.9 两侧余量都很大。
+# count_guard（契约 v1.7「目录驱动」汇报）的适用范围（很重要，别放宽）：
+# 汇报只对「正式配置表」生效 —— 判据：表内技能代号里来自台账（content/gems 既有
+# 代号）的比例 ≥ 该阈值，即这张表是在真实目录基础上增删的；策划的最小自查工作簿、
+# W3 自检自造的 1 技能 + 1 效果段 + 1 辅助石夹具，代号全是自造、无一来自台账，
+# 不算、也不汇报，避免把「残缺的小表」判成「新增」刷屏（P7-B 首版实现即踩到此坑）。
+# 用「表内占比」而不是「台账覆盖率」：策划删掉若干行后，表内仍是清一色既有内容，
+# 删除汇报照常触发（台账覆盖率口径会在大量删除时漏报）。
 COUNT_GUARD_COVERAGE = 0.9
 
 # add_error 里换行标记（见 add_error 注释）
@@ -187,7 +200,7 @@ def as_number(value):
 
 
 def add_error(errors, sheet, row, col, message):
-    # 列名里可能带「@@NL@@ 换行」标记（new_row_policy.count_guard 的固定中文报错，见 count_guard），
+    # 列名里可能带「@@NL@@ 换行」标记（历史 count_guard 多行报错文案遗留的换行能力，现保留通用），
     # 落进中文清单前还原成真正的换行，保证终端 / errors.json 两处读起来都是分行的整句。
     shown = str(col).replace(NL_MARKER, "\n")
     errors.append({
@@ -262,8 +275,9 @@ def is_blank_row(cells, row_id_values, blank_cols=None) -> bool:
 def load_content_ledger(content_dir=None):
     """读运行时内容台账（有效内容基线）：content/gems/active 与 content/gems/supports 下的 .tres。
 
-    返回 {"skills": 技能数, "supports": 辅助石数, "ids": {全部代号}}。
-    目录整体缺失或台账为空时返回 None —— 此时只退化为「不做数量守卫」，
+    返回 {"skills": 技能数, "supports": 辅助石数,
+          "skill_ids": {技能代号}, "support_ids": {辅助石代号}, "ids": {全部代号}}。
+    目录整体缺失或台账为空时返回 None —— 此时只退化为「不做数量汇报」，
     新代号仍按「本批次 + 表内显式代号」避重（见 next_new_id），不因缺目录误拦正常链路。
     """
     root = Path(content_dir) if content_dir else CONTENT_DIR
@@ -279,24 +293,29 @@ def load_content_ledger(content_dir=None):
     return {
         "skills": len(skill_ids),
         "supports": len(support_ids),
+        "skill_ids": skill_ids,
+        "support_ids": support_ids,
         "ids": skill_ids | support_ids,
     }
 
 
 def count_guard_applies(skill_rows, ledger) -> bool:
-    """deployment 表是否已达「正式配置表」规模 —— 决定数量守卫要不要生效。
+    """工作簿是否属于「在真实目录基础上增删的正式配置表」——决定目录驱动汇报要不要生效。
 
-    判据：表内技能代号对台账既有技能代号的覆盖率 ≥ COUNT_GUARD_COVERAGE。
-    正式表覆盖 100%（哪怕把某条改了代号也是 100%，因为总数不变）；
-    自检夹具 / 策划最小自查表只有两三条，覆盖率极低，不算新增、不拦。
+    判据：表内技能代号里来自台账（content/gems 既有技能代号）的比例 ≥ COUNT_GUARD_COVERAGE。
+    正式表（67 既有 + 策划新增若干）比例仍接近 100%；策划删掉若干行后表内仍是清一色
+    既有内容，比例仍是 100%，删除汇报照常触发；自检夹具 / 策划最小自查表只有自造的
+    两三条内容，比例极低，不汇报、不打扰。
     台账里没有技能时（缺目录）由调用方在 ledger 为空时就跳过，这里再兜一层。
     """
-    base = ledger.get("skills") if ledger else 0
+    base = ledger.get("skill_ids") if ledger else None
     if not base:
         return False
-    got = {r.get("gem_id") for r in skill_rows if r.get("gem_id")}
-    covered = len(got & ledger["ids"])
-    return covered / float(base) >= COUNT_GUARD_COVERAGE
+    got = [r.get("gem_id") for r in skill_rows if r.get("gem_id")]
+    if not got:
+        return False
+    covered = len(set(got) & base)
+    return covered / float(len(got)) >= COUNT_GUARD_COVERAGE
 
 
 def next_new_id(prefix, *, used_live, used_reserved):
@@ -315,15 +334,22 @@ def next_new_id(prefix, *, used_live, used_reserved):
     return None
 
 
-def count_guard_message(label, got, base, extra_ids, where=None):
-    """new_row_policy.count_guard 的固定中文报错（一句话说清数量差异 + P-23 + 上级 AI）。"""
-    extra_ids = list(dict.fromkeys(i for i in (extra_ids or []) if i))
-    tail = f"（表里多出来的代号：{'、'.join(extra_ids)}）" if extra_ids else ""
-    return (
-        f"表里读到 {label} {got} 条，但内容台账基线是 {base} 条{tail}；"
-        "新增会打破数量硬断言，需按台账 P-23 同步改数量断言，须上级 AI 裁定"
-        "（本工具不自动改测试、不落盘、不生成中间 JSON）"
-    )
+def count_guard_report(label, added, removed):
+    """契约 v1.7 new_row_policy.count_guard 的目录驱动中文汇报（不再拦截，只汇报差异）。
+
+    口径：『新增 N 条 / 删除 N 条，测试断言已随目录自动对齐』——数量断言随内容目录
+    实际数量走，无需人工改测试；删除类差异追加「内容删除不可逆，须制作人拍板」。
+    """
+    seg = []
+    if added:
+        seg.append(f"新增 {len(added)} 条（{'、'.join(added)}）")
+    if removed:
+        seg.append(f"删除 {len(removed)} 条（{'、'.join(removed)}）")
+    text = (f"{label}数量与内容台账（content/gems）比对：" + "、".join(seg)
+            + "，测试断言已随目录自动对齐（数量断言随内容目录实际数量走，无需人工改测试）")
+    if removed:
+        text += "；内容删除不可逆，须制作人拍板"
+    return text
 
 
 def col_label_for(schema, sheet_key, field):
@@ -1187,8 +1213,9 @@ def parse_sheet(ws, sheet_key, schema, enum_maps, ranges, errors, warnings,
 
 # ------------------------------------------------------------ 跨表校验 ----
 def cross_validate(skill_rows, skill_metas, part_rows, part_metas,
-                   support_rows, support_metas, schema, errors, ledger=None):
-    """代号重复、技能名关联、效果段归并、段号检查、新技能卡必须有有效效果段、数量守卫。"""
+                   support_rows, support_metas, schema, errors, ledger=None,
+                   warnings=None):
+    """代号重复、技能名关联、效果段归并、段号检查、新技能卡必须有有效效果段、目录驱动数量汇报。"""
     title_s = sheet_title(schema, "skills")
     title_p = sheet_title(schema, "parts")
     title_u = sheet_title(schema, "supports")
@@ -1279,7 +1306,7 @@ def cross_validate(skill_rows, skill_metas, part_rows, part_metas,
 
     # 契约 v1.4 new_row_policy.requires_parts：新增技能卡至少要有一段有效效果段
     # （③「属于哪个技能」按技能名指向它），否则中文报错定位到「② 技能卡 第 N 行 · 效果段」。
-    # 对「新增」硬拦：判定口径与 count_guard 的真新增一致 ——
+    # 对「新增」硬拦：判定口径与目录驱动数量汇报的「新增」一致 ——
     #   ① 本行代号由工具生成（meta.new_id），或
     #   ② 本行代号不在内容台账（content/gems/{active,supports}）里，即表里新加、还没有落盘资源；
     # 对「表里其余技能卡」（不在台账里、代号沿用）沿用二期口径只做中文提示，便于早期工作簿
@@ -1303,24 +1330,26 @@ def cross_validate(skill_rows, skill_metas, part_rows, part_metas,
     # 契约 v1.3：④「冲突辅助（+ 分隔）」中文辅助石名 → support_id（旧英文原值兼容）
     resolve_conflicts(support_rows, support_metas, schema, errors)
 
-    # 契约 v1.4 new_row_policy.count_guard：真新增会打破 67/13 数量硬断言 → 不生成中间 JSON、
-    # 不落盘，只给中文提示「需按台账 P-23 同步改数量断言，须上级 AI 裁定」。
-    # 基线（有效内容台账）运行时从 content/gems/{active,supports} 统计，不硬编码数字。
-    # 判定用「表里代号与台账文件名的差」而不是单纯比数量：数量刚好相等但内容换了，同样是真新增。
-    # 只对「正式配置表」生效：表内技能代号覆盖台账既有技能的比例够高才算（见 COUNT_GUARD_COVERAGE）。
-    # 小夹具（自检 / 策划自查的最小表）不算残缺、也不算新增，直接跳过。
-    if ledger and count_guard_applies(skill_rows, ledger):
-        for label, rows, metas, title, id_field in (
-            ("技能", skill_rows, skill_metas, title_s, "gem_id"),
-            ("辅助石", support_rows, support_metas, title_u, "support_id"),
+    # 契约 v1.7 new_row_policy.count_guard（目录驱动）：数量断言随内容目录实际数量走，
+    # 策划新增 / 删除技能或辅助石后不再「拦截不生成」，只做中文汇报——
+    # 『新增 N 条 / 删除 N 条，测试断言已随目录自动对齐』；删除类差异另加
+    # 「内容删除不可逆，须制作人拍板」。基线（有效内容台账）运行时从
+    # content/gems/{active,supports} 统计，不硬编码数字；判定用「表里代号与台账
+    # 文件名的差」而不是单纯比数量：数量刚好相等但内容换了，同样要汇报。
+    # 只对「正式配置表」生效：表内技能代号绝大多数来自台账才算（见 count_guard_applies）；
+    # 小夹具（自检 / 策划自查的最小表）不汇报、不打扰。
+    if ledger and count_guard_applies(skill_rows, ledger) and warnings is not None:
+        for label, id_field, rows, base_ids in (
+            ("技能", "gem_id", skill_rows, ledger.get("skill_ids") or set()),
+            ("辅助石", "support_id", support_rows, ledger.get("support_ids") or set()),
         ):
             ids = [r.get(id_field) for r in rows if r.get(id_field)]
-            extra = [i for i in ids if i not in ledger["ids"]]
-            base = ledger["skills"] if label == "技能" else ledger["supports"]
-            if not extra and len(ids) == base:
+            id_set = set(ids)
+            added = [i for i in ids if i not in ledger["ids"]]
+            removed = sorted(base_ids - id_set)
+            if not added and not removed:
                 continue
-            add_error(errors, title, 0, "数量守卫",
-                      count_guard_message(label, len(ids), base, extra, title))
+            warnings.append(count_guard_report(label, added, removed))
 
     return skill_rows, support_rows
 
@@ -1335,7 +1364,7 @@ def main(argv=None):
     parser.add_argument("--snapshot", default=str(DEFAULT_SNAPSHOT),
                         help="数值快照（只读，用于运行时统计数值区间）")
     parser.add_argument("--content", default=str(CONTENT_DIR),
-                        help="有效内容台账（只读）：content/gems 目录，用于新增代号避重与数量守卫基线")
+                        help="有效内容台账（只读）：content/gems 目录，用于新增代号避重与目录驱动数量汇报基线")
     args = parser.parse_args(argv)
 
     errors_path = Path(args.errors)
@@ -1389,8 +1418,9 @@ def main(argv=None):
     if ws_s is None or ws_p is None or ws_u is None:
         return finish(False, errors, warnings, out_path, errors_path, args.workbook)
 
-    # 契约 v1.4：有效内容台账（content/gems/{active,supports} 的资源文件名）+ 新增行代号分配器。
-    # 台账为空（缺目录）时不做数量守卫；此时新号仍按「本批次已分配号 + 表内显式号」避重。
+    # 契约 v1.4 / v1.7：有效内容台账（content/gems/{active,supports} 的资源文件名）+ 新增行代号分配器。
+    # 台账为空（缺目录）时不做数量汇报（目录驱动口径只由台账驱动）；此时新号仍按
+    # 「本批次已分配号 + 表内显式号」避重。
     ledger = load_content_ledger(args.content)
     used_ids = set(ledger["ids"]) if ledger else set()
 
@@ -1406,7 +1436,7 @@ def main(argv=None):
 
     skill_rows, support_rows = cross_validate(
         skill_rows, skill_metas, part_rows, part_metas,
-        support_rows, support_metas, schema, errors, ledger=ledger
+        support_rows, support_metas, schema, errors, ledger=ledger, warnings=warnings
     )
 
     ok = len(errors) == 0

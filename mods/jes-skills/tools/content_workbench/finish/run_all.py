@@ -13,7 +13,7 @@
   6  W3 build_from_json.gd         正向生成（按 W3 契约只写临时目录）
   7  gen_api_map.gd                重生成 API 地图
   8  gen_content_snapshot.gd       重生成数值快照
-  9  git diff --exit-code ...       漂移检查
+  9  apply.py --expect-clean        漂移检查（生成=正式，零漂移）
  10  全量 GUT 门禁                 并核对 Scripts=37 / 用例≥370 / 断言≥4716
  最后一步由 report.py 把中文结果回写「⑥ 检查结果」页签。
 
@@ -71,6 +71,7 @@ API_MAP_GD = "mods/jes-skills/tools/gen_api_map.gd"
 SNAPSHOT_GD = "mods/jes-skills/tests/skills/gen_content_snapshot.gd"
 GUT_CMDLN_GD = "addons/gut/gut_cmdln.gd"
 DRIFT_TARGET = "mods/jes-skills/content/"
+W5_APPLY_PY = "mods/jes-skills/tools/content_workbench/finish/apply.py"
 
 # 与冻结契约 schema.json 的 workbook 字段一致；运行时以 --workbook 解析结果为准
 DEFAULT_WORKBOOK_REL = "mods/jes-skills/content_src/技能配置表.xlsx"
@@ -131,8 +132,10 @@ def build_steps(rebuild_workbook, workbook_arg=None):
              GODOT_BASE + ["-s", "res://" + API_MAP_GD], "项目既有", dep=API_MAP_GD),
         Step("重生成数值快照 gen_content_snapshot.gd", "godot",
              GODOT_BASE + ["-s", "res://" + SNAPSHOT_GD], "项目既有", dep=SNAPSHOT_GD),
-        Step("漂移检查 git diff --exit-code", "git",
-             ["diff", "--exit-code", DRIFT_TARGET], "项目既有"),
+        # 漂移检查（D-61 起正式内容由工具生成、按约定留在工作区）：不再比对 git，
+        # 改为「重新生成后 apply 空跑必须零新增零改动」——见 apply.py --expect-clean。
+        Step("漂移检查 apply.py --expect-clean（生成=正式）", "python",
+             [W5_APPLY_PY, "--expect-clean"], "项目既有"),
         Step("全量 GUT 门禁", "godot", GODOT_BASE + GUT_ARGS, "项目既有",
              dep=GUT_CMDLN_GD, gate=True),
     ]
@@ -614,7 +617,7 @@ def main(argv=None):
                     step_errors.append({
                         "sheet": "【一键收尾】漂移检查", "row": "", "column": "",
                         "problem": detail,
-                        "fix": "用 git diff 查看 content/ 下的差异，确认是手工误改还是生成结果不一致；修好后重跑一键收尾。",
+                        "fix": "跑 apply.py 空跑看「新增/会改动」清单：正式内容与生成结果有漂移（手工改过正式资源或生成链不一致）；确认来源后重新生成或恢复，再重跑一键收尾。",
                     })
                 else:
                     # 只在 W3 读表校验这一步读结构化 errors.json（带行 / 列定位）；

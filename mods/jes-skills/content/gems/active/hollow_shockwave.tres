@@ -1,39 +1,35 @@
 [gd_resource type="Resource" script_class="SkillData" format=3]
 
-[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/gem_level_scaling.gd" id="1_hsw"]
-[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/skill_part.gd" id="2_hsw"]
-[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/skill_data.gd" id="3_hsw"]
+[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/gem_level_scaling.gd" id="1_o0lvm"]
+[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/skill_part.gd" id="2_6rcbj"]
+[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/skill_data.gd" id="3_t0ulk"]
 
-[sub_resource type="Resource" id="Resource_hsw_scale"]
-script = ExtResource("1_hsw")
+[sub_resource type="Resource" id="Resource_hollow_shockwave_scale"]
+script = ExtResource("1_o0lvm")
 per_level = 0.12
 
-[sub_resource type="Resource" id="Resource_hsw_part"]
-script = ExtResource("2_hsw")
+[sub_resource type="Resource" id="Resource_hollow_shockwave_part0"]
+script = ExtResource("2_6rcbj")
 base_damage = {
 &"fire": 88.0
 }
 behavior_id = &"bhv_aoe_burst"
 behavior_params = {
-&"shape": &"ring",
-&"radius": 150.0,
-&"inner_radius": 90.0,
 &"delay": 0.35,
 &"hit_count": 1,
-&"hit_interval": 0.0
+&"hit_interval": 0.0,
+&"inner_radius": 90.0,
+&"radius": 150.0,
+&"shape": &"ring"
 }
 
 [resource]
-script = ExtResource("3_hsw")
+script = ExtResource("3_t0ulk")
 gem_id = &"hollow_shockwave"
 display_name = "空心冲击波"
-parts = Array[ExtResource("2_hsw")]([SubResource("Resource_hsw_part")])
+parts = Array[ExtResource("2_6rcbj")]([SubResource("Resource_hollow_shockwave_part0")])
 tags = Array[StringName]([&"spell", &"aoe", &"fire"])
-cast_mode = 0
 base_cast_time = 0.45
-cost_type = 0
 base_cost = 14.0
 base_cooldown = 3.5
-max_charges = 0
-charge_recharge_time = 0.0
-level_scaling = SubResource("Resource_hsw_scale")
+level_scaling = SubResource("Resource_hollow_shockwave_scale")

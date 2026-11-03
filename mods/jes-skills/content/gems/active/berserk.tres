@@ -1,15 +1,15 @@
 [gd_resource type="Resource" script_class="SkillData" format=3]
 
-[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/gem_level_scaling.gd" id="1_pqfu3"]
-[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/skill_part.gd" id="2_3tiea"]
-[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/skill_data.gd" id="3_r1h7w"]
+[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/gem_level_scaling.gd" id="1_i1gd4"]
+[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/skill_part.gd" id="2_knj5n"]
+[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/skill_data.gd" id="3_c5fr0"]
 
-[sub_resource type="Resource" id="Resource_e2fec"]
-script = ExtResource("1_pqfu3")
+[sub_resource type="Resource" id="Resource_berserk_scale"]
+script = ExtResource("1_i1gd4")
 per_level = 0.1
 
-[sub_resource type="Resource" id="Resource_ukk51"]
-script = ExtResource("2_3tiea")
+[sub_resource type="Resource" id="Resource_berserk_part0"]
+script = ExtResource("2_knj5n")
 behavior_id = &"bhv_buff_self"
 behavior_params = {
 &"buff_mods": [{
@@ -25,10 +25,10 @@ behavior_params = {
 }
 
 [resource]
-script = ExtResource("3_r1h7w")
+script = ExtResource("3_c5fr0")
 gem_id = &"berserk"
 display_name = "狂暴"
-parts = Array[ExtResource("2_3tiea")]([SubResource("Resource_ukk51")])
+parts = Array[ExtResource("2_knj5n")]([SubResource("Resource_berserk_part0")])
 tags = Array[StringName]([&"spell", &"buff"])
 base_cooldown = 6.0
-level_scaling = SubResource("Resource_e2fec")
+level_scaling = SubResource("Resource_berserk_scale")

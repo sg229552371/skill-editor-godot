@@ -1,18 +1,15 @@
 [gd_resource type="Resource" script_class="SkillData" format=3]
 
-; 格号 FLY·PT·ZONE（展开表 v2 §1.1）· 夜间施工批次 C
-; 留痕火弹：linear 形态——沿弹道留持续伤害带（orbit 形态已由环绕飞刃占位，本格补 linear 形态）
+[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/gem_level_scaling.gd" id="1_tid2s"]
+[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/skill_part.gd" id="2_57x0u"]
+[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/skill_data.gd" id="3_kcsf7"]
 
-[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/gem_level_scaling.gd" id="1_sct"]
-[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/skill_part.gd" id="2_sct"]
-[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/skill_data.gd" id="3_sct"]
-
-[sub_resource type="Resource" id="Resource_sct_scale"]
-script = ExtResource("1_sct")
+[sub_resource type="Resource" id="Resource_scorch_trail_bolt_scale"]
+script = ExtResource("1_tid2s")
 per_level = 0.1
 
-[sub_resource type="Resource" id="Resource_sct_p1"]
-script = ExtResource("2_sct")
+[sub_resource type="Resource" id="Resource_scorch_trail_bolt_part0"]
+script = ExtResource("2_57x0u")
 base_damage = {
 &"fire": 25.0
 }
@@ -25,32 +22,28 @@ behavior_params = {
 &"spread_deg": 4.0
 }
 
-[sub_resource type="Resource" id="Resource_sct_p2"]
-script = ExtResource("2_sct")
+[sub_resource type="Resource" id="Resource_scorch_trail_bolt_part1"]
+script = ExtResource("2_57x0u")
 base_damage = {
 &"fire": 18.0
 }
 behavior_id = &"bhv_aoe_burst"
 behavior_params = {
-&"shape": &"line",
-&"length": 220.0,
-&"width": 44.0,
 &"delay": 0.0,
 &"hit_count": 5,
-&"hit_interval": 0.3
+&"hit_interval": 0.3,
+&"length": 220.0,
+&"shape": &"line",
+&"width": 44.0
 }
 
 [resource]
-script = ExtResource("3_sct")
+script = ExtResource("3_kcsf7")
 gem_id = &"scorch_trail_bolt"
 display_name = "留痕火弹"
-parts = Array[ExtResource("2_sct")]([SubResource("Resource_sct_p1"), SubResource("Resource_sct_p2")])
+parts = Array[ExtResource("2_57x0u")]([SubResource("Resource_scorch_trail_bolt_part0"), SubResource("Resource_scorch_trail_bolt_part1")])
 tags = Array[StringName]([&"spell", &"projectile", &"aoe", &"fire"])
-cast_mode = 0
 base_cast_time = 0.45
-cost_type = 0
 base_cost = 13.0
 base_cooldown = 4.0
-max_charges = 0
-charge_recharge_time = 0.0
-level_scaling = SubResource("Resource_sct_scale")
+level_scaling = SubResource("Resource_scorch_trail_bolt_scale")

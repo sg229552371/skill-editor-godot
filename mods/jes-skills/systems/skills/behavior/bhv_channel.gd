@@ -18,10 +18,19 @@ static func plan_to_channel(plan: Dictionary) -> Dictionary:
 	var ticks: Array[float] = []
 	for i in tick_count:
 		ticks.append(tick_interval * float(i + 1))
+	# D-46 口径兑现（D-60 盲区修复，制作人 2026-11-03 拍板选 A）：
+	# 引导×圆的「范围」承载判定半径——radius 未显式给出时取缩放后的 range，
+	# 与 ShapeHit line 的「length 缺省回退 range」同款兜底；显式 radius 优先、不二次缩放。
+	var shape: StringName = StringName(params.get(&"shape", &"line"))
+	var range_value: float = float(params.get(&"range", 0.0)) * area_mult
+	var radius_value: float = 0.0
+	if shape == &"circ":
+		radius_value = float(params.get(&"radius", range_value))
 	return {
-		&"shape": StringName(params.get(&"shape", &"line")),
+		&"shape": shape,
 		&"arc_deg": float(params.get(&"arc_deg", 0.0)),
-		&"range": float(params.get(&"range", 0.0)) * area_mult,
+		&"range": range_value,
+		&"radius": radius_value,
 		&"tick_interval": tick_interval,
 		&"max_channel_time": max_time,
 		&"tick_count": tick_count,
@@ -37,8 +46,9 @@ static func _scaled_channel_time(base: float, plan: Dictionary) -> float:
 
 ## D-42 标签承诺契约：本行为产出的参数键面（与 TagRegistry 的 channel 承诺对账）。
 ## 批次 A（D-43）：扩形状键面 shape / arc_deg / range（扇形引导，P1 扇形喷火用）。
+## D-62（制作人拍板选 A）：扩 radius——引导×圆「范围承载判定半径」兑现（D-60 盲区修复）。
 static func produced_params() -> Array:
-	return [&"shape", &"arc_deg", &"range", &"tick_interval", &"max_channel_time"]
+	return [&"shape", &"arc_deg", &"range", &"radius", &"tick_interval", &"max_channel_time"]
 
 
 ## D-42：本行为消费的倍率型 stat（引导时长吃持续倍率；

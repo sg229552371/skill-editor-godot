@@ -48,7 +48,8 @@ const DEFS := {
 		&"arc_deg", &"range", &"length", &"width", &"point_count", &"point_spacing",
 	]},
 	&"channel": {&"kind": &"form", &"promises": [
-		&"shape", &"arc_deg", &"range", &"tick_interval", &"max_channel_time",
+		&"shape", &"arc_deg", &"range", &"radius", &"tick_interval", &"max_channel_time",
+		# D-62：radius 入承诺面——引导×圆「范围承载半径」兑现（D-60 盲区修复，制作人拍板）
 	]},
 	&"movement": {&"kind": &"form", &"promises": [
 		&"distance", &"speed", &"path_width", &"path_zone_duration",

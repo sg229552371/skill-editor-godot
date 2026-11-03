@@ -142,6 +142,26 @@ func test_channel_golden() -> void:
 	assert_eq(int(ch.get(&"tick_count")), 12, "3.0 / 0.25 = 12 tick")
 
 
+# ---------- D-62 盲区修复：引导×圆「范围」承载判定半径（D-46 兑现，制作人拍板选 A） ----------
+func test_channel_circ_range_carries_radius() -> void:
+	var data := _skill(&"bhv_channel", {&"shape": &"circ", &"range": 150.0, &"max_channel_time": 1.0})
+	var ch := BhvChannel.plan_to_channel(SkillExecutor.cast(data, 1, _make_stats())[0])
+	assert_almost_eq(float(ch.get(&"radius")), 150.0, 0.0001, "D-46：引导圆 range 承载判定半径")
+	assert_almost_eq(float(ch.get(&"range")), 150.0, 0.0001)
+
+
+func test_channel_circ_explicit_radius_wins() -> void:
+	var data := _skill(&"bhv_channel", {&"shape": &"circ", &"range": 150.0, &"radius": 200.0})
+	var ch := BhvChannel.plan_to_channel(SkillExecutor.cast(data, 1, _make_stats())[0])
+	assert_almost_eq(float(ch.get(&"radius")), 200.0, 0.0001, "显式 radius 优先，不二次缩放")
+
+
+func test_channel_line_radius_stays_zero() -> void:
+	var data := _skill(&"bhv_channel", {&"shape": &"line", &"range": 150.0})
+	var ch := BhvChannel.plan_to_channel(SkillExecutor.cast(data, 1, _make_stats())[0])
+	assert_almost_eq(float(ch.get(&"radius")), 0.0, 0.0001, "非圆引导不产出半径（line/sec 走各自形状键）")
+
+
 # ---------- duration INCREASED +50% → 引导时长 3.0 × 1.5 = 4.5 → 18 tick ----------
 func test_channel_duration_scaling() -> void:
 	var data := _skill(&"bhv_channel", {&"tick_interval": 0.25, &"max_channel_time": 3.0})

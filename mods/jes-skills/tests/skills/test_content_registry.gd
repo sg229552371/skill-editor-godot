@@ -10,9 +10,28 @@ const BEHAVIOR_IDS := [
 	&"bhv_channel", &"bhv_summon", &"bhv_dash", &"bhv_buff_self",
 ]
 
+# 数量断言的真源改为内容目录本身（台账 P-23 + 制作人 2026-11-03 批示「一次性完成全部开发」，四期任务书 §2-5）：
+# 不再写死 67/13/1，test_c2 动态取 content/gems/{active,supports,triggers} 下 .tres 实数比对。
+const ACTIVE_DIR := "res://mods/jes-skills/content/gems/active"
+const SUPPORT_DIR := "res://mods/jes-skills/content/gems/supports"
+const TRIGGER_DIR := "res://mods/jes-skills/content/gems/triggers"
+
 
 func before_all() -> void:
 	GemRegistry.reload()
+
+
+## 统计目录下 .tres 实数（遍历写法与 test_content_contract.gd 的 _load_dir 同款）
+func _count_tres(dir_path: String) -> int:
+	var n := 0
+	var d := DirAccess.open(dir_path)
+	assert_not_null(d, "内容目录必须存在：%s" % dir_path)
+	if d == null:
+		return 0
+	for f in d.get_files():
+		if String(f).ends_with(".tres"):
+			n += 1
+	return n
 
 
 func test_c1_registry_loads_without_errors() -> void:
@@ -35,11 +54,17 @@ func test_c2_expected_counts() -> void:
 	#   聚焦光束 / 蓄力单爆 / 原地旋风 / 蓄力大爆 / 引导领域 / 蓄力扇爆 / 蓄力激光 / 持续光束
 	# 第 62~67 个 = 批次 C 第四波（DASH 4 格 + SUMN 2 格，展开表 v2 §1.4/§1.6 可表达 ● 空位，D-45）：
 	#   冲撞落点爆 / 终点环爆 / 延迟终点环爆 / 路径延迟爆 / 图腾阵 / 沿线雷阵
-	assert_eq(GemRegistry.skills().size(), 67,
-		"67 个主动技能（61 存量 + 批次 C 第四波 DASH 4 格 + SUMN 2 格，D-45）")
-	assert_eq(GemRegistry.supports().size(), 13,
-		"13 个辅助石（10 存量 + 批次 D 补缺三颗：持续延长/召唤强化/持久引导，D-45）")
-	assert_eq(GemRegistry.triggers().size(), 1, "1 个演示触发器")
+	# 依据（台账 P-23 + 制作人 2026-11-03 批示「一次性完成全部开发」，四期任务书 §2-5）：
+	# 数量断言不再写死 67/13/1，改为与内容目录 .tres 实数一致；上方历史批次落账注释保留备查。
+	var active_n := _count_tres(ACTIVE_DIR)
+	var support_n := _count_tres(SUPPORT_DIR)
+	var trigger_n := _count_tres(TRIGGER_DIR)
+	assert_eq(GemRegistry.skills().size(), active_n,
+		"主动技能数应与 content/gems/active 目录 .tres 实数一致（当前 %d：61 存量 + 批次 C 第四波 DASH 4 格 + SUMN 2 格，D-45）" % active_n)
+	assert_eq(GemRegistry.supports().size(), support_n,
+		"辅助石数应与 content/gems/supports 目录 .tres 实数一致（当前 %d：10 存量 + 批次 D 补缺三颗：持续延长/召唤强化/持久引导，D-45）" % support_n)
+	assert_eq(GemRegistry.triggers().size(), trigger_n,
+		"触发器数应与 content/gems/triggers 目录 .tres 实数一致（当前 %d 个演示触发器）" % trigger_n)
 
 
 func test_c3_every_content_comes_from_disk() -> void:

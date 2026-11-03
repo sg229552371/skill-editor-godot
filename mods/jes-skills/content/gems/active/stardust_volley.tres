@@ -1,18 +1,17 @@
 [gd_resource type="Resource" script_class="SkillData" format=3]
 
-[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/gem_level_scaling.gd" id="1_d4a"]
-[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/skill_part.gd" id="2_d4a"]
-[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/skill_data.gd" id="3_d4a"]
+[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/gem_level_scaling.gd" id="1_i76yn"]
+[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/skill_part.gd" id="2_0ftgw"]
+[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/skill_data.gd" id="3_cqi4a"]
 
-[sub_resource type="Resource" id="Resource_scale"]
-script = ExtResource("1_d4a")
+[sub_resource type="Resource" id="Resource_stardust_volley_scale"]
+script = ExtResource("1_i76yn")
 per_level = 0.04
 knee_level = 10
 per_level_late = 0.2
 
-[sub_resource type="Resource" id="Resource_part1"]
-script = ExtResource("2_d4a")
-damage_channel = 1
+[sub_resource type="Resource" id="Resource_stardust_volley_part0"]
+script = ExtResource("2_0ftgw")
 base_damage = {
 &"lightning": 38.0
 }
@@ -26,16 +25,12 @@ behavior_params = {
 }
 
 [resource]
-script = ExtResource("3_d4a")
+script = ExtResource("3_cqi4a")
 gem_id = &"stardust_volley"
 display_name = "星屑连射"
-parts = Array[ExtResource("2_d4a")]([SubResource("Resource_part1")])
+parts = Array[ExtResource("2_0ftgw")]([SubResource("Resource_stardust_volley_part0")])
 tags = Array[StringName]([&"spell", &"projectile", &"lightning"])
-cast_mode = 0
 base_cast_time = 0.4
-cost_type = 0
 base_cost = 18.0
 base_cooldown = 1.2
-max_charges = 0
-charge_recharge_time = 0.0
-level_scaling = SubResource("Resource_scale")
+level_scaling = SubResource("Resource_stardust_volley_scale")

@@ -1,15 +1,15 @@
 [gd_resource type="Resource" script_class="SkillData" format=3]
 
-[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/gem_level_scaling.gd" id="1_pdytg"]
-[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/skill_part.gd" id="2_nio65"]
-[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/skill_data.gd" id="3_j6bwm"]
+[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/gem_level_scaling.gd" id="1_mnuqa"]
+[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/skill_part.gd" id="2_ob1ew"]
+[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/skill_data.gd" id="3_1a00x"]
 
-[sub_resource type="Resource" id="Resource_ygb1i"]
-script = ExtResource("1_pdytg")
+[sub_resource type="Resource" id="Resource_fire_burst_scale"]
+script = ExtResource("1_mnuqa")
 per_level = 0.1
 
-[sub_resource type="Resource" id="Resource_irr2a"]
-script = ExtResource("2_nio65")
+[sub_resource type="Resource" id="Resource_fire_burst_part0"]
+script = ExtResource("2_ob1ew")
 base_damage = {
 &"fire": 150.0
 }
@@ -22,10 +22,10 @@ behavior_params = {
 }
 
 [resource]
-script = ExtResource("3_j6bwm")
+script = ExtResource("3_1a00x")
 gem_id = &"fire_burst"
 display_name = "烈焰爆发"
-parts = Array[ExtResource("2_nio65")]([SubResource("Resource_irr2a")])
+parts = Array[ExtResource("2_ob1ew")]([SubResource("Resource_fire_burst_part0")])
 tags = Array[StringName]([&"spell", &"aoe", &"fire"])
 base_cooldown = 2.0
-level_scaling = SubResource("Resource_ygb1i")
+level_scaling = SubResource("Resource_fire_burst_scale")

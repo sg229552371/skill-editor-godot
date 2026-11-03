@@ -24,6 +24,7 @@ import json
 import os
 import re
 import shutil
+import time
 import sys
 import tempfile
 from dataclasses import dataclass
@@ -400,14 +401,37 @@ def print_summary(actions: list[Action]) -> None:
 # ---------------------------------------------------------------------------
 # 真实写盘（事务 + 回滚）
 # ---------------------------------------------------------------------------
+def replace_with_retry(src: Path, dst: Path, attempts: int = 10, base_delay: float = 0.3) -> None:
+    """带瞬态锁重试的原子替换。
+
+    Windows 上杀毒实时扫描 / 索引器 / 文件观察进程可能短暂占用目标文件，
+    使 os.replace 偶发 WinError 5（拒绝访问）或 32（共享冲突）；这类占用
+    通常几百毫秒内释放，逐次退避重试即可通过，不属于真正的权限错误。
+    """
+    last: OSError | None = None
+    for attempt in range(attempts):
+        try:
+            os.replace(str(src), str(dst))
+            return
+        except PermissionError as exc:
+            last = exc
+        except OSError as exc:
+            if getattr(exc, "winerror", None) not in (5, 32):
+                raise
+            last = exc
+        time.sleep(base_delay * (1 + attempt))
+    assert last is not None
+    raise last
+
+
 def commit_one(staged_path: Path, target_path: Path) -> None:
     """把已校验的临时副本原子替换到目标位置。"""
-    os.replace(str(staged_path), str(target_path))
+    replace_with_retry(staged_path, target_path)
 
 
 def restore_one(backup_path: Path, target_path: Path) -> None:
     """回滚专用：把备份原子放回目标位置。"""
-    os.replace(str(backup_path), str(target_path))
+    replace_with_retry(backup_path, target_path)
 
 
 def count_non_tres(content_root: Path) -> int:
@@ -556,6 +580,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="正式内容目录；默认 <项目根>/mods/jes-skills/content/gems")
     parser.add_argument("--apply", action="store_true",
                         help="真实写盘；不加时默认空跑，只打印三类清单、不写任何文件")
+    parser.add_argument("--expect-clean", dest="expect_clean", action="store_true",
+                        help="漂移检查用（仅空跑模式）：若出现「新增」或「会改动」则退出码 1，正式内容应与生成结果零漂移")
     return parser
 
 
@@ -600,6 +626,12 @@ def main(argv=None) -> int:
 
     if not args.apply:
         print("[本次是否真实写盘] 否（空跑，一个字节都没写）")
+        if args.expect_clean:
+            drifted = [a for a in actions if a.kind in (KIND_NEW, KIND_CHANGED)]
+            if drifted:
+                print(f"[漂移检查] 不通过：{len(drifted)} 个资源与生成结果不一致（新增/会改动），正式内容与工具生成存在漂移。")
+                return 1
+            print("[漂移检查] 通过：正式内容与生成结果零漂移（新增 0｜会改动 0）。")
         print("[下一步] 确认清单无误后，加 --apply 才会真实写盘。")
         print("[下一步] 真实写盘后需重生成 API 地图、重生成数值快照，并跑 GUT 全量门禁；本脚本不执行这些步骤。")
         return 0
