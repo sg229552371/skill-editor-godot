@@ -34,6 +34,15 @@
   · 示例行整行仍 locked、表头仍 locked、工作表保护仍开启；
   · 三个断言都带**变异测试**（见 _mutation_cases / mutation_test）：把工作簿副本逐项
     弄坏，确认 main() 真的返回 1 并给出对应中文问题，避免断言写成永远为真。
+
+契约 v1.5 增量（P4-2 两列进工作簿）：
+  · ② 技能卡 新增「图标」列、④ 辅助石 新增「行为覆盖（工具自动，勿改）」列，
+    两列紧挨「备注（不进游戏）」之前，列序与 schema.columns 完全一致；
+  · 两列表头批注必须存在且逐字等于 column_notes 原文；
+  · ④ 行为覆盖列灰底只读：数据行 / 预留行灰底 + locked，示例行锁定；
+  · ② 图标列白底可编辑：数据行 / 预留行 unlocked；
+  · 两列单元格内容与 export.json 原始 icon / behavior_overrides 逐行直接核对；
+  · 以上断言均带**变异测试**用例，证明能抓错。
 """
 from __future__ import annotations
 
@@ -62,6 +71,9 @@ RESERVED_ROWS = {"skills": 40, "parts": 90, "supports": 30}
 # 预留行「代号（自动，别填）」列的中文占位说明关键字（不校验具体代号）
 ID_HINT_KEYS = ("工具生成代号", "自动生成")
 EXTRAS_LABEL = "高级数据（工具自动，勿改）"
+# 契约 v1.5：②「图标」列（白底可编辑）；④「行为覆盖」列（灰底只读）
+ICON_LABEL = "图标"
+BO_LABEL = "行为覆盖（工具自动，勿改）"
 SKILL_REF_NAME = "OPT_SKILL_NAMES"
 SINGLE_ENUM_ERROR = "只能选列表里的中文选项"
 GRAY = "00D9D9D9"
@@ -237,6 +249,8 @@ def decode_skill(row: dict, maps: dict) -> dict:
     }
     extras = json.loads(row[EXTRAS_LABEL])
     rec.update(extras)  # 补齐 icon / parts 等未被显式列承载的字段
+    # 契约 v1.5：icon 升为显式列，显式列为准（空格＝原值 null，留空即引擎默认图标）
+    rec["icon"] = None if row["图标"] in (None, "") else row["图标"]
     return rec
 
 
@@ -269,6 +283,10 @@ def decode_support(row: dict, maps: dict, support_name_to_id: dict) -> dict:
             m0["value"] = row["数值"]
         mods[0] = m0
         rec["stat_modifiers"] = mods
+
+    # 契约 v1.5：behavior_overrides 升为显式列，显式列为准（空格＝空字典，与原值一致）
+    bo_cell = row[BO_LABEL]
+    rec["behavior_overrides"] = json.loads(bo_cell) if bo_cell not in (None, "") else {}
     return rec
 
 
@@ -403,7 +421,7 @@ def main() -> int:
     hidden_titles = {s["title"] for s in schema["sheets"] if s["hidden"]}
     sheet_of = {s["key"]: s["title"] for s in schema["sheets"]}
     problems: list[str] = []
-    print("=== W2 自检（export/selfcheck.py）契约 v1.3 ===")
+    print("=== W2 自检（export/selfcheck.py）契约 v1.5 ===")
 
     # [1] 6 页签齐全
     ok1 = list(wb.sheetnames) == titles
@@ -512,8 +530,10 @@ def main() -> int:
         id_label = "代号（自动，别填）"
         id_col = heads.index(id_label) + 1 if id_label in heads else None
         extras_col = heads.index(EXTRAS_LABEL) + 1
+        bo_col = heads.index(BO_LABEL) + 1 if BO_LABEL in heads else None
+        # 契约 v1.5：④「行为覆盖」列是灰底只读列，不计入预留行可编辑列
         editable = [ci for ci, h in enumerate(heads, start=1)
-                    if h != EXTRAS_LABEL and ci != id_col]
+                    if h != EXTRAS_LABEL and h != BO_LABEL and ci != id_col]
         meas_count, meas_unlocked = 0, 0
         for r in range(start, ws.max_row + 1):
             if all(ws.cell(row=r, column=ci).value in (None, "")
@@ -548,6 +568,12 @@ def main() -> int:
                 rv_errors.append("%s 第%d行高级数据列被解锁" % (key, r))
             if not _col_hidden(ws, extras_col):
                 rv_errors.append("%s 第%d行高级数据列可见" % (key, r))
+            boc = ws.cell(row=r, column=bo_col) if bo_col else None
+            if boc is not None:
+                if not boc.protection.locked:
+                    rv_errors.append("%s 第%d行行为覆盖列被解锁" % (key, r))
+                if str(boc.fill.fgColor.rgb) != GRAY:
+                    rv_errors.append("%s 第%d行行为覆盖列不是灰底" % (key, r))
         rv_count[key] = meas_count
         rv_unlocked[key] = len(editable)
         if meas_count != want:
@@ -930,6 +956,98 @@ def main() -> int:
 
     # [7] 结构验收
     checks = []
+    # [6e] 契约 v1.5 专项：②「图标」/ ④「行为覆盖」两列进工作簿
+    icon_col_sk = heads_sk.index(ICON_LABEL) + 1 if ICON_LABEL in heads_sk else None
+    bo_col_sp = heads_sp.index(BO_LABEL) + 1 if BO_LABEL in heads_sp else None
+    note_sk = heads_sk.index("备注（不进游戏）") + 1
+    note_sp = heads_sp.index("备注（不进游戏）") + 1
+    # 两列存在且列序正确：紧挨「备注（不进游戏）」之前
+    pos_ok = (icon_col_sk is not None and icon_col_sk + 1 == note_sk
+              and bo_col_sp is not None and bo_col_sp + 1 == note_sp)
+    checks.append(("契约 v1.5 两列存在且列序正确（②图标/④行为覆盖紧挨「备注」前）", pos_ok))
+    # 批注存在且等于 column_notes 原文
+    c_sk = ws_sk.cell(row=1, column=icon_col_sk).comment if icon_col_sk else None
+    c_sp = ws_sp.cell(row=1, column=bo_col_sp).comment if bo_col_sp else None
+    note_txt_sk = schema["column_notes"]["skills"].get(ICON_LABEL)
+    note_txt_sp = schema["column_notes"]["supports"].get(BO_LABEL)
+    comments_ok_v15 = bool(c_sk and c_sp and c_sk.text == note_txt_sk
+                           and c_sp.text == note_txt_sp)
+    checks.append(("契约 v1.5 两列表头批注存在且等于 column_notes 原文", comments_ok_v15))
+    # ④ 行为覆盖列灰底只读：数据行 + 预留行灰底且锁定；示例行锁定
+    bo_ro_ok = bo_col_sp is not None
+    if bo_col_sp:
+        for r, _ in rows_sp:
+            boc = ws_sp.cell(row=r, column=bo_col_sp)
+            if not boc.protection.locked or str(boc.fill.fgColor.rgb) != GRAY:
+                bo_ro_ok = False
+        res_start = data_end["supports"] + 1
+        res_end = res_start + reserved_of_["supports"] - 1
+        for r in range(res_start, res_end + 1):
+            boc = ws_sp.cell(row=r, column=bo_col_sp)
+            if not boc.protection.locked or str(boc.fill.fgColor.rgb) != GRAY:
+                bo_ro_ok = False
+        for r in range(2, 2 + EXAMPLE_ROWS["supports"]):
+            if not ws_sp.cell(row=r, column=bo_col_sp).protection.locked:
+                bo_ro_ok = False
+    checks.append(("契约 v1.5 ④ 行为覆盖列灰底只读（数据/示例/预留行全锁定）", bo_ro_ok))
+    # ② 图标列白底可编辑：数据行 + 预留行 unlocked（白底）
+    WHITE = "00FFFFFF"
+    icon_edit_ok = icon_col_sk is not None
+    if icon_col_sk:
+        for r, _ in rows_sk:
+            ic = ws_sk.cell(row=r, column=icon_col_sk)
+            if ic.protection.locked or str(ic.fill.fgColor.rgb) != WHITE:
+                icon_edit_ok = False
+        res_start = data_end["skills"] + 1
+        res_end = res_start + reserved_of_["skills"] - 1
+        for r in range(res_start, res_end + 1):
+            ic = ws_sk.cell(row=r, column=icon_col_sk)
+            if ic.protection.locked or str(ic.fill.fgColor.rgb) != WHITE:
+                icon_edit_ok = False
+    checks.append(("契约 v1.5 ② 图标列白底可编辑（数据行 + 预留行 unlocked）", icon_edit_ok))
+    # 两列单元格内容与 export.json 逐行直接核对（反解比对之外再核一遍原文）
+    icon_filled, icon_bad = 0, []
+    for r, row in rows_sk:
+        gid = row["代号（自动，别填）"]
+        if gid not in orig_skill:
+            continue  # 变异/异常行（如预留行被预填）已在其他断言报错，这里跳过防崩
+        cell = ws_sk.cell(row=r, column=icon_col_sk).value if icon_col_sk else None
+        orig = orig_skill[gid].get("icon")
+        got = None if cell in (None, "") else cell
+        if got not in (None, ""):
+            icon_filled += 1
+        if got != orig:
+            icon_bad.append((r, got, orig))
+    checks.append(("契约 v1.5 ② 图标列逐行等于原始 icon（有值 %d 行，异常 %d 处）" % (
+        icon_filled, len(icon_bad)), not icon_bad))
+    bo_filled, bo_bad = 0, []
+    for r, row in rows_sp:
+        sid = row["代号（自动，别填）"]
+        if sid not in orig_support:
+            continue  # 变异/异常行（如预留行被预填）已在其他断言报错，这里跳过防崩
+        cell = ws_sp.cell(row=r, column=bo_col_sp).value if bo_col_sp else None
+        orig = orig_support[sid].get("behavior_overrides")
+        try:
+            got = json.loads(cell) if cell not in (None, "") else {}
+        except Exception:
+            got = "<JSON 解析失败>"
+        if got:
+            bo_filled += 1
+        if got != (orig or {}):
+            bo_bad.append((r, cell, orig))
+    checks.append(("契约 v1.5 ④ 行为覆盖列逐行等于原始 behavior_overrides（有值 %d 行，异常 %d 处）" % (
+        bo_filled, len(bo_bad)), not bo_bad))
+    print("[6e] 契约 v1.5 专项：图标列 %s / 行为覆盖列 %s；图标有值 %d 行、行为覆盖有值 %d 行；"
+          "列序/批注/灰底只读/白底可编辑 异常合计 %d 处 → %s" % (
+              ("第 %d 列" % icon_col_sk) if icon_col_sk else "缺失",
+              ("第 %d 列" % bo_col_sp) if bo_col_sp else "缺失",
+              icon_filled, bo_filled,
+              (0 if pos_ok else 1) + (0 if comments_ok_v15 else 1)
+              + (0 if bo_ro_ok else 1) + (0 if icon_edit_ok else 1)
+              + len(icon_bad) + len(bo_bad),
+              "✓" if (pos_ok and comments_ok_v15 and bo_ro_ok and icon_edit_ok
+                      and not icon_bad and not bo_bad) else "✗"))
+
     # 代号列只读；数据行代号列属主键列（黄色必填）——契约 v1.4 口径
     for key, ws_heads, rows, ws in (("skills", heads_sk, rows_sk, ws_sk),
                                     ("supports", heads_sp, rows_sp, ws_sp)):
@@ -999,8 +1117,10 @@ def main() -> int:
                             continue
                         comment_nonheader.append((key, c.coordinate))
                     got_comments[(key, ws.cell(row=1, column=c.column).value)] = c.comment.text
+    # 契约 v1.5：「图标」批注按契约原文含 res:// 路径示例（拉丁字母合法），其余仍要求全中文
     comments_ok = (got_comments == exp_comments and not comment_nonheader
-                   and all(not re.search(r"[A-Za-z]", t) for t in got_comments.values()))
+                   and all(not re.search(r"[A-Za-z]", t) for t in got_comments.values()
+                           if "res://" not in t))
     checks.append(("②③④ 表头批注 %d 列且逐列等于 column_notes 原文、全中文" % len(got_comments),
                    comments_ok))
     # ⑤ 可选项 12 组词表且隐藏；阵型/运动方式词表存在且全中文
@@ -1054,7 +1174,8 @@ def main() -> int:
     for key, ws, heads in (("skills", ws_sk, heads_sk), ("parts", ws_pt, heads_pt),
                            ("supports", ws_sp, heads_sp)):
         for ci, h in enumerate(heads, start=1):
-            if h in (EXTRAS_LABEL, "代号（自动，别填）"):
+            # 契约 v1.5：④「行为覆盖」列按契约展示 JSON 原文（英文键合法），与隐藏列同口径豁免
+            if h in (EXTRAS_LABEL, "代号（自动，别填）", BO_LABEL):
                 continue
             for r in range(2, ws.max_row + 1):
                 if is_example_row(ws.cell(row=r, column=1).value, marker):
@@ -1062,7 +1183,8 @@ def main() -> int:
                 v = ws.cell(row=r, column=ci).value
                 if isinstance(v, str) and re.search(r"[A-Za-z]", v):
                     eng_hits.append((key, r, h, v))
-    checks.append(("②③④ 数据行可见列无英文标识符（%d 处）" % len(eng_hits), not eng_hits))
+    checks.append(("②③④ 数据行可见列无英文标识符（行为覆盖 JSON 列按契约豁免；%d 处）" % len(eng_hits),
+                   not eng_hits))
     if eng_hits:
         print("      残留英文值：%s" % eng_hits[:10])
     # 参数分组折叠
@@ -1085,7 +1207,7 @@ def main() -> int:
         id_col = heads.index("代号（自动，别填）") + 1 if "代号（自动，别填）" in heads else None
         for r in range(start, end + 1):
             for ci, h in enumerate(heads, start=1):
-                if h == EXTRAS_LABEL or ci == id_col:
+                if h == EXTRAS_LABEL or h == BO_LABEL or ci == id_col:
                     continue
                 if ws.cell(row=r, column=ci).protection.locked:
                     unlocked_ok = False
@@ -1153,6 +1275,9 @@ def main() -> int:
     print("      契约 v1.4：②③④ 预留行可编辑（%d/%d/%d 行，代号列灰底只读 + 中文提示）、"
           "示例行/代号列/高级数据列/表头仍锁定；" % (
               rv_count.get("skills"), rv_count.get("parts"), rv_count.get("supports")))
+    print("      契约 v1.5：②「图标」白底可编辑（预留行 unlocked）、④「行为覆盖」灰底只读，"
+          "两列列序/批注/内容与契约一致（图标有值 %d 行、行为覆盖有值 %d 行）；" % (
+              icon_filled, bo_filled))
     print("      工作簿 6 页签、中文列头、三色、代号只读、隐藏高级数据全部齐全；")
     print("      触发器目录未处理、未修改、未删除。")
     return 0
@@ -1212,8 +1337,9 @@ def _relayout_rows(wb, schema, key: str, delta: int):
                 if ci == idc:
                     c.value = "新技能由工具生成代号，填了技能名即可"
                     c.protection = Protection(locked=True)
-                elif h == EXTRAS_LABEL:
+                elif h == EXTRAS_LABEL or h == BO_LABEL:
                     c.value = None
+                    c.fill = PatternFill("solid", fgColor="D9D9D9")
                     c.protection = Protection(locked=True)
                 else:
                     c.value = None
@@ -1266,6 +1392,21 @@ def mutation_cases(schema: dict) -> list:
     def fill_reserved(wb):
         wb["② 技能卡"].cell(row=73, column=1).value = "不该预填的值"
 
+    # —— 契约 v1.5 变异用例：证明两列断言能抓错 ——
+    def unlock_bo(wb):
+        _cell(wb["④ 辅助石"], BO_LABEL, 6).protection = Protection(locked=False)
+
+    def ungray_bo(wb):
+        _cell(wb["④ 辅助石"], BO_LABEL, 6).fill = PatternFill("solid", fgColor="FFFFFF")
+
+    def lock_icon_reserved(wb):
+        _cell(wb["② 技能卡"], "图标", 73).protection = Protection(locked=True)
+
+    def del_icon_comment(wb):
+        ws = wb["② 技能卡"]
+        heads = [c.value for c in ws[1]]
+        ws.cell(row=1, column=heads.index("图标") + 1).comment = None
+
     def more_parts(wb):
         _relayout_rows(wb, schema, "parts", 1)
 
@@ -1283,6 +1424,10 @@ def mutation_cases(schema: dict) -> list:
         ("隐藏列变为可见", "高级数据列", unhide_extras),
         ("表头解锁", "表头整行仍锁定", unlock_header),
         ("预留行被预填内容", "预留行实测", fill_reserved),
+        ("④ 行为覆盖列被解锁", "行为覆盖列灰底只读", unlock_bo),
+        ("④ 行为覆盖列被改白底", "行为覆盖列灰底只读", ungray_bo),
+        ("② 图标列预留行被锁定", "图标列白底可编辑", lock_icon_reserved),
+        ("② 图标列表头批注被删", "两列表头批注", del_icon_comment),
     ]
 
 
@@ -1321,7 +1466,7 @@ def mutation_test() -> int:
     all_ok = rc0 == 0
     print("%-26s %-4s %-4s %s" % ("变异用例", "退出", "结论", "命中的中文问题"))
     for i, (name, keyword, mutate) in enumerate(mutation_cases(schema), start=1):
-        p = tmp / ("mut_v14_%02d.xlsx" % i)
+        p = tmp / ("mut_v15_%02d.xlsx" % i)
         shutil.copyfile(WORKBOOK_PATH, p)
         wb = load_workbook(p)
         mutate(wb)

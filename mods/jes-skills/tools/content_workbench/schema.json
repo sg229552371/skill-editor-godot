@@ -1,7 +1,7 @@
 {
-  "version": "1.4",
+  "version": "1.6",
   "frozen": true,
-  "frozen_by": "上级AI W1（2026-11-02）；v1.1 属性词表、v1.2 集成口径修正同日；v1.3 二期可编辑性增强同日 23:35；v1.4 三期预留行与新增技能闭环 2026-11-03 00:05（上级AI 独占修改）",
+  "frozen_by": "上级AI W1（2026-11-02）；v1.1 属性词表、v1.2 集成口径修正同日；v1.3 二期可编辑性增强同日 23:35；v1.4 三期预留行与新增技能闭环 2026-11-03 00:05（上级AI 独占修改）；v1.5 四期补字段覆盖：② 加「图标」、④ 加「行为覆盖」可见列 2026-11-03 11:50（上级AI 独占修改）；v1.6 四期 P4-3 口径统一：新增 3 条非尺寸硬拦 + 1 条 channel×circ 黄色提醒（依据 tests/skills/test_content_contract.gd test_a4/a5/b4，分析见 _tmp/p43_aoe_rules.md）2026-11-03 12:15（上级AI 独占修改）",
   "note": "本文件是并行期的唯一表结构契约。所有子代理只读；需要变更必须停下报告上级AI，由上级AI统一修改并通知全员。v1.1 为上级AI 跨波次裁定：仅追加 enums.stat_labels（属性中文词表），修正 columns.supports 的 enum:stat_labels 原先无对应词表的缺陷；enums.stat 原英文数组保持不变，属只加不改。 v1.2 为上级AI 守门员 W5 联调打回后的口径修正：① 把 shape_keys 从「必填键」纠正为「该形状可用的参数键」；② 追加 example_row_policy 统一示例行标记；均属追加/澄清，不删既有字段。",
   "workbook": "mods/jes-skills/content_src/技能配置表.xlsx",
   "sheets": [
@@ -380,15 +380,36 @@
       }
     ],
     "formation": [
-      { "label": "单点", "value": "point" },
-      { "label": "环形", "value": "ring" },
-      { "label": "直线排", "value": "line" },
-      { "label": "圆形散布", "value": "circ" },
-      { "label": "多点", "value": "multi" }
+      {
+        "label": "单点",
+        "value": "point"
+      },
+      {
+        "label": "环形",
+        "value": "ring"
+      },
+      {
+        "label": "直线排",
+        "value": "line"
+      },
+      {
+        "label": "圆形散布",
+        "value": "circ"
+      },
+      {
+        "label": "多点",
+        "value": "multi"
+      }
     ],
     "motion": [
-      { "label": "直线飞行", "value": "linear" },
-      { "label": "环绕飞行", "value": "orbit" }
+      {
+        "label": "直线飞行",
+        "value": "linear"
+      },
+      {
+        "label": "环绕飞行",
+        "value": "orbit"
+      }
     ]
   },
   "shape_keys": {
@@ -560,6 +581,11 @@
         "type": "multienum:tag"
       },
       {
+        "label": "图标",
+        "field": "icon",
+        "type": "string"
+      },
+      {
         "label": "备注（不进游戏）",
         "field": "_note",
         "type": "string",
@@ -687,6 +713,11 @@
         "type": "string"
       },
       {
+        "label": "行为覆盖（工具自动，勿改）",
+        "field": "behavior_overrides",
+        "type": "json"
+      },
+      {
         "label": "备注（不进游戏）",
         "field": "_note",
         "type": "string",
@@ -708,7 +739,7 @@
     "example_row_policy_marker": "【示例】"
   },
   "extras_policy": {
-    "note": "__extras 存该行所有未被显式中文列覆盖的字段（含数组/字典/复杂结构）的 JSON 原文。",
+    "note": "__extras 存该行所有未被显式中文列覆盖的字段（含数组/字典/复杂结构）的 JSON 原文。 v1.5：icon 与 supports.behavior_overrides 已升为显式中文列，不再依赖本兜底。",
     "generate_rule": "W3 生成时：先按显式列填值，再用 __extras 补齐缺失字段；显式列非空时以显式列为准。",
     "why": "保证 80 条现有内容一个字段都不丢，同时策划只面对简单中文列。"
   },
@@ -745,11 +776,27 @@
     "note": "v1.3：增益内容 = 三条对齐列表列（+ 分隔、顺序一一对应），替代原先无法编辑的『增益内容』一列。",
     "param": "buff_mods",
     "columns": [
-      { "label": "增益属性（用 + 分隔）", "key": "stat", "type": "multienum:stat_labels" },
-      { "label": "增益运算（用 + 分隔，与上一列顺序对应）", "key": "op", "type": "multienum:op" },
-      { "label": "增益数值（用 + 分隔，与上一列顺序对应）", "key": "value", "type": "float_list" }
+      {
+        "label": "增益属性（用 + 分隔）",
+        "key": "stat",
+        "type": "multienum:stat_labels"
+      },
+      {
+        "label": "增益运算（用 + 分隔，与上一列顺序对应）",
+        "key": "op",
+        "type": "multienum:op"
+      },
+      {
+        "label": "增益数值（用 + 分隔，与上一列顺序对应）",
+        "key": "value",
+        "type": "float_list"
+      }
     ],
-    "defaults": { "channel_mask": 7, "require_tags": [], "exclude_tags": [] },
+    "defaults": {
+      "channel_mask": 7,
+      "require_tags": [],
+      "exclude_tags": []
+    },
     "overflow_rule": "表内三条列能表达的条目按行序覆盖；超出（或键更多）的条目从 __extras 原样保留，保证零丢失。"
   },
   "support_ref": {
@@ -763,6 +810,57 @@
     "aoe_size_required": {
       "behavior": "bhv_aoe_burst",
       "note": "v1.3：与 tests/skills/test_content_contract.gd 第 158-165 行同口径。形状≠点 且没有任何一组尺寸（radius / length+width / arc_deg+range）→ 表校验层硬拦、中文定位到行与列，不生成中间 JSON；点爆豁免。"
+    },
+    "active_numeric_sane": {
+      "sheet": "skills",
+      "level": "error",
+      "gut_source": "tests/skills/test_content_contract.gd test_a4（L108-118）",
+      "note": "主动技能数值合法性：消耗必须 >0、前摇必须 >0、每级变强必须显式填写（≥0）。与 GUT 同口径硬拦，中文定位到「② 技能卡 第 N 行 · 列名」。",
+      "rules": [
+        {
+          "field": "base_cost",
+          "op": ">",
+          "value": 0
+        },
+        {
+          "field": "base_cast_time",
+          "op": ">",
+          "value": 0
+        },
+        {
+          "field": "level_scaling.per_level",
+          "op": "required",
+          "note": "必须显式填写，允许 0"
+        }
+      ]
+    },
+    "part_form_tag_present": {
+      "sheet": "parts",
+      "level": "error",
+      "gut_source": "tests/skills/test_content_contract.gd test_a5（L124-139）；真源 SkillExecutor.BEHAVIOR_FORM_TAG",
+      "note": "每个效果段的行为自带一个形态标签（enums.behavior[].form_tag），所属技能「标签」列必须包含它；behavior_id 为空一并拦截。②③ 联查，中文定位到「③ 效果段 第 N 行 · 效果」与缺标签的技能行。",
+      "check": "技能 tags ⊇ 该技能所有效果段 behavior 的 form_tag；behavior_id 为空 → 硬拦",
+      "form_tag_source": "enums.behavior[].form_tag"
+    },
+    "support_cost_positive": {
+      "sheet": "supports",
+      "level": "error",
+      "gut_source": "tests/skills/test_content_contract.gd test_b4（L197-202）",
+      "note": "辅助石消耗倍率必须 >0。中文定位到「④ 辅助石 第 N 行 · 消耗倍率」。",
+      "rules": [
+        {
+          "field": "cost_multiplier",
+          "op": ">",
+          "value": 0
+        }
+      ]
+    },
+    "channel_circ_range_hint": {
+      "sheet": "parts",
+      "level": "warning",
+      "note": "channel×circ 只填 range 时黄色提醒（不拦截）：D-46「引导圆用 range 承载半径」为表侧口径，运行时 bhv_channel 尚未把 range 透传为判定半径（见 _tmp/p43_aoe_rules.md §五-1），是否补运行时承载待制作人裁定。",
+      "when": "behavior=bhv_channel 且 shape=circ 且 radius 为空且 range 非空",
+      "text": "提醒：引导+圆目前只填了「范围」。工具按台账 D-46 把它当判定半径用，但引擎当前实现尚未接入——已登记待裁定，不影响生成。"
     }
   },
   "column_notes": {
@@ -782,7 +880,8 @@
       "拐点后每级变强": "拐点之后的每级加成，写法同「每级变强」。",
       "标签（用 + 分隔）": "这句话用来和辅助石配对，例如「投射物+闪电」。",
       "允许的辅助标签": "留空＝不限制；填了就只有带这些标签的辅助石能装。",
-      "备注（不进游戏）": "给自己看的备注，工具不读。"
+      "备注（不进游戏）": "给自己看的备注，工具不读。",
+      "图标": "填 res:// 路径（例如 res://mods/jes-skills/content/icons/xxx.png）；留空＝用引擎默认。可编辑字段覆盖：不再塞进「高级数据」隐藏列。"
     },
     "parts": {
       "属于哪个技能": "必须和「② 技能卡」里的技能名一字不差（可直接从下拉选）。",
@@ -810,7 +909,8 @@
       "数值": "改多少。",
       "特性（+ 分隔）": "特殊标记，如「不能暴击」。",
       "冲突辅助（+ 分隔）": "填辅助石中文名，装了它就装不上这些。",
-      "备注（不进游戏）": "给自己看的备注，工具不读。"
+      "备注（不进游戏）": "给自己看的备注，工具不读。",
+      "行为覆盖（工具自动，勿改）": "这列是工具自动带的（灰底）：6/13 颗辅助石在用，数据一个不丢，但一般不用手改；要改找开发者。"
     }
   },
   "new_row_policy": {

@@ -42,6 +42,12 @@
      主键列原有的黄色必填批注，这里按锁定示例行标记的同一口径补回中文批注。
  12. 契约 v1.4：预留行数量与列口径一律从 schema.new_row_policy 读取，脚本常量只做
      前置校验（与契约不一致即中文报错，不静默漂移）。
+ 13. 契约 v1.5：② 技能卡 在「备注（不进游戏）」前渲染「图标」列（白底可编辑，填
+     res:// 路径，留空＝用引擎默认）；④ 辅助石 在「备注（不进游戏）」前渲染
+     「行为覆盖（工具自动，勿改）」列（灰底只读，展示该行 behavior_overrides 的
+     JSON 原文，无则留空）。两列批注文案取自 column_notes。两字段升为显式列后：
+     显式列优先、缺失仍由 __extras 兜底补齐（extras_policy.generate_rule），
+     80 条内容零丢失。
 """
 from __future__ import annotations
 
@@ -76,6 +82,9 @@ EXAMPLE_ROWS = {"skills": 4, "parts": 5, "supports": 4}
 SKILL_REF_NAME = "OPT_SKILL_NAMES"
 SINGLE_ENUM_ERROR = "只能选列表里的中文选项"
 EXTRAS_LABEL = "高级数据（工具自动，勿改）"
+# 契约 v1.5：②「图标」列（白底可编辑，填 res:// 路径）；④「行为覆盖」列（灰底只读）
+ICON_LABEL = "图标"
+BO_LABEL = "行为覆盖（工具自动，勿改）"
 
 # 契约 v1.4 new_row_policy.reserved_rows：预留行数量（只在契约缺字段时兜底，
 # main() 会与契约逐项核对，不一致即中文报错）
@@ -133,14 +142,16 @@ FONT_BOLD = Font(bold=True, size=12)
 FONT_HEADER = Font(bold=True, color="FFFFFF", size=11)
 
 # 显式列承载的顶层字段（其余全部进 __extras）
+# 契约 v1.5：icon / behavior_overrides 升为显式中文列，不再依赖 __extras 兜底
 EXPLICIT_SKILL_FIELDS = {
-    "display_name", "gem_id", "cast_mode", "cost_type", "base_cost",
+    "display_name", "gem_id", "icon", "cast_mode", "cost_type", "base_cost",
     "base_cooldown", "base_cast_time", "max_charges", "charge_recharge_time",
     "level_scaling", "tags", "allowed_support_tags",
 }
 EXPLICIT_SUPPORT_FIELDS = {
     "display_name", "support_id", "require_tags", "require_any_tags",
     "add_tags", "exclude_tags", "cost_multiplier", "flags", "conflicts_with",
+    "behavior_overrides",
 }
 
 
@@ -285,6 +296,8 @@ def split_skill(s: dict, maps: dict):
         "拐点后每级变强": s["level_scaling"]["per_level_late"],
         "标签（用 + 分隔）": enc_multi("tag", s["tags"], maps),
         "允许的辅助标签": enc_multi("tag", s["allowed_support_tags"], maps),
+        # 契约 v1.5：图标列在「备注」前，填 res:// 路径；原值 null / 缺失都写空串
+        ICON_LABEL: "" if s.get("icon") is None else str(s["icon"]),
         "备注（不进游戏）": "",
     }
     extras = {k: v for k, v in s.items() if k not in EXPLICIT_SKILL_FIELDS}
@@ -383,6 +396,10 @@ def split_support(s: dict, maps: dict, support_name_by_id: dict):
     # 契约 v1.3 support_ref：冲突辅助显示辅助石中文名（多值用 + 分隔），W3 按名还原代号
     conflict_text = "+".join(
         str(support_name_by_id.get(str(v), str(v))) for v in s["conflicts_with"])
+    # 契约 v1.5：行为覆盖列展示该行 behavior_overrides 的 JSON 原文；无则留空
+    bo = s.get("behavior_overrides")
+    bo_cell = json.dumps(bo, ensure_ascii=False, sort_keys=True,
+                         separators=(",", ":")) if bo else ""
     cells = {
         "辅助石名": s["display_name"],
         "代号（自动，别填）": s["support_id"],
@@ -396,6 +413,8 @@ def split_support(s: dict, maps: dict, support_name_by_id: dict):
         "数值": value_cell,
         "特性（+ 分隔）": "+".join(str(v) for v in s["flags"]),
         "冲突辅助（+ 分隔）": conflict_text,
+        # 契约 v1.5：行为覆盖列在「备注」前，工具自动带出，策划勿改
+        BO_LABEL: bo_cell,
         "备注（不进游戏）": "",
     }
     # stat_modifiers 是数组，三个标量列只投影第 0 项，无法无损表达整个字段 -> 完整进 extras
@@ -558,8 +577,13 @@ def autofit_columns(ws, labels: list, min_w: float = 9, max_w: float = 30):
 def write_data_row(ws, r: int, labels: list, cells: dict, *, example: bool,
                    id_label: str, extras_label: str,
                    param_cols: list | None = None,
-                   param_fill_map: dict | None = None):
-    """写一行（含展开后的参数列）。param_cols: [(spec, 列号)]。"""
+                   param_fill_map: dict | None = None,
+                   readonly_labels: set | None = None):
+    """写一行（含展开后的参数列）。param_cols: [(spec, 列号)]。
+
+    readonly_labels：灰底只读列（如 ④ 的「行为覆盖」），非示例行也灰底 + locked。
+    """
+    readonly_labels = readonly_labels or set()
     for i, label in enumerate(labels, start=1):
         value = cells.get(label, "")
         c = ws.cell(row=r, column=i, value=value)
@@ -567,7 +591,7 @@ def write_data_row(ws, r: int, labels: list, cells: dict, *, example: bool,
             c.fill = FILL_EXAMPLE
             c.protection = Protection(locked=True)
         else:
-            if label == id_label or label == extras_label:
+            if label == id_label or label == extras_label or label in readonly_labels:
                 c.fill = FILL_GRAY
                 c.protection = Protection(locked=True)
             else:
@@ -597,7 +621,8 @@ def reserved_count(schema, key: str) -> int:
 def write_reserved_rows(ws, first_row: int, count: int, labels: list, *,
                         id_label: str, extras_label: str,
                         param_cols: list | None = None,
-                        hint_comment: bool = False):
+                        hint_comment: bool = False,
+                        readonly_labels: set | None = None):
     """写「可编辑预留行」（契约 v1.4）。
 
     · 可见数据列：白底 + unlocked（受同一份 DataValidation 覆盖，下拉照常可用）；
@@ -608,10 +633,15 @@ def write_reserved_rows(ws, first_row: int, count: int, labels: list, *,
     """
     # param_cols: [(spec, 列号)]，只有参数列允许填白，其余可见列同样可编辑
     group_cols = {(col, spec["label"]) for spec, col in (param_cols or [])}
+    readonly_labels = readonly_labels or set()
     for r in range(first_row, first_row + count):
         for i, label in enumerate(labels, start=1):
             c = ws.cell(row=r, column=i)
-            if label == id_label:
+            if label in readonly_labels:
+                # 契约 v1.5：行为覆盖列在预留行同样灰底只读（工具自动，策划勿改）
+                c.fill = FILL_GRAY
+                c.protection = Protection(locked=True)
+            elif label == id_label:
                 c.value = NEW_ROW_ID_HINT
                 c.fill = FILL_GRAY
                 c.font = FONT_HINT
@@ -733,10 +763,13 @@ def build_supports(wb, schema, data, maps, support_name_by_id: dict,
         cells[EXTRAS_LABEL] = extras_text(extras)
         rows.append(cells)
 
+    # 契约 v1.5：④「行为覆盖」列数据行灰底只读
+    readonly = {BO_LABEL}
     for idx, cells in enumerate(rows, start=2):
         example = idx < 2 + EXAMPLE_ROWS["supports"]
         write_data_row(ws, idx, labels, cells, example=example,
-                       id_label=id_label, extras_label=EXTRAS_LABEL)
+                       id_label=id_label, extras_label=EXTRAS_LABEL,
+                       readonly_labels=readonly)
 
     # 唯一必填列「辅助石名」标黄（非示例行），与图例口径一致
     data_start = 2 + EXAMPLE_ROWS["supports"]
@@ -746,7 +779,7 @@ def build_supports(wb, schema, data, maps, support_name_by_id: dict,
     reserved = reserved_count(schema, "supports")
     write_reserved_rows(ws, ws.max_row + 1, reserved, labels,
                         id_label=id_label, extras_label=EXTRAS_LABEL,
-                        hint_comment=True)
+                        hint_comment=True, readonly_labels=readonly)
     autofit_columns(ws, labels)
     set_col_gray_hidden(ws, labels, id_label, EXTRAS_LABEL)
     protect_sheet(ws)

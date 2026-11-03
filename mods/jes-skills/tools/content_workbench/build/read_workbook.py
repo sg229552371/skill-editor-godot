@@ -34,11 +34,34 @@ W3 正向生成 · 交付物 A：Excel 工作簿 → 中间 JSON + 分层中文�
     真新增（技能数 ≠ 67 或辅助石数 ≠ 13）→ 不生成中间 JSON、不落盘，中文报错写明
     「新增会打破数量硬断言，需按台账 P-23 同步改数量断言，须上级 AI 裁定」。
 
+契约 v1.6 读侧（四期 P4-3：四条校验规则落地）：
+  · active_numeric_sane（硬拦，GUT test_a4 同口径）：② 消耗 >0、前摇 >0、
+    每级变强必须显式填写（≥0 允许）；中文定位「② 技能卡 第 N 行 · 列名」；
+  · part_form_tag_present（硬拦，GUT test_a5 同口径）：②③ 联查——每段行为自带
+    形态标签（enums.behavior[].form_tag），所属技能「标签」必须包含它；
+    中文定位「③ 效果段 第 N 行 · 效果」并指明缺哪个标签；behavior_id 为空由
+    ③「效果」列必填校验拦截（定位相同）；
+  · support_cost_positive（硬拦，GUT test_b4 同口径）：④ 消耗倍率 >0，
+    中文定位「④ 辅助石 第 N 行 · 消耗倍率」；
+  · channel_circ_range_hint（黄色提醒不拦截）：channel×circ 且半径空且扇形距离非空时，
+    按契约 when/text 出中文提醒——现有 3 条 channel×circ 合法内容必须照常生成；
+  · 四条规则的口径（阈值、条件、文案）全部取自 schema.validation_rules，不内置第二份。
+
+契约 v1.5 读侧（四期 P4-2：图标 / 行为覆盖 显式列回读）：
+  · ②「图标」(field icon, string, res:// 路径) 与 ④「行为覆盖（工具自动，勿改）」
+    (field behavior_overrides, json) 按中文标签回读为显式列；显式列非空时优先，
+    空则仍走 __extras 兜底 —— 旧工作簿（值只在 __extras 里、甚至整列不存在）照常读通；
+  · ④ 行为覆盖按 JSON 原文解析成字典；显式列非空 = 整体生效（覆盖而非与 __extras 并集，
+    防止显式列里删掉的旧覆盖键被 __extras 残值「复活」）；非法 JSON 中文报错、不生成中间 JSON；
+  · ② 图标填了但不是 res:// 开头 → 中文报错定位「② 技能卡 第 N 行 · 图标」；
+    留空不校验（留空 = 未设置，由 __extras 兜底，旧表零差异）。
+
 用法：
   python read_workbook.py <工作簿.xlsx> [--schema 路径] [--out 路径] [--errors 路径] [--snapshot 路径]
 """
 
 import argparse
+import copy
 import json
 import re
 import sys
@@ -117,6 +140,12 @@ COUNT_GUARD_COVERAGE = 0.9
 
 # add_error 里换行标记（见 add_error 注释）
 NL_MARKER = "@@NL@@"
+
+# ------------------------------------------------------ 契约 v1.5 常量 ----
+# v1.5 新升的显式中文列（②「图标」icon / ④「行为覆盖」behavior_overrides）。
+# 向后兼容硬口径：旧工作簿整列缺失、值只在 __extras 里时必须照常读通
+# （extras_policy 的兜底口径），故这两列「表头找不到」不算错误，按整列留空处理。
+V15_FALLBACK_FIELDS = {"icon", "behavior_overrides"}
 
 
 # ------------------------------------------------------------ 工具函数 ----
@@ -295,6 +324,24 @@ def count_guard_message(label, got, base, extra_ids, where=None):
         "新增会打破数量硬断言，需按台账 P-23 同步改数量断言，须上级 AI 裁定"
         "（本工具不自动改测试、不落盘、不生成中间 JSON）"
     )
+
+
+def col_label_for(schema, sheet_key, field):
+    """契约字段名 → 该表中文列名（报错定位用）；找不到时原样返回字段名。"""
+    for c in schema["columns"].get(sheet_key, []):
+        if c.get("field") == field:
+            return c["label"]
+    return field
+
+
+def get_field(obj, dotted):
+    """按带点号的字段路径取值（level_scaling.per_level 等）；缺路径返回 None。"""
+    node = obj
+    for part in dotted.split("."):
+        if not isinstance(node, dict) or part not in node:
+            return None
+        node = node[part]
+    return node
 
 
 def shape_cn_label(schema, shape):
@@ -478,6 +525,11 @@ def map_columns(ws, sheet_key, schema, errors, title):
         # __extras 是隐藏列，W2 可能不导出；允许缺省
         if c["field"] == "__extras":
             continue
+        # 契约 v1.5 向后兼容：图标 / 行为覆盖（v1.5 新升显式列）整列缺失不报错 ——
+        # 旧工作簿（真实表现状）没有这两列、值只在 __extras 里，必须照常读通；
+        # 整列缺失等价于「每行该列都空」，逐行走 __extras 兜底。
+        if c["field"] in V15_FALLBACK_FIELDS:
+            continue
         if c["label"] not in found:
             add_error(errors, title, 1, c["label"], "缺少这一列（表头找不到该中文列名）")
     return mapping
@@ -583,7 +635,20 @@ def parse_def_column(col, raw, ctx, enum_maps, errors, warnings, ranges):
         return field, str(raw).strip()
 
     if typ == "json":
-        return field, raw
+        # 契约 v1.5：json 型显式列（④「行为覆盖」）单元格填 JSON 原文 → 解析成字典。
+        # 空单元格在前面已按「无显式值」返回 None，走 __extras 兜底（旧表零差异）；
+        # 非法 JSON 中文报错定位行/列，本行该字段交回 __extras 兜底（错误会拦住落盘）。
+        try:
+            data = json.loads(str(raw))
+        except (ValueError, TypeError):
+            add_error(errors, sheet, row, label,
+                      f"应为一个 JSON 对象原文（工具自动生成，勿手改），实际填了『{raw}』")
+            return field, None
+        if not isinstance(data, dict):
+            add_error(errors, sheet, row, label,
+                      f"应为一个 JSON 对象（工具自动生成，勿手改），实际填了『{raw}』")
+            return field, None
+        return field, data
 
     # 兜底：按字符串处理
     return field, str(raw).strip()
@@ -796,6 +861,10 @@ def parse_sheet(ws, sheet_key, schema, enum_maps, ranges, errors, warnings,
 
     # 代号列在元组里的下标（②④ 有，③ 无）：占位说明不算内容，见 is_blank_row
     id_label = "代号（自动，别填）"
+
+    # 契约 v1.5：json 型显式字段集合（④「行为覆盖」；__extras 单独处理、不会进 explicit）
+    json_fields = {c["field"] for c in schema["columns"][sheet_key]
+                   if c.get("type") == "json"} - {"__extras"}
     row_id_values = {idx for idx, (kind, payload) in mapping.items()
                      if kind == "def" and payload.get("label") == id_label}
     id_field = "gem_id" if sheet_key == "skills" else (
@@ -882,6 +951,17 @@ def parse_sheet(ws, sheet_key, schema, enum_maps, ranges, errors, warnings,
                         f"工具自动生成代号『{new_id}』（契约 id_rule.new）"
                     )
 
+        # 契约 v1.5：②「图标」填了就必须是 res:// 开头；列缺失/留空不校验
+        # （留空 = 未设置，走 __extras 兜底，旧表零差异不受影响）。
+        for col in schema["columns"][sheet_key]:
+            if col.get("field") == "icon":
+                icon = explicit.get("icon")
+                if icon is not None and not str(icon).startswith("res://"):
+                    add_error(errors, title, row_no, col["label"],
+                              "图标必须以 res:// 开头"
+                              "（例如 res://mods/jes-skills/content/icons/xxx.png），"
+                              f"实际填了『{icon}』；留空则沿用高级数据兜底")
+
         # 逐列必填校验（含只读代号列）
         for col in schema["columns"][sheet_key]:
             field, label = col["field"], col["label"]
@@ -915,10 +995,49 @@ def parse_sheet(ws, sheet_key, schema, enum_maps, ranges, errors, warnings,
                       f"伤害类型有 {len(dmg_keys)} 个，基础伤害有 {len(dmg_values)} 个，个数要一一对应")
 
         # ---- 组装对象：先显式列，再用 __extras 补齐，显式列非空优先 ----
+        # dict 型显式值必须先深拷贝再进 obj：merge_missing 对同名嵌套字典是就地
+        # 递归补齐，会把 __extras 残值直接写进 obj 里的那个 dict；若不拷贝，explicit
+        # 里的原字典（同一对象）会被一并改写，显式列的「原始值」就丢了。
         obj = {}
         for field, value in explicit.items():
-            apply_field(obj, field, value)
+            apply_field(obj, field, copy.deepcopy(value) if isinstance(value, dict) else value)
         merge_missing(obj, extras)
+
+        # 契约 v1.5：json 型显式列（④ 行为覆盖）非空 = 整体生效——直接覆盖。
+        # merge_missing 对同名嵌套字典是递归补齐，会让显式列里删掉的旧覆盖键被
+        # __extras 残值「复活」，违背「显式列非空时优先」，故用未污染的原始值整体替换。
+        for field, value in explicit.items():
+            if field in json_fields and isinstance(value, dict):
+                obj[field] = copy.deepcopy(value)
+
+        # ---- 契约 v1.6 validation_rules：按表生效的硬拦规则（GUT 同口径）----
+        # 阈值与字段全部取自契约 rules，不内置第二份口径。
+        vr = schema.get("validation_rules", {})
+        sane = vr.get("active_numeric_sane")
+        if sane and sane.get("sheet") == sheet_key:
+            for rule in sane.get("rules", []):
+                field, op = rule.get("field"), rule.get("op")
+                label = col_label_for(schema, sheet_key, field)
+                value = get_field(obj, field)
+                if op == "required":
+                    if value is None:
+                        add_error(errors, title, row_no, label,
+                                  "必须显式填写（允许 0；等级曲线不靠默认值）")
+                elif op == ">":
+                    num = as_number(value)
+                    if num is None or not num > rule.get("value", 0):
+                        add_error(errors, title, row_no, label,
+                                  f"必须 > {rule.get('value', 0)}，实际填了『{value}』")
+        cost_pos = vr.get("support_cost_positive")
+        if cost_pos and cost_pos.get("sheet") == sheet_key:
+            for rule in cost_pos.get("rules", []):
+                field, op = rule.get("field"), rule.get("op")
+                label = col_label_for(schema, sheet_key, field)
+                if op == ">":
+                    num = as_number(obj.get(field))
+                    if num is None or not num > rule.get("value", 0):
+                        add_error(errors, title, row_no, label,
+                                  f"必须 > {rule.get('value', 0)}（防 0 成本辅助），实际填了『{obj.get(field)}』")
 
         # 参数列覆盖 behavior_params（显式列优先）
         if param_values:
@@ -1040,6 +1159,24 @@ def parse_sheet(ws, sheet_key, schema, enum_maps, ranges, errors, warnings,
                               "效果是『范围爆发』且形状不是『点』时，必须至少填一组尺寸："
                               "半径，或 长度+宽度，或 扇形角度+扇形距离（点爆豁免）")
 
+            # ⑤ 契约 v1.6 channel_circ_range_hint：channel×circ 只填 range 时黄色提醒（不拦截）。
+            #    触发条件与文案都取自契约 when / text（按空格分词解析，不内置第二份口径）；
+            #    现有 3 条 channel×circ 合法内容（引导领域/蓄力大爆/原地旋风）必须照常通过。
+            hint = vr.get("channel_circ_range_hint") if isinstance(vr, dict) else None
+            if hint:
+                when = str(hint.get("when", ""))
+                conds = dict(re.findall(r"(\w+)=(\w+)", when))
+                empty_keys = re.findall(r"(\w+) 为空", when)
+                filled_keys = re.findall(r"(\w+) 非空", when)
+                if (conds
+                        and behavior == conds.get("behavior")
+                        and shape == conds.get("shape")
+                        and all(not has_value(bp, k) for k in empty_keys)
+                        and all(has_value(bp, k) for k in filled_keys)):
+                    shape_label = shape_cn_label(schema, shape)
+                    warnings.append(
+                        f"{title} 第 {row_no} 行 · 形状『{shape_label}』：{hint.get('text', '')}")
+
         meta["_parent"] = explicit.get("_parent")
         meta["_index"] = explicit.get("_index")
         rows.append(obj)
@@ -1114,6 +1251,31 @@ def cross_validate(skill_rows, skill_metas, part_rows, part_metas,
                           f"技能『{parent}』的第 {idx} 段重复（第 {'、'.join(rows)} 行）")
         items.sort(key=lambda x: x[0])
         skill_rows[name_to_row[parent]]["parts"] = [x[2] for x in items]
+
+        # 契约 v1.6 part_form_tag_present（GUT test_a5 同口径硬拦）：②③ 联查——
+        # 每段行为自带形态标签（enums.behavior[].form_tag），所属技能「标签」列必须包含它，
+        # 否则「辅助按标签过滤」会失准；中文定位「③ 效果段 第 N 行 · 效果」并指明缺哪个标签。
+        # behavior_id 为空由 ③「效果」列必填校验拦截（定位相同），这里不重复报。
+        tag_rule = schema.get("validation_rules", {}).get("part_form_tag_present")
+        if tag_rule:
+            behavior_entries = schema["enums"].get("behavior", [])
+            form_tag_by_behavior = {e["value"]: e.get("form_tag") for e in behavior_entries}
+            behavior_label_cn = {e["value"]: e["label"] for e in behavior_entries}
+            tag_label_cn = {e["value"]: e["label"] for e in schema["enums"].get("tag", [])}
+            skill = skill_rows[name_to_row[parent]]
+            tags = set(skill.get("tags") or [])
+            for _idx, part_row_no, part in items:
+                behavior_id = part.get("behavior_id")
+                if not behavior_id:
+                    continue        # ③「效果」必填校验已在同行同列报错
+                form_tag = form_tag_by_behavior.get(behavior_id)
+                if form_tag and form_tag not in tags:
+                    add_error(errors, title_p, part_row_no, "效果",
+                              f"所属技能『{skill.get('display_name')}』的"
+                              f"『{behavior_label_cn.get(behavior_id, behavior_id)}』段"
+                              f"缺形态标签『{tag_label_cn.get(form_tag, form_tag)}』，"
+                              "请在② 该技能的『标签（用 + 分隔）』列补上"
+                              "（辅助按标签过滤会失准）")
 
     # 契约 v1.4 new_row_policy.requires_parts：新增技能卡至少要有一段有效效果段
     # （③「属于哪个技能」按技能名指向它），否则中文报错定位到「② 技能卡 第 N 行 · 效果段」。

@@ -31,6 +31,23 @@ W3 自检 · 交付物 C：不依赖 W2 的产物，自己用 openpyxl 构造最
   · 代号留空自动生成规则（从 001 起、取最小未占用号、同一批不重号、新角色从 001 重开）；
   · 新辅助石代号留空 → support_001 + 数量守卫；同批新技能 + 新辅助石 → 代号互不冲突。
 
+契约 v1.5 增量（四期 P4-2 读侧：图标 / 行为覆盖 显式列回读）：
+  · 好表绿：②「图标」填 res:// 路径正常回读；④「行为覆盖」列留空仍走 __extras 兜底；
+  · 显式优先：显式列非空时压过 __extras 残值（行为覆盖整体替换、旧覆盖键不从残值复活）；
+  · 坏表红：icon 非 res:// 开头逐字定位「② 技能卡 第 N 行 · 图标」；
+    行为覆盖非法 JSON 中文报错定位「④ 辅助石 第 N 行 · 行为覆盖（工具自动，勿改）」；
+  · 旧格式（值只在 __extras、整列缺失）与新显式列格式 → 读侧输出零差异；
+  · 真实表整表零差异往返：__extras 抬列前后读侧输出逐字段一致、67/95/13 + 1 触发器不变。
+
+契约 v1.6 增量（四期 P4-3 读侧：四条校验规则落地）：
+  · 好表绿：现有真实表 67/95/13 零错误 + 恰好 3 条 channel×circ 黄色提醒；
+  · 坏表红×4（每条规则一个反例，中文逐字定位、不生成中间 JSON）：
+    ② 消耗=0（active_numeric_sane）／②③ 联查缺形态标签／③ 效果列空（空 behavior_id）／
+    ④ 消耗倍率=0（support_cost_positive）；
+  · 提醒不拦截变体：channel×circ 只填扇形距离仍生成中间 JSON；
+  · 夹具同步：ok.xlsx 技能标签补全形态标签（覆盖 引导/增益 变体效果）、
+    增量三② 第二颗辅助石补「消耗倍率」（新硬拦要求 >0）。
+
 全部原始输出保留在 _tmp/selfcheck/logs/，汇总写在 _tmp/selfcheck/selfcheck_summary.txt。
 干跑产物一律落在 _tmp/ 下，绝不写 content/gems/。
 
@@ -178,7 +195,10 @@ def build_workbooks(schema):
         "每级变强": 0.1,
         "成长拐点等级": 0,
         "拐点后每级变强": 0,
-        "标签（用 + 分隔）": "法术+范围+冰冷",
+        # 契约 v1.6：标签需覆盖本夹具各变体用到的行为形态标签
+        # （范围爆发→范围/aoe、引导→引导/channel、自我增益→增益/buff），否则
+        # part_form_tag_present 硬拦会把这些「改效果」变体误拦成缺标签。
+        "标签（用 + 分隔）": "法术+范围+冰冷+引导+增益",
         "允许的辅助标签": "法术+冰冷",
         "备注（不进游戏）": "W3 自检用",
         "高级数据（工具自动，勿改）": "{}",
@@ -824,6 +844,7 @@ def main():
     append_rows(OK_XLSX, conf_base, {"④ 辅助石": [{
         "辅助石名": "自检·锐化二",
         "代号（自动，别填）": "w3_selfcheck_second",
+        "消耗倍率": 1.2,          # 契约 v1.6 support_cost_positive：消耗倍率必须 >0
         "属性": "暴击率",
         "运算": "固定加值",
         "数值": 5,
@@ -1269,6 +1290,291 @@ def main():
                f"退出码={pnl.returncode}，生成 JSON={nl_out.exists()}，"
                f"未出现数量守卫提示={'P-23' not in nl_text}")
 
+
+    # ========= 增量五：契约 v1.5 读侧（四期 P4-2：图标 / 行为覆盖 显式列回读） =========
+    print("\n########## 增量五：契约 v1.5 图标 / 行为覆盖 显式列回读（P4-2）##########")
+
+    ICON_OK = "res://mods/jes-skills/content/icons/w3_selfcheck_frost.png"
+    BO_OK = {"pierce": {"add": 2.0}}
+
+    # ---- ① 好表绿：icon 合法（res:// 开头）、行为覆盖列留空（仍走 __extras 兜底）----
+    v15_ok = BASE / "v15_icon_ok.xlsx"
+    mutate(OK_XLSX, v15_ok, {"② 技能卡": [(2, "图标", ICON_OK)]})
+    p15a, o15a, d15a, _ = a_variant("v15_icon_ok", v15_ok)
+    icon_got = d15a["skills"][0].get("icon") if d15a else None
+    bo_got = d15a["supports"][0].get("behavior_overrides") if d15a else None
+    record("增量五① 好表绿：合法图标回读、行为覆盖列留空仍走 __extras 兜底",
+           p15a.returncode == 0 and d15a is not None
+           and icon_got == ICON_OK and bo_got == BO_OK,
+           f"退出码={p15a.returncode}，icon={icon_got}，behavior_overrides={bo_got}")
+
+    # ---- ①附带 显式列非空时优先：图标压过 __extras、行为覆盖整体替换（不并集复活）----
+    v15_prio = BASE / "v15_explicit_prio.xlsx"
+    prio_skill_extras = json.dumps({"icon": "res://old/in_extras.png"}, ensure_ascii=False)
+    prio_bo = json.dumps({"speed": {"mul": 2.0}}, ensure_ascii=False)
+    mutate(OK_XLSX, v15_prio, {"② 技能卡": [
+                                   (2, "图标", ICON_OK),
+                                   (2, "高级数据（工具自动，勿改）", prio_skill_extras)],
+                               "④ 辅助石": [
+                                   (2, "行为覆盖（工具自动，勿改）", prio_bo)]})
+    p15b, o15b, d15b, _ = a_variant("v15_explicit_prio", v15_prio)
+    icon_prio = d15b["skills"][0].get("icon") if d15b else None
+    bo_prio = d15b["supports"][0].get("behavior_overrides") if d15b else None
+    prio_ok = (p15b.returncode == 0 and d15b is not None
+               and icon_prio == ICON_OK and bo_prio == {"speed": {"mul": 2.0}})
+    record("增量五①附带 显式列非空时优先（图标压过 __extras；行为覆盖整体替换、旧键不复活）",
+           prio_ok,
+           f"退出码={p15b.returncode}，icon={icon_prio}，behavior_overrides={bo_prio}，"
+           f"__extras 残值 pierce 未复活={bo_prio is not None and 'pierce' not in bo_prio}")
+
+    # ---- ② 坏表红：icon 非 res:// 开头 → 逐字定位「② 技能卡 第 N 行 · 图标」----
+    v15_bad_icon = BASE / "v15_icon_bad.xlsx"
+    mutate(OK_XLSX, v15_bad_icon, {"② 技能卡": [(2, "图标", "icons/frost.png")]})
+    p15c, o15c, d15c, t15c = a_variant("v15_icon_bad", v15_bad_icon)
+    hit_icon = ("② 技能卡 第 2 行 · 图标" in t15c and "icons/frost.png" in t15c
+                and "res://" in t15c)
+    record("增量五② 坏表红：icon 非 res:// 开头 → 中文报错逐字定位且不生成 JSON",
+           p15c.returncode != 0 and not o15c.exists() and d15c is None and hit_icon,
+           f"退出码={p15c.returncode}，未生成 JSON={not o15c.exists()}，"
+           f"定位『② 技能卡 第 2 行 · 图标』={'② 技能卡 第 2 行 · 图标' in t15c}")
+    print("  --- 图标非 res:// 中文报错（原始）---")
+    indent_print(t15c)
+
+    # ---- ②附带 坏表红：行为覆盖列非法 JSON → 中文报错定位 ----
+    v15_bad_json = BASE / "v15_bo_badjson.xlsx"
+    mutate(OK_XLSX, v15_bad_json,
+           {"④ 辅助石": [(2, "行为覆盖（工具自动，勿改）", "不是JSON")]})
+    p15d, o15d, d15d, t15d = a_variant("v15_bo_badjson", v15_bad_json)
+    hit_json = ("④ 辅助石 第 2 行 · 行为覆盖（工具自动，勿改）" in t15d
+                and "JSON" in t15d and "不是JSON" in t15d)
+    record("增量五②附带 行为覆盖非法 JSON → 中文报错定位且不生成 JSON",
+           p15d.returncode != 0 and not o15d.exists() and d15d is None and hit_json,
+           f"退出码={p15d.returncode}，未生成 JSON={not o15d.exists()}，"
+           f"定位『④ 辅助石 第 2 行 · 行为覆盖（工具自动，勿改）』="
+           f"{'④ 辅助石 第 2 行 · 行为覆盖（工具自动，勿改）' in t15d}")
+    print("  --- 行为覆盖非法 JSON 中文报错（原始）---")
+    indent_print(t15d)
+
+    # ---- ③ 旧格式（值只在 __extras、整列不存在）与新显式列格式 → 读侧输出零差异 ----
+    v15_legacy = BASE / "v15_legacy_format.xlsx"      # 旧格式：两列不存在、值只在 __extras
+    drop_columns(OK_XLSX, v15_legacy, "② 技能卡", ["图标"])
+    drop_columns(v15_legacy, v15_legacy, "④ 辅助石", ["行为覆盖（工具自动，勿改）"])
+    mutate(v15_legacy, v15_legacy, {"② 技能卡": [
+        (2, "高级数据（工具自动，勿改）", json.dumps({"icon": ICON_OK}, ensure_ascii=False))]})
+
+    v15_modern = BASE / "v15_modern_format.xlsx"      # 新格式：显式列承载、__extras 不再存这两键
+    modern_sup_extras = json.dumps({
+        "flags": ["cannot_crit"],
+        "conflicts_with": ["w3_selfcheck_other"],
+        "require_any_tags": ["aoe"],
+    }, ensure_ascii=False)
+    mutate(OK_XLSX, v15_modern, {
+        "② 技能卡": [(2, "图标", ICON_OK)],
+        "④ 辅助石": [
+            (2, "行为覆盖（工具自动，勿改）", json.dumps(BO_OK, ensure_ascii=False)),
+            (2, "高级数据（工具自动，勿改）", modern_sup_extras),
+        ],
+    })
+
+    p15e, o15e, d15e, t15e = a_variant("v15_legacy_format", v15_legacy)
+    p15f, o15f, d15f, t15f = a_variant("v15_modern_format", v15_modern)
+
+    def core_payload(path):
+        """去掉 source（工作簿文件名）后的读侧输出，用于两种表格式之间的零差异比对。"""
+        if path is None or not Path(path).exists():
+            return None
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+        data.pop("source", None)
+        return data
+
+    legacy_vs_modern = (p15e.returncode == 0 and p15f.returncode == 0
+                        and d15e is not None and d15f is not None
+                        and core_payload(o15e) == core_payload(o15f)
+                        and d15e["skills"][0].get("icon") == ICON_OK
+                        and d15e["supports"][0].get("behavior_overrides") == BO_OK)
+    record("增量五③ 旧格式（值只在 __extras、整列缺失）与新显式列格式 → 读侧输出零差异",
+           legacy_vs_modern,
+           f"旧格式退出码={p15e.returncode}、新格式退出码={p15f.returncode}，"
+           f"两份中间 JSON 除文件名外逐字段一致={legacy_vs_modern and core_payload(o15e) == core_payload(o15f)}")
+
+    # ---- ③附带 真实表（旧格式）：整表 80 条零差异往返、67/13/1 不变 ----
+    # 把真实工作簿 __extras 里的 图标 / 行为覆盖 原值抬进显式列（extras 原样保留），
+    # 两种形态各读一遍：读侧输出必须逐字段一致 —— 显式列优先只是「换了承载位置」，
+    # 80 条既有内容一个字段都不能变；数量守卫口径 67 技能 / 13 辅助石 / 1 触发器不变。
+    real_wb_path = MODULE / "content_src" / "技能配置表.xlsx"
+    triggers_n = len(list((MODULE / "content" / "gems" / "triggers").glob("*.tres")))
+    if not real_wb_path.exists():
+        record("增量五③附带 真实表零差异往返", False, f"找不到真实工作簿：{real_wb_path}")
+    else:
+        hoisted = BASE / "v15_real_hoisted.xlsx"
+        book = load_workbook(real_wb_path)
+        for sheet_name, col_label, key in (
+            ("② 技能卡", "图标", "icon"),
+            ("④ 辅助石", "行为覆盖（工具自动，勿改）", "behavior_overrides"),
+        ):
+            ws_h = book[sheet_name]
+            headers = [c.value for c in ws_h[1]]
+            if col_label in headers:
+                continue        # 工作簿已是 v1.5 形态（显式列已在）：无需抬列，原样比对
+            extras_idx = headers.index("高级数据（工具自动，勿改）")
+            new_idx = len(headers) + 1            # 追加在末列：读侧按中文列名映射，位置无关
+            ws_h.cell(row=1, column=new_idx).value = col_label
+            for r in range(2, ws_h.max_row + 1):
+                raw = ws_h.cell(row=r, column=extras_idx + 1).value
+                if raw in (None, ""):
+                    continue
+                try:
+                    extras = json.loads(str(raw))
+                except (ValueError, TypeError):
+                    continue
+                val = extras.get(key)
+                if val is None:
+                    continue
+                ws_h.cell(row=r, column=new_idx).value = json.dumps(val, ensure_ascii=False)
+        hoisted.parent.mkdir(parents=True, exist_ok=True)
+        book.save(hoisted)
+
+        real_a = BASE / "var_v15_real_as_is"
+        real_b = BASE / "var_v15_real_hoisted"
+        p15g, o15g, d15g, t15g = a_variant("v15_real_as_is", real_wb_path)
+        p15h, o15h, d15h, t15h = a_variant("v15_real_hoisted", hoisted)
+        n_sk = len(d15g.get("skills", [])) if d15g else None
+        n_pt = sum(len(s.get("parts", [])) for s in d15g.get("skills", [])) if d15g else None
+        n_su = len(d15g.get("supports", [])) if d15g else None
+        counts_ok = (n_sk == 67 and n_pt == 95 and n_su == 13 and triggers_n == 1)
+        zero_diff = (p15g.returncode == 0 and p15h.returncode == 0
+                     and d15g is not None and d15h is not None
+                     and core_payload(o15g) == core_payload(o15h))
+        record("增量五③附带 真实表（旧格式）整表零差异往返、67/95/13 + 1 触发器不变",
+               zero_diff and counts_ok and not t15g,
+               f"原样读退出码={p15g.returncode}、抬列读退出码={p15h.returncode}，"
+               f"技能={n_sk}、效果段={n_pt}、辅助石={n_su}、触发器={triggers_n}，"
+               f"错误数={len(t15g.splitlines())}，两形态读侧输出逐字段一致={zero_diff}")
+
+    # ========= 增量六：契约 v1.6 读侧（四期 P4-3：四条校验规则落地） =========
+    print("\n########## 增量六：契约 v1.6 四条校验规则（P4-3）##########")
+
+    v16 = schema.get("validation_rules", {})
+    behavior_entries16 = schema["enums"].get("behavior", [])
+    form_tag_of = {e["label"]: e.get("form_tag") for e in behavior_entries16}   # 中文效果名 → form_tag
+    tag_label_of = {e["value"]: e["label"] for e in schema["enums"].get("tag", [])}
+    tag_value_of = {e["label"]: e["value"] for e in schema["enums"].get("tag", [])}
+
+    def first_data_row(ws_r, key_header):
+        """真实工作簿某页签第一条真实数据行号（跳过空行与示例行；行号运行时数，不写死）。"""
+        headers = [c.value for c in ws_r[1]]
+        ki = headers.index(key_header)
+        for r in range(2, ws_r.max_row + 1):
+            v = ws_r.cell(row=r, column=ki + 1).value
+            if v is None or (isinstance(v, str) and not v.strip()):
+                continue
+            if str(v).startswith("【示例】") or v == "这是例子，照着填":
+                continue
+            return r
+        return None
+
+    real_wb16 = load_workbook(real_wb_path, data_only=True) if real_wb_path.exists() else None
+    if real_wb16 is None:
+        record("增量六 前置（真实工作簿可用）", False, f"找不到真实工作簿：{real_wb_path}")
+    else:
+        ws_s16, ws_p16, ws_u16 = real_wb16["② 技能卡"], real_wb16["③ 效果段"], real_wb16["④ 辅助石"]
+        sk16 = first_data_row(ws_s16, "技能名")
+        pt16 = first_data_row(ws_p16, "属于哪个技能")
+        su16 = first_data_row(ws_u16, "辅助石名")
+        record("增量六 前置（真实数据行号定位）",
+               None not in (sk16,) and None not in (pt16,) and None not in (su16,),
+               f"② 首行={sk16}、③ 首行={pt16}、④ 首行={su16}（运行时从真实表数出，不写死）")
+
+        # ---- ① 好表绿：真实表原样 → 0 错误 + 恰好 3 条 channel×circ 黄色提醒 ----
+        p16a, o16a, d16a, t16a = a_variant("v16_real_ok", real_wb_path)
+        warns16 = d16a.get("warnings", []) if d16a else []
+        hint_warns = [w for w in warns16 if "引导+圆" in w and "已登记待裁定" in w]
+        ok16a = (p16a.returncode == 0 and d16a is not None and not t16a
+                 and len(d16a.get("skills", [])) == 67 and len(d16a.get("supports", [])) == 13
+                 and sum(len(s.get("parts", [])) for s in d16a.get("skills", [])) == 95
+                 and len(hint_warns) == 3)
+        record("增量六① 好表绿：真实表 67/95/13 零错误 + 恰好 3 条 channel×circ 黄提醒（不拦截）",
+               ok16a,
+               f"退出码={p16a.returncode}，错误数={len(t16a.splitlines())}，"
+               f"提醒总数={len(warns16)}，channel×circ 提醒命中={len(hint_warns)}")
+
+        # ---- ② 坏表红：active_numeric_sane——② 消耗=0 → 硬拦定位「② 技能卡 第 N 行 · 消耗数值」----
+        v16b = BASE / "v16_cost_zero.xlsx"
+        mutate(real_wb_path, v16b, {"② 技能卡": [(sk16, "消耗数值", 0)]})
+        p16b, o16b, d16b, t16b = a_variant("v16_cost_zero", v16b)
+        loc16b = f"② 技能卡 第 {sk16} 行 · 消耗数值"
+        hit16b = loc16b in t16b and "必须 > 0" in t16b
+        record(f"增量六② 坏表红：消耗=0 → 硬拦定位『{loc16b}』且不生成 JSON",
+               p16b.returncode != 0 and not o16b.exists() and d16b is None and hit16b,
+               f"退出码={p16b.returncode}，未生成 JSON={not o16b.exists()}，定位命中={hit16b}")
+        print("  --- 消耗=0 中文报错（原始）---")
+        indent_print(t16b)
+
+        # ---- ③ 坏表红：part_form_tag_present——所属技能删掉本段形态标签 ----
+        # 取首个真实效果段：效果名 → form_tag → 所属技能行，把该技能「标签」改成不含它。
+        hp16 = [c.value for c in ws_p16[1]]
+        eff16 = ws_p16.cell(row=pt16, column=hp16.index("效果") + 1).value
+        par16 = ws_p16.cell(row=pt16, column=hp16.index("属于哪个技能") + 1).value
+        form_tag16 = form_tag_of.get(eff16)
+        hs16 = [c.value for c in ws_s16[1]]
+        tags_i16 = hs16.index("标签（用 + 分隔）")
+        skill_row16 = None
+        for r in range(2, ws_s16.max_row + 1):
+            if ws_s16.cell(row=r, column=hs16.index("技能名") + 1).value == par16:
+                skill_row16 = r
+                break
+        old_tags16 = str(ws_s16.cell(row=skill_row16, column=tags_i16 + 1).value or "")
+        keep16 = [lab for lab in old_tags16.split("+") if tag_value_of.get(lab.strip()) != form_tag16]
+        v16c = BASE / "v16_tag_missing.xlsx"
+        mutate(real_wb_path, v16c, {"② 技能卡": [(skill_row16, "标签（用 + 分隔）", "+".join(keep16))]})
+        p16c, o16c, d16c, t16c = a_variant("v16_tag_missing", v16c)
+        loc16c = f"③ 效果段 第 {pt16} 行 · 效果"
+        tag_cn16 = tag_label_of.get(form_tag16, form_tag16)
+        hit16c = loc16c in t16c and "缺形态标签" in t16c and tag_cn16 in t16c
+        record(f"增量六③ 坏表红：技能缺本段形态标签『{tag_cn16}』→ 硬拦定位『{loc16c}』且不生成 JSON",
+               p16c.returncode != 0 and not o16c.exists() and d16c is None and hit16c,
+               f"退出码={p16c.returncode}，未生成 JSON={not o16c.exists()}，"
+               f"标签从『{old_tags16}』改为『{'+'.join(keep16)}』，定位命中={hit16c}")
+        print("  --- 缺形态标签中文报错（原始）---")
+        indent_print(t16c)
+
+        # ---- ④ 坏表红：③ 效果列空（空 behavior_id 一并拦截）→ 同定位「③ 效果段 第 N 行 · 效果」----
+        v16d = BASE / "v16_behavior_empty.xlsx"
+        mutate(real_wb_path, v16d, {"③ 效果段": [(pt16, "效果", None)]})
+        p16d, o16d, d16d, t16d = a_variant("v16_behavior_empty", v16d)
+        hit16d = loc16c in t16d and "必填" in t16d
+        record(f"增量六④ 坏表红：③ 效果列空（空 behavior_id）→ 拦截定位『{loc16c}』且不生成 JSON",
+               p16d.returncode != 0 and not o16d.exists() and d16d is None and hit16d,
+               f"退出码={p16d.returncode}，未生成 JSON={not o16d.exists()}，定位命中={hit16d}")
+
+        # ---- ⑤ 坏表红：support_cost_positive——④ 消耗倍率=0 ----
+        v16e = BASE / "v16_multiplier_zero.xlsx"
+        mutate(real_wb_path, v16e, {"④ 辅助石": [(su16, "消耗倍率", 0)]})
+        p16e, o16e, d16e, t16e = a_variant("v16_multiplier_zero", v16e)
+        loc16e = f"④ 辅助石 第 {su16} 行 · 消耗倍率"
+        hit16e = loc16e in t16e and "必须 > 0" in t16e
+        record(f"增量六⑤ 坏表红：消耗倍率=0 → 硬拦定位『{loc16e}』且不生成 JSON",
+               p16e.returncode != 0 and not o16e.exists() and d16e is None and hit16e,
+               f"退出码={p16e.returncode}，未生成 JSON={not o16e.exists()}，定位命中={hit16e}")
+        print("  --- 消耗倍率=0 中文报错（原始）---")
+        indent_print(t16e)
+
+    # ---- ⑥ 提醒不拦截变体（夹具）：channel×circ 只填扇形距离 → 仍生成中间 JSON ----
+    v16f = BASE / "v16_hint_not_block.xlsx"
+    mutate(OK_XLSX, v16f, {"③ 效果段": [
+        (2, "效果", "引导"),
+        (2, "形状", "圆"),
+        (2, "半径", None),
+        (2, "扇形距离", 150),
+        (2, "最大引导时间", 2.0),
+    ]})
+    p16f, o16f, d16f, t16f = a_variant("v16_hint_not_block", v16f)
+    f16_warn = " ".join(d16f.get("warnings", [])) if d16f else ""
+    ok16f = (p16f.returncode == 0 and d16f is not None
+             and "引导+圆" in f16_warn and "已登记待裁定" in f16_warn)
+    record("增量六⑥ 提醒不拦截：channel×circ 只填扇形距离 → 仍生成中间 JSON 且带契约文案提醒",
+           ok16f,
+           f"退出码={p16f.returncode}，生成 JSON={o16f.exists()}，提醒命中契约文案={'引导+圆' in f16_warn}")
 
     # ---------------------------------------------------------- 汇总 ----
     print("\n########## W3 自检汇总 ##########")
