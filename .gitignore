@@ -38,3 +38,7 @@ __pycache__/
 # 项目根的一次性脚手架产物（子代理自检残留，不入库）
 /_tmp/
 /_tmp_probe.py
+
+# 本机 Godot 编辑器数据 / 环境残留（不入库）
+/Godot/
+/undefined/
