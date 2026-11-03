@@ -1528,6 +1528,60 @@
       }
     ]
   },
+  "skill_001": {
+    "base_cast_time": 0.2,
+    "base_cooldown": 5.0,
+    "base_cost": 13.0,
+    "cost_type": 0,
+    "kind": "active",
+    "parts": [
+      {
+        "base_damage": {
+          "physical": 25.0
+        },
+        "behavior_id": "bhv_dash",
+        "channel": 1,
+        "effectiveness": 1.0,
+        "params": {
+          "distance": 340.0,
+          "hit_count": 4,
+          "path_damage": {
+            "physical": 25.0
+          },
+          "path_width": 70.0,
+          "speed": 900.0,
+          "tick_interval": 0.12
+        }
+      }
+    ]
+  },
+  "skill_002": {
+    "base_cast_time": 0.2,
+    "base_cooldown": 4.0,
+    "base_cost": 12.0,
+    "cost_type": 0,
+    "kind": "active",
+    "parts": [
+      {
+        "base_damage": {
+          "lightning": 45.0
+        },
+        "behavior_id": "bhv_dash",
+        "channel": 1,
+        "effectiveness": 1.0,
+        "params": {
+          "distance": 380.0,
+          "hit_count": 3,
+          "path_damage": {
+            "lightning": 45.0
+          },
+          "path_width": 24.0,
+          "speed": 1300.0,
+          "tick_interval": 0.08
+        }
+      }
+    ]
+  },
   "sky_multi_burst": {
     "base_cast_time": 0.45,
     "base_cooldown": 4.5,

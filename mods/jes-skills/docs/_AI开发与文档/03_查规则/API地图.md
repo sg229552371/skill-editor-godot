@@ -58,7 +58,7 @@
 
 ## 三、主动技能总表（content/gems/active）
 
-共 67 颗。
+共 69 颗。
 
 | 中文名 | gem_id | 行为段（行为×形状×时序线索） | 标签 | 耗蓝/冷却 |
 |---|---|---|---|---|
@@ -125,7 +125,9 @@
 | 路径延迟爆 | `path_delay_blast` | dash(默认) → aoe_burst(shape=line; delay=0.40; hit_count=2; hit_interval=0.40) | `attack`, `movement`, `aoe`, `fire` | 13.0 / 4.2s |
 | 轨迹爆弹 | `trajectory_burst_bomb` | projectile(默认) → aoe_burst(shape=line; delay=0.60; hit_count=3; hit_interval=0.25) | `spell`, `projectile`, `aoe`, `lightning` | 12.0 / 3.5s |
 | 载荷箭 | `payload_arrow` | projectile(默认) → aoe_burst(shape=circ; delay=0.35; hit_count=1; hit_interval=0) | `attack`, `projectile`, `aoe`, `fire` | 12.0 / 3.5s |
+| 铁蹄连碾 | `skill_001` | dash(hit_count=4) | `attack`, `movement`, `physical` | 13.0 / 5.0s |
 | 雷光斩 | `lightning_slash` | melee_swing(默认) | `attack`, `melee`, `lightning` | 10.0 / 0.0s |
+| 雷贯突阵 | `skill_002` | dash(hit_count=3) | `attack`, `movement`, `lightning` | 12.0 / 4.0s |
 | 霜爆新星 | `frost_nova` | aoe_burst(delay=0.35; hit_count=1; hit_interval=0) | `spell`, `aoe`, `cold` | 12.0 / 2.5s |
 | 霜矛 | `frost_shard` | projectile(默认) | `attack`, `projectile`, `cold` | 10.0 / 0.0s |
 | 预警爆圈 | `warning_circle_burst` | aoe_burst(shape=circ; delay=0.90; hit_count=1; hit_interval=0) | `spell`, `aoe`, `cold` | 14.0 / 4.2s |

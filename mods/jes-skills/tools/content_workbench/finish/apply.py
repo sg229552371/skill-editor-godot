@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""P5 · 落盘工具：把生成目录里的 80 个 .tres 事务式落到正式内容目录。
+"""P5 · 落盘工具：把生成目录里的全部 .tres 事务式落到正式内容目录。
 
 用法（在项目根或任意目录执行均可，脚本按 __file__ 上溯定位项目根）：
   python mods/jes-skills/tools/content_workbench/finish/apply.py            # 空跑（默认）
@@ -12,8 +12,11 @@
   任一步失败按逆序回滚（已覆盖的恢复原样、本次新建的删除），不留半写状态。
 - 只写 .tres；.gdkeep 等非 .tres 文件一律不碰；正常写盘路径不删除任何既有文件。
 - 前置守卫任一不满足即中文报错、退出 1，且不创建任何文件：
-  dryrun 不是恰好 80 个 .tres / 缺 export.json / 代号与文件名非法 /
-  归属类别数量不是 67 主动 + 13 辅助 / 内容目录不存在 / 目标位置被目录占用。
+  dryrun 与 export.json 不一致（缺 export.json 有而 dryrun 无的条目）/ 缺 export.json /
+  代号与文件名非法 / 内容目录不存在 / 目标位置被目录占用 / 类别摆放不符。
+  契约 v1.7 起数量口径「目录驱动」（制作人 2026-11-03 批示，依据台账 P-23）：不再硬编码
+  67 / 13 / 80。dryrun 里 export.json 未收录的合法新代号，按资源头部 script_class
+  归类（SkillData→主动 / SupportGemData→辅助）作为「新增」落盘；删除类差异仍拦截。
 - 输出一律使用「相对项目根」或 res:// 形态，不把本机绝对路径写进脚本、输出或文档。
 """
 
@@ -43,9 +46,8 @@ DEFAULT_DRYRUN_REL = WORKBENCH_REL / "_tmp" / "dryrun"
 DEFAULT_EXPORT_REL = WORKBENCH_REL / "_tmp" / "export.json"
 DEFAULT_CONTENT_REL = Path("mods/jes-skills/content/gems")
 
-SKILL_COUNT = 67
-SUPPORT_COUNT = 13
-EXPECTED_TOTAL = SKILL_COUNT + SUPPORT_COUNT
+# 契约 v1.7 目录驱动：数量不再硬编码（历史基线 主动 67 / 辅助 13 / 合计 80 仅作参考），
+# 数量守卫 = dryrun 与 export.json 逐条一致；新增条目按 script_class 归类。
 
 NAME_PATTERN = re.compile(r"^[a-z][a-z0-9_]*\.tres$")
 ID_PATTERN = re.compile(r"^[a-z][a-z0-9_]*$")
@@ -65,12 +67,12 @@ class Category:
     id_key: str       # 列表项里的代号字段
     dir_name: str     # content/gems 下的子目录
     label: str        # 中文类别名
-    expected: int     # 类别数量硬断言（二期基线 67 / 13）
+    expected: int     # （v1.7 起弃用，仅为兼容元组形状保留；数量以 export.json 为准）
 
 
 CATEGORIES = (
-    Category("skills", "gem_id", "active", "主动技能", SKILL_COUNT),
-    Category("supports", "support_id", "supports", "辅助石", SUPPORT_COUNT),
+    Category("skills", "gem_id", "active", "主动技能", 0),
+    Category("supports", "support_id", "supports", "辅助石", 0),
 )
 CATEGORY_BY_KEY = {category.key: category for category in CATEGORIES}
 CATEGORY_BY_DIR = {category.dir_name: category for category in CATEGORIES}
@@ -167,7 +169,7 @@ def resolve_layout(args) -> Layout:
 # 前置守卫
 # ---------------------------------------------------------------------------
 def collect_dryrun_files(layout: Layout) -> list[Path]:
-    """守卫：dryrun 目录里必须恰好是 80 个合法命名的 .tres。"""
+    """守卫：dryrun 目录里必须是合法命名的 .tres（数量与 export.json 在配对环节核对）。"""
     dryrun = layout.dryrun
     if not dryrun.exists():
         raise GuardError(f"dryrun 目录不存在：{display_path(dryrun, layout.project_root)}（请先跑 W3 正向生成）")
@@ -183,12 +185,9 @@ def collect_dryrun_files(layout: Layout) -> list[Path]:
     if bad_items:
         preview = "、".join(bad_items[:8]) + ("……" if len(bad_items) > 8 else "")
         raise GuardError(
-            f"dryrun 出现非法文件或目录：{preview}（只允许 80 个 .tres，不允许子目录/其它扩展名，不落盘）")
+            f"dryrun 出现非法文件或目录：{preview}（只允许合法命名的 .tres，不允许子目录/其它扩展名，不落盘）")
 
     files = sorted((item for item in items if item.is_file()), key=lambda item: item.name)
-    if len(files) != EXPECTED_TOTAL:
-        raise GuardError(
-            f"dryrun 文件数 = {len(files)}，要求恰好 {EXPECTED_TOTAL} 个 .tres（不落盘）")
     for file_path in files:
         if not NAME_PATTERN.match(file_path.name):
             raise GuardError(
@@ -198,7 +197,7 @@ def collect_dryrun_files(layout: Layout) -> list[Path]:
 
 
 def load_export(layout: Layout) -> tuple[dict[str, list[str]], dict[str, str]]:
-    """守卫：export.json 必须存在、可解析，且归属类别恰好 67 主动 + 13 辅助。"""
+    """守卫：export.json 必须存在、可解析；类别数量随内容目录走（契约 v1.7 目录驱动）。"""
     path = layout.export_json
     if not path.is_file():
         raise GuardError(
@@ -234,12 +233,8 @@ def load_export(layout: Layout) -> tuple[dict[str, list[str]], dict[str, str]]:
             raise GuardError(f"export.json 的 {category.key} 代号重复：{'、'.join(duplicates)}（不落盘）")
         ids_by_category[category.key] = ids
 
-    actual_skills = len(ids_by_category["skills"])
-    actual_supports = len(ids_by_category["supports"])
-    if actual_skills != SKILL_COUNT or actual_supports != SUPPORT_COUNT:
-        raise GuardError(
-            f"export.json 类别数量 = 主动技能 {actual_skills} 个 / 辅助石 {actual_supports} 个，"
-            f"要求 {SKILL_COUNT} / {SUPPORT_COUNT}（不落盘）")
+    # 契约 v1.7 目录驱动：export.json 的类别数量不再与硬编码基线比对；
+    # 归类正确性由 pair_entries / validate_targets 的逐条配对与摆放检查保证。
 
     source_files = payload.get("source_files")
     if not isinstance(source_files, dict):
@@ -276,13 +271,13 @@ def pair_entries(layout: Layout, files: list[Path],
 
     missing = sorted(expected_names - set(dryrun_names))
     extra = sorted(set(dryrun_names) - expected_names)
-    if missing or extra:
-        detail = []
-        if missing:
-            detail.append("缺少 " + "、".join(missing[:6]) + ("……" if len(missing) > 6 else ""))
-        if extra:
-            detail.append("多出 " + "、".join(extra[:6]) + ("……" if len(extra) > 6 else ""))
-        raise GuardError(f"dryrun 与 export.json 不一致：{'；'.join(detail)}（不落盘）")
+    expected_total = sum(len(ids) for ids in ids_by_category.values())
+    if missing:
+        detail = "缺少 " + "、".join(missing[:6]) + ("……" if len(missing) > 6 else "")
+        raise GuardError(
+            f"dryrun 与 export.json 不一致：{detail}"
+            f"（export.json 共 {expected_total} 条，实测 dryrun 文件数 = {len(files)} 个；"
+            "删除类差异须制作人拍板后重跑反向导出，不落盘）")
 
     id_to_category: dict[str, Category] = {}
     for category in CATEGORIES:
@@ -291,7 +286,10 @@ def pair_entries(layout: Layout, files: list[Path],
 
     entries: list[Entry] = []
     for file_path in files:
-        resource_id = file_to_id[file_path.name]
+        resource_id = file_to_id.get(file_path.name)
+        if resource_id is None:
+            continue  # export.json 未收录的新文件，在下方按 script_class 归类
+
         category = id_to_category[resource_id]
         try:
             data = file_path.read_bytes()
@@ -304,6 +302,34 @@ def pair_entries(layout: Layout, files: list[Path],
             category=category,
             data=data,
             target=layout.content_root / category.dir_name / file_path.name,
+        ))
+
+    # 契约 v1.7 目录驱动：dryrun 里 export.json 未收录的合法新代号 = 本次「新增」，
+    # 按资源头部 script_class 归类（SkillData→主动 / SupportGemData→辅助）。
+    for name in extra:
+        file_path = layout.dryrun / name
+        try:
+            data = file_path.read_bytes()
+        except OSError as exc:
+            raise GuardError(
+                f"读取 dryrun 文件失败：{name}（{sanitize(exc, layout.project_root)}，不落盘）") from exc
+        head = data[:256].decode("utf-8", errors="replace")
+        match = re.search(r'script_class="([A-Za-z]+)"', head)
+        script_class = match.group(1) if match else ""
+        if script_class == "SkillData":
+            category = CATEGORY_BY_DIR["active"]
+        elif script_class == "SupportGemData":
+            category = CATEGORY_BY_DIR["supports"]
+        else:
+            raise GuardError(
+                f"export.json 未收录的新文件 {name} 头部没有合法 script_class"
+                "（SkillData / SupportGemData），无法归属类别（不落盘）")
+        entries.append(Entry(
+            name=name,
+            resource_id=name[: -len(".tres")],
+            category=category,
+            data=data,
+            target=layout.content_root / category.dir_name / name,
         ))
     return entries
 
@@ -569,7 +595,7 @@ def apply_plan(layout: Layout, actions: list[Action]) -> int:
 # ---------------------------------------------------------------------------
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="P5 落盘工具：把 _tmp/dryrun 的 80 个 .tres 事务式落到 content/gems/{active,supports}")
+        description="P5 落盘工具：把 _tmp/dryrun 的全部 .tres 事务式落到 content/gems/{active,supports}")
     parser.add_argument("--project-root", default=None,
                         help="项目根（含 project.godot）；默认从脚本位置向上自动定位")
     parser.add_argument("--dryrun", default=None,

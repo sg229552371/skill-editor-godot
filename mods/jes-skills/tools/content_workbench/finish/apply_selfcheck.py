@@ -9,8 +9,9 @@ mods/jes-skills/content/，不运行 Godot，也不跑 run_all.py。
   二、--apply 正确落盘：80 个目标文件齐全且字节与 dryrun 一致，.gdkeep / 既有非计划文件保留。
   三、幂等：连续两次 --apply 结果一致，第二次全部判为「不变」。
   四、中途失败自动回滚：注入第 20 个文件替换失败，内容目录恢复写盘前状态，无临时目录残留。
-  五、守卫拒绝：缺 export.json / 数量不对 / 非法文件名 / 类别数量不对 / 内容目录缺失 /
-      代号与文件名不一致，均中文报错、退出 1、不写任何文件。
+  五、守卫拒绝：缺 export.json / dryrun 缺条（数量口径随 export.json 目录驱动）/
+      非法文件名 / 归类错位（export.json 归类与内容目录摆放不符，含 66/14 变体）/
+      内容目录缺失 / 代号与文件名不一致，均中文报错、退出 1、不写任何文件。
 
 用 python 标准库即可，不引入新依赖。打印 [通过]/[失败] 清单与结论，
 非零退出码表示存在未通过项。
@@ -42,6 +43,7 @@ APPLY_PY = FINISH_DIR / "apply.py"
 RAW_LOG = FINISH_DIR / "_tmp" / "apply_selfcheck_raw_output.txt"
 
 # 假的归属代号：67 主动技能 + 13 辅助石，只在本自检的临时目录里使用。
+# （契约 v1.7 起数量口径「目录驱动」，67/13 仅是本自检夹具的规模，不再是工具硬断言。）
 SKILL_IDS = [f"skill_{index:03d}" for index in range(1, 68)]
 SUPPORT_IDS = [f"support_{index:03d}" for index in range(1, 14)]
 ALL_IDS = SKILL_IDS + SUPPORT_IDS
@@ -495,8 +497,8 @@ def scenario_guards(fixture: Fixture) -> None:
         ("dryrun 数量 79", mutate_count_79, ["文件数 = 79", "80"]),
         ("非法文件名 Bad-Name.tres", mutate_illegal_name, ["非法文件名", "Bad-Name.tres"]),
         ("dryrun 混入非 .tres 文件", mutate_junk_file, ["非法文件", "skill_001.tres.uid"]),
-        ("归属类别数量 66/14", mutate_wrong_category_counts,
-         ["类别数量", "66", "14", "67", "13"]),
+        ("归类错位 66/14（export.json 归类与内容目录摆放不符）", mutate_wrong_category_counts,
+         ["类别不符", "skill_001", "应位于"]),
         ("内容目录不存在", mutate_content_missing, ["内容目录不存在"]),
         ("内容目录与预期类别不符", mutate_misplaced_file, ["类别不符", "skill_001"]),
         ("代号与文件名不一致", mutate_code_mismatch, ["不一致", "skill_001"]),

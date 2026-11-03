@@ -1,0 +1,37 @@
+[gd_resource type="Resource" script_class="SkillData" format=3]
+
+[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/gem_level_scaling.gd" id="1_puida"]
+[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/skill_part.gd" id="2_2n3m4"]
+[ext_resource type="Script" path="res://mods/jes-skills/systems/skills/data/skill_data.gd" id="3_g6ijq"]
+
+[sub_resource type="Resource" id="Resource_skill_001_scale"]
+script = ExtResource("1_puida")
+per_level = 0.1
+
+[sub_resource type="Resource" id="Resource_skill_001_part0"]
+script = ExtResource("2_2n3m4")
+base_damage = {
+&"physical": 25.0
+}
+behavior_id = &"bhv_dash"
+behavior_params = {
+&"distance": 340.0,
+&"hit_count": 4,
+&"path_damage": {
+&"physical": 25.0
+},
+&"path_width": 70.0,
+&"speed": 900.0,
+&"tick_interval": 0.12
+}
+
+[resource]
+script = ExtResource("3_g6ijq")
+gem_id = &"skill_001"
+display_name = "铁蹄连碾"
+parts = Array[ExtResource("2_2n3m4")]([SubResource("Resource_skill_001_part0")])
+tags = Array[StringName]([&"attack", &"movement", &"physical"])
+base_cast_time = 0.2
+base_cost = 13.0
+base_cooldown = 5.0
+level_scaling = SubResource("Resource_skill_001_scale")
