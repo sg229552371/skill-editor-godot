@@ -28,3 +28,13 @@ Thumbs.db
 # 构建/发布产物与本地缓存（不入库）
 dist/
 *.genie
+
+# 策划配置表工具的中间产物（干跑资源 / 中间 JSON，不入库）
+mods/jes-skills/tools/content_workbench/_tmp/
+mods/jes-skills/tools/content_workbench/**/_tmp/
+mods/jes-skills/tools/content_workbench/**/__pycache__/
+__pycache__/
+*.pyc
+# 项目根的一次性脚手架产物（子代理自检残留，不入库）
+/_tmp/
+/_tmp_probe.py

@@ -1,0 +1,837 @@
+{
+  "version": "1.4",
+  "frozen": true,
+  "frozen_by": "上级AI W1（2026-11-02）；v1.1 属性词表、v1.2 集成口径修正同日；v1.3 二期可编辑性增强同日 23:35；v1.4 三期预留行与新增技能闭环 2026-11-03 00:05（上级AI 独占修改）",
+  "note": "本文件是并行期的唯一表结构契约。所有子代理只读；需要变更必须停下报告上级AI，由上级AI统一修改并通知全员。v1.1 为上级AI 跨波次裁定：仅追加 enums.stat_labels（属性中文词表），修正 columns.supports 的 enum:stat_labels 原先无对应词表的缺陷；enums.stat 原英文数组保持不变，属只加不改。 v1.2 为上级AI 守门员 W5 联调打回后的口径修正：① 把 shape_keys 从「必填键」纠正为「该形状可用的参数键」；② 追加 example_row_policy 统一示例行标记；均属追加/澄清，不删既有字段。",
+  "workbook": "mods/jes-skills/content_src/技能配置表.xlsx",
+  "sheets": [
+    {
+      "key": "readme",
+      "title": "① 先看这里",
+      "hidden": false,
+      "writer": "W2",
+      "desc": "三句话说明 + 三色图例 + 常见错误，全中文"
+    },
+    {
+      "key": "skills",
+      "title": "② 技能卡",
+      "hidden": false,
+      "writer": "W2",
+      "desc": "一行一个主动技能"
+    },
+    {
+      "key": "parts",
+      "title": "③ 效果段",
+      "hidden": false,
+      "writer": "W2",
+      "desc": "一行一个效果段，双段技能占两行"
+    },
+    {
+      "key": "supports",
+      "title": "④ 辅助石",
+      "hidden": false,
+      "writer": "W2",
+      "desc": "一行一个辅助石"
+    },
+    {
+      "key": "options",
+      "title": "⑤ 可选项",
+      "hidden": true,
+      "writer": "W2",
+      "desc": "全部下拉词表，工具从本契约自动生成，策划不看"
+    },
+    {
+      "key": "report",
+      "title": "⑥ 检查结果",
+      "hidden": false,
+      "writer": "W4",
+      "desc": "生成后写回中文错误：页签 + 行 + 列 + 原因 + 怎么改"
+    }
+  ],
+  "enums": {
+    "behavior": [
+      {
+        "label": "投掷物",
+        "value": "bhv_projectile",
+        "form_tag": "projectile"
+      },
+      {
+        "label": "近战挥砍",
+        "value": "bhv_melee_swing",
+        "form_tag": "melee"
+      },
+      {
+        "label": "范围爆发",
+        "value": "bhv_aoe_burst",
+        "form_tag": "aoe"
+      },
+      {
+        "label": "引导",
+        "value": "bhv_channel",
+        "form_tag": "channel"
+      },
+      {
+        "label": "召唤",
+        "value": "bhv_summon",
+        "form_tag": "summon"
+      },
+      {
+        "label": "位移",
+        "value": "bhv_dash",
+        "form_tag": "movement"
+      },
+      {
+        "label": "自我增益",
+        "value": "bhv_buff_self",
+        "form_tag": "buff"
+      }
+    ],
+    "shape": [
+      {
+        "label": "点",
+        "value": "pt"
+      },
+      {
+        "label": "圆",
+        "value": "circ"
+      },
+      {
+        "label": "环",
+        "value": "ring"
+      },
+      {
+        "label": "扇形",
+        "value": "sec"
+      },
+      {
+        "label": "线",
+        "value": "line"
+      },
+      {
+        "label": "矩形",
+        "value": "rect"
+      },
+      {
+        "label": "多点",
+        "value": "multi"
+      }
+    ],
+    "damage_type": [
+      {
+        "label": "物理",
+        "value": "physical"
+      },
+      {
+        "label": "火焰",
+        "value": "fire"
+      },
+      {
+        "label": "冰冷",
+        "value": "cold"
+      },
+      {
+        "label": "闪电",
+        "value": "lightning"
+      },
+      {
+        "label": "混沌",
+        "value": "chaos"
+      }
+    ],
+    "tag": [
+      {
+        "label": "物理",
+        "value": "physical"
+      },
+      {
+        "label": "火焰",
+        "value": "fire"
+      },
+      {
+        "label": "冰冷",
+        "value": "cold"
+      },
+      {
+        "label": "闪电",
+        "value": "lightning"
+      },
+      {
+        "label": "混沌",
+        "value": "chaos"
+      },
+      {
+        "label": "攻击",
+        "value": "attack"
+      },
+      {
+        "label": "法术",
+        "value": "spell"
+      },
+      {
+        "label": "近战",
+        "value": "melee"
+      },
+      {
+        "label": "投射物",
+        "value": "projectile"
+      },
+      {
+        "label": "范围",
+        "value": "aoe"
+      },
+      {
+        "label": "引导",
+        "value": "channel"
+      },
+      {
+        "label": "位移",
+        "value": "movement"
+      },
+      {
+        "label": "召唤",
+        "value": "summon"
+      },
+      {
+        "label": "增益",
+        "value": "buff"
+      },
+      {
+        "label": "陷阱（预留，勿用）",
+        "value": "trap"
+      }
+    ],
+    "cast_mode": [
+      {
+        "label": "主动施放",
+        "value": 0
+      },
+      {
+        "label": "仅触发",
+        "value": 1
+      }
+    ],
+    "cost_type": [
+      {
+        "label": "法力",
+        "value": 0
+      },
+      {
+        "label": "生命",
+        "value": 1
+      },
+      {
+        "label": "护盾",
+        "value": 2
+      },
+      {
+        "label": "无消耗",
+        "value": 3
+      }
+    ],
+    "damage_channel": [
+      {
+        "label": "命中",
+        "value": 1
+      },
+      {
+        "label": "持续",
+        "value": 2
+      },
+      {
+        "label": "异常",
+        "value": 4
+      },
+      {
+        "label": "全部",
+        "value": 7
+      }
+    ],
+    "op": [
+      {
+        "label": "固定加值",
+        "value": 0
+      },
+      {
+        "label": "百分比增加",
+        "value": 1
+      },
+      {
+        "label": "更多倍率",
+        "value": 2
+      }
+    ],
+    "stat": [
+      "physical_damage",
+      "fire_damage",
+      "cold_damage",
+      "lightning_damage",
+      "chaos_damage",
+      "crit_chance",
+      "crit_multi",
+      "area_size",
+      "duration",
+      "cast_speed",
+      "projectile_count",
+      "chain_count",
+      "fork_count",
+      "pierce",
+      "armor",
+      "physical_resistance",
+      "fire_resistance",
+      "cold_resistance",
+      "lightning_resistance",
+      "chaos_resistance",
+      "minion_damage",
+      "minion_attack_speed",
+      "minion_life"
+    ],
+    "stat_labels": [
+      {
+        "label": "物理伤害",
+        "value": "physical_damage"
+      },
+      {
+        "label": "火焰伤害",
+        "value": "fire_damage"
+      },
+      {
+        "label": "冰冷伤害",
+        "value": "cold_damage"
+      },
+      {
+        "label": "闪电伤害",
+        "value": "lightning_damage"
+      },
+      {
+        "label": "混沌伤害",
+        "value": "chaos_damage"
+      },
+      {
+        "label": "暴击率",
+        "value": "crit_chance"
+      },
+      {
+        "label": "暴击倍率",
+        "value": "crit_multi"
+      },
+      {
+        "label": "范围大小",
+        "value": "area_size"
+      },
+      {
+        "label": "持续时间",
+        "value": "duration"
+      },
+      {
+        "label": "施法速度",
+        "value": "cast_speed"
+      },
+      {
+        "label": "投射物数量",
+        "value": "projectile_count"
+      },
+      {
+        "label": "连锁次数",
+        "value": "chain_count"
+      },
+      {
+        "label": "分裂次数",
+        "value": "fork_count"
+      },
+      {
+        "label": "穿透",
+        "value": "pierce"
+      },
+      {
+        "label": "护甲",
+        "value": "armor"
+      },
+      {
+        "label": "物理抗性",
+        "value": "physical_resistance"
+      },
+      {
+        "label": "火焰抗性",
+        "value": "fire_resistance"
+      },
+      {
+        "label": "冰冷抗性",
+        "value": "cold_resistance"
+      },
+      {
+        "label": "闪电抗性",
+        "value": "lightning_resistance"
+      },
+      {
+        "label": "混沌抗性",
+        "value": "chaos_resistance"
+      },
+      {
+        "label": "召唤物伤害",
+        "value": "minion_damage"
+      },
+      {
+        "label": "召唤物攻速",
+        "value": "minion_attack_speed"
+      },
+      {
+        "label": "召唤物生命",
+        "value": "minion_life"
+      }
+    ],
+    "formation": [
+      { "label": "单点", "value": "point" },
+      { "label": "环形", "value": "ring" },
+      { "label": "直线排", "value": "line" },
+      { "label": "圆形散布", "value": "circ" },
+      { "label": "多点", "value": "multi" }
+    ],
+    "motion": [
+      { "label": "直线飞行", "value": "linear" },
+      { "label": "环绕飞行", "value": "orbit" }
+    ]
+  },
+  "shape_keys": {
+    "pt": [],
+    "circ": [
+      "radius"
+    ],
+    "ring": [
+      "radius",
+      "inner_radius"
+    ],
+    "sec": [
+      "arc_deg",
+      "range"
+    ],
+    "line": [
+      "length",
+      "width"
+    ],
+    "rect": [
+      "length",
+      "width"
+    ],
+    "multi": [
+      "point_count",
+      "point_spacing",
+      "radius"
+    ]
+  },
+  "behavior_required": {
+    "bhv_projectile": [
+      "speed",
+      "radius",
+      "lifetime"
+    ],
+    "bhv_melee_swing": [
+      "range",
+      "arc_deg"
+    ],
+    "bhv_aoe_burst": [],
+    "bhv_channel": [
+      "max_channel_time"
+    ],
+    "bhv_summon": [
+      "max_count",
+      "lifetime"
+    ],
+    "bhv_dash": [
+      "distance",
+      "speed"
+    ],
+    "bhv_buff_self": [
+      "buff_mods",
+      "duration"
+    ]
+  },
+  "alias": {
+    "projectile_count": "count_base"
+  },
+  "param_labels": {
+    "shape": "形状",
+    "radius": "半径",
+    "inner_radius": "内圈半径",
+    "delay": "延迟（秒）",
+    "hit_count": "命中次数",
+    "hit_interval": "命中间隔（秒）",
+    "arc_deg": "扇形角度",
+    "range": "扇形距离",
+    "length": "长度",
+    "width": "宽度",
+    "point_count": "点数",
+    "point_spacing": "点距",
+    "speed": "速度",
+    "lifetime": "存活（秒）",
+    "count_base": "投射数量",
+    "spread_deg": "散布角度",
+    "distance": "最远距离",
+    "path_width": "路径宽度",
+    "path_zone_duration": "路径持续（秒）",
+    "tick_interval": "引导间隔（秒）",
+    "max_channel_time": "最大引导时间",
+    "max_count": "召唤上限",
+    "formation": "阵型",
+    "per_cast": "每次施放数",
+    "formation_radius": "阵型半径",
+    "formation_spacing": "阵型间距",
+    "buff_mods": "增益内容",
+    "duration": "增益时长",
+    "pierce": "穿透",
+    "fork_count": "分裂",
+    "chain_count": "连锁",
+    "scene": "召唤场景",
+    "angle_deg": "朝向角度",
+    "motion": "运动方式",
+    "orbit_radius": "环绕半径"
+  },
+  "columns": {
+    "skills": [
+      {
+        "label": "技能名",
+        "field": "display_name",
+        "type": "string",
+        "required": true
+      },
+      {
+        "label": "代号（自动，别填）",
+        "field": "gem_id",
+        "type": "string",
+        "readonly": true
+      },
+      {
+        "label": "施法方式",
+        "field": "cast_mode",
+        "type": "enum:cast_mode"
+      },
+      {
+        "label": "消耗类型",
+        "field": "cost_type",
+        "type": "enum:cost_type"
+      },
+      {
+        "label": "消耗数值",
+        "field": "base_cost",
+        "type": "float"
+      },
+      {
+        "label": "冷却（秒）",
+        "field": "base_cooldown",
+        "type": "float"
+      },
+      {
+        "label": "前摇（秒）",
+        "field": "base_cast_time",
+        "type": "float"
+      },
+      {
+        "label": "最多充能",
+        "field": "max_charges",
+        "type": "int"
+      },
+      {
+        "label": "充能回复（秒）",
+        "field": "charge_recharge_time",
+        "type": "float"
+      },
+      {
+        "label": "每级变强",
+        "field": "level_scaling.per_level",
+        "type": "float"
+      },
+      {
+        "label": "成长拐点等级",
+        "field": "level_scaling.knee_level",
+        "type": "int"
+      },
+      {
+        "label": "拐点后每级变强",
+        "field": "level_scaling.per_level_late",
+        "type": "float"
+      },
+      {
+        "label": "标签（用 + 分隔）",
+        "field": "tags",
+        "type": "multienum:tag"
+      },
+      {
+        "label": "允许的辅助标签",
+        "field": "allowed_support_tags",
+        "type": "multienum:tag"
+      },
+      {
+        "label": "备注（不进游戏）",
+        "field": "_note",
+        "type": "string",
+        "workbook_only": true
+      },
+      {
+        "label": "高级数据（工具自动，勿改）",
+        "field": "__extras",
+        "type": "json",
+        "hidden": true
+      }
+    ],
+    "parts": [
+      {
+        "label": "属于哪个技能",
+        "field": "_parent",
+        "type": "ref:skills",
+        "required": true
+      },
+      {
+        "label": "第几段",
+        "field": "_index",
+        "type": "int",
+        "required": true
+      },
+      {
+        "label": "效果",
+        "field": "behavior_id",
+        "type": "enum:behavior",
+        "required": true
+      },
+      {
+        "label": "形状",
+        "field": "behavior_params.shape",
+        "type": "enum:shape"
+      },
+      {
+        "label": "伤害类型（用 + 分隔）",
+        "field": "base_damage._keys",
+        "type": "multienum:damage_type"
+      },
+      {
+        "label": "基础伤害（用 + 分隔，与上一列顺序对应）",
+        "field": "base_damage._values",
+        "type": "float_list"
+      },
+      {
+        "label": "伤害效用",
+        "field": "damage_effectiveness",
+        "type": "float"
+      },
+      {
+        "label": "命中通道",
+        "field": "damage_channel",
+        "type": "enum:damage_channel"
+      },
+      {
+        "label": "高级数据（工具自动，勿改）",
+        "field": "__extras",
+        "type": "json",
+        "hidden": true
+      }
+    ],
+    "supports": [
+      {
+        "label": "辅助石名",
+        "field": "display_name",
+        "type": "string",
+        "required": true
+      },
+      {
+        "label": "代号（自动，别填）",
+        "field": "support_id",
+        "type": "string",
+        "readonly": true
+      },
+      {
+        "label": "需要的标签（全部，+ 分隔）",
+        "field": "require_tags",
+        "type": "multienum:tag"
+      },
+      {
+        "label": "需要的标签（任一，+ 分隔）",
+        "field": "require_any_tags",
+        "type": "multienum:tag"
+      },
+      {
+        "label": "添加标签",
+        "field": "add_tags",
+        "type": "multienum:tag"
+      },
+      {
+        "label": "排除标签",
+        "field": "exclude_tags",
+        "type": "multienum:tag"
+      },
+      {
+        "label": "消耗倍率",
+        "field": "cost_multiplier",
+        "type": "float"
+      },
+      {
+        "label": "属性",
+        "field": "stat_modifiers._stat",
+        "type": "enum:stat_labels"
+      },
+      {
+        "label": "运算",
+        "field": "stat_modifiers._op",
+        "type": "enum:op"
+      },
+      {
+        "label": "数值",
+        "field": "stat_modifiers._value",
+        "type": "float"
+      },
+      {
+        "label": "特性（+ 分隔）",
+        "field": "flags",
+        "type": "string"
+      },
+      {
+        "label": "冲突辅助（+ 分隔）",
+        "field": "conflicts_with",
+        "type": "string"
+      },
+      {
+        "label": "备注（不进游戏）",
+        "field": "_note",
+        "type": "string",
+        "workbook_only": true
+      },
+      {
+        "label": "高级数据（工具自动，勿改）",
+        "field": "__extras",
+        "type": "json",
+        "hidden": true
+      }
+    ]
+  },
+  "param_columns": {
+    "note": "③ 效果段 的参数列按 param_labels 展开成中文列，按行为/形状分组折叠；每行只亮必填格。",
+    "color_rule": "yellow=本行必填（只按 behavior_required）；gray=不用填（工具也不读）；white=选填；red=校验失败。形状尺寸参数列属选填/建议，不因 shape_keys 标黄。",
+    "unknown_param_policy": "任何现有内容里出现但 param_labels 未覆盖的参数键，原样写入该行 __extras，生成时原样还原，保证零丢失",
+    "shape_keys_policy": "shape_keys 是『判定 cfg 按形状可取的参数键』，不是内容必填键。校验：填了的值必须在合法键范围内；该形状全部尺寸参数列均为空时只给黄色提醒、不拦截。依据：shape_hit.gd 第 17 行（line 的 length 缺省回退 range 承载）与台账 D-46（引导圆用 range 承载半径），现有引导类内容正是用『扇形距离』承载圆/线尺寸。",
+    "example_row_policy_marker": "【示例】"
+  },
+  "extras_policy": {
+    "note": "__extras 存该行所有未被显式中文列覆盖的字段（含数组/字典/复杂结构）的 JSON 原文。",
+    "generate_rule": "W3 生成时：先按显式列填值，再用 __extras 补齐缺失字段；显式列非空时以显式列为准。",
+    "why": "保证 80 条现有内容一个字段都不丢，同时策划只面对简单中文列。"
+  },
+  "id_rule": {
+    "existing": "反向导出时把现有 gem_id / support_id 原样带入只读列；改中文名不改代号。",
+    "new": "新增行由工具自动生成 skill_ / support_ + 三位序号，生成后锁定不变。",
+    "check": "代号必须唯一、且必须与目标资源文件名一致；冲突即中文报错。"
+  },
+  "numeric_range": {
+    "source": "运行时由工具从 80 条现有内容统计得出，不在契约里硬编码。",
+    "action": "超出统计区间只给黄色提醒，不硬性拦截。"
+  },
+  "trigger_policy": {
+    "note": "唯一的演示触发器不参与表格化，工具不生成、不修改、不删除，W5 验证其字节不变。"
+  },
+  "sources": {
+    "behavior": "systems/skills/skill_executor.gd 第 9-17 行",
+    "shape": "systems/skills/combat/shape_hit.gd 第 26-28 行",
+    "shape_keys": "systems/skills/combat/shape_hit.gd 第 12-19 行",
+    "tag": "systems/skills/util/tag_registry.gd 第 27-67 行",
+    "stat": "systems/skills/util/stat_registry.gd 第 33-71 行",
+    "behavior_required": "tests/skills/test_content_contract.gd 第 30-38 行",
+    "op": "systems/skills/stat_modifier.gd 第 7 行",
+    "damage_channel": "systems/skills/skill_channel.gd 第 7 行",
+    "alias": "systems/skills/util/tag_contract.gd（台账 P-06）",
+    "fields": "systems/skills/data/*.gd 的 @export 声明"
+  },
+  "param_enum_columns": {
+    "note": "v1.3：③ 参数列中取值是封闭枚举的键 → 词表名（enums 里同名数组）。W2 显示中文下拉，W3 回读中文→英文；表内只存中文。",
+    "formation": "formation",
+    "motion": "motion"
+  },
+  "buff_spec": {
+    "note": "v1.3：增益内容 = 三条对齐列表列（+ 分隔、顺序一一对应），替代原先无法编辑的『增益内容』一列。",
+    "param": "buff_mods",
+    "columns": [
+      { "label": "增益属性（用 + 分隔）", "key": "stat", "type": "multienum:stat_labels" },
+      { "label": "增益运算（用 + 分隔，与上一列顺序对应）", "key": "op", "type": "multienum:op" },
+      { "label": "增益数值（用 + 分隔，与上一列顺序对应）", "key": "value", "type": "float_list" }
+    ],
+    "defaults": { "channel_mask": 7, "require_tags": [], "exclude_tags": [] },
+    "overflow_rule": "表内三条列能表达的条目按行序覆盖；超出（或键更多）的条目从 __extras 原样保留，保证零丢失。"
+  },
+  "support_ref": {
+    "note": "v1.3：④ 冲突辅助（+ 分隔）显示辅助石中文名，不再要求英文代号。",
+    "column": "冲突辅助（+ 分隔）",
+    "field": "conflicts_with",
+    "type": "refname:supports",
+    "rule": "W2 渲染 辅助石名；W3 按④表内『辅助石名 → 代号』映射还原英文 support_id；英文原值仍兼容。"
+  },
+  "validation_rules": {
+    "aoe_size_required": {
+      "behavior": "bhv_aoe_burst",
+      "note": "v1.3：与 tests/skills/test_content_contract.gd 第 158-165 行同口径。形状≠点 且没有任何一组尺寸（radius / length+width / arc_deg+range）→ 表校验层硬拦、中文定位到行与列，不生成中间 JSON；点爆豁免。"
+    }
+  },
+  "column_notes": {
+    "note": "v1.3：给策划看的每列一句人话说明（W2 写成 Excel 单元格批注，不占列宽）。",
+    "skills": {
+      "技能名": "给玩家看的中文名。代号由工具生成，改这里不会改代号。",
+      "技能代号": "自动生成，只读，别改。",
+      "施法方式": "主动施放＝按键放；仅触发＝由触发器放。",
+      "消耗类型": "法力 / 生命 / 护盾 / 无消耗。",
+      "消耗数值": "每次施放的消耗量。",
+      "冷却（秒）": "两次施放之间至少要等多久。",
+      "前摇（秒）": "按键到生效之间的时间。",
+      "最多充能": "0＝不能充能；1 以上＝可以攒几次再连着放。",
+      "充能回复（秒）": "每攒回一次充能要多久；最多充能＝0 时不用填。",
+      "每级变强": "0.1＝每级 +10%（填 0.1 就是 10%）；填 0＝不成长。",
+      "成长拐点等级": "从第几级开始按另一个速度成长；0＝不分段。",
+      "拐点后每级变强": "拐点之后的每级加成，写法同「每级变强」。",
+      "标签（用 + 分隔）": "这句话用来和辅助石配对，例如「投射物+闪电」。",
+      "允许的辅助标签": "留空＝不限制；填了就只有带这些标签的辅助石能装。",
+      "备注（不进游戏）": "给自己看的备注，工具不读。"
+    },
+    "parts": {
+      "属于哪个技能": "必须和「② 技能卡」里的技能名一字不差（可直接从下拉选）。",
+      "第几段": "同一个技能的第几段效果，从 1 开始；一个技能几段就占几行。",
+      "效果": "这一段是哪种打法：投掷物 / 近战挥砍 / 范围爆发 / 引导 / 召唤 / 位移 / 自我增益。",
+      "形状": "多数留空＝用默认判定；要指定判定区域才选（点/圆/环/扇形/线/矩形/多点）。",
+      "伤害类型（用 + 分隔）": "和下一列个数、顺序一一对应，例如「火焰+冰霜」。",
+      "基础伤害（用 + 分隔，与上一列顺序对应）": "每个伤害类型对应的数值。",
+      "伤害效用": "1＝100%（吃满武器/法术强度），0.5＝50%。",
+      "命中通道": "这段伤害走哪条通道：命中 / 持续伤害 / 异常状态。",
+      "增益属性（用 + 分隔）": "只给「自我增益」用：每项属性一个，例如「物理伤害+暴击率」。",
+      "增益运算（用 + 分隔，与上一列顺序对应）": "每项属性怎么变：固定加值 / 百分比增加 / 更多倍率。",
+      "增益数值（用 + 分隔，与上一列顺序对应）": "每项属性的数值，个数要和上面两列对齐。"
+    },
+    "supports": {
+      "辅助石名": "给玩家看的中文名。",
+      "代号（自动，别填）": "自动生成，只读，别改。",
+      "需要的标签（全部，+ 分隔）": "技能必须同时带这些标签才装得上。",
+      "需要的标签（任一，+ 分隔）": "技能带其中任意一个就装得上。",
+      "添加标签": "装上后给技能追加的标签。",
+      "排除标签": "技能带这些标签就装不上。",
+      "消耗倍率": "装上后技能消耗变成原来的多少倍。",
+      "属性": "这条辅助改哪项属性（中文选）。",
+      "运算": "怎么改：固定加值 / 百分比增加 / 更多倍率。",
+      "数值": "改多少。",
+      "特性（+ 分隔）": "特殊标记，如「不能暴击」。",
+      "冲突辅助（+ 分隔）": "填辅助石中文名，装了它就装不上这些。",
+      "备注（不进游戏）": "给自己看的备注，工具不读。"
+    }
+  },
+  "new_row_policy": {
+    "note": "v1.4：③ 预留行可编辑，策划可以新增技能卡；新行没有代号时由 W2 按 id_rule.new 生成、由 W3 校验唯一性。",
+    "reserved_rows": {
+      "skills": 40,
+      "parts": 90,
+      "supports": 30
+    },
+    "editable_scope": "②③④ 预留行的所有可见数据列 unlocked（白底）；示例行、代号列、高级数据（隐藏列）一律保持 locked。",
+    "code_column": "② 代号（自动，别填）：未填时由 W2 填 技能名→新代号 的占位说明；真实代号由 W3 按 id_rule.new 生成并回写提示（本波次允许只做提示，不强制回写）。",
+    "requires_parts": "一张新技能卡至少要有一段有效效果段（③ 里『属于哪个技能』指向它），否则 W3 中文报错定位到②行。",
+    "count_guard": "新增会打破 67/13/1 数量硬断言：W3 只做中文提示『需按台账 P-23 同步改数量断言，须上级 AI 裁定』，不自动改测试、不落盘。"
+  },
+  "example_row_policy": {
+    "marker": "【示例】",
+    "key_columns": [
+      "技能名",
+      "辅助石名",
+      "属于哪个技能"
+    ],
+    "rule": "主键列以 marker 开头的行是锁定示例行：W2 生成、W3 跳过（不校验、不产出、不进入中间 JSON）。示例行只给策划照抄用，不得进入资源文件。"
+  }
+}
